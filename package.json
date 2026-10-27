@@ -1,0 +1,22 @@
+{
+  "name": "zyklus",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PLC-Puzzlespiel mit FUP/SCL-Logik",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "prettier": "^3.9.10",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

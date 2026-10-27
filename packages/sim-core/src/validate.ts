@@ -1,0 +1,275 @@
+import type { Area } from './address';
+import {
+  COUNTER_KINDS,
+  INSTANCE_FIELDS,
+  TIMER_KINDS,
+  TRIG_KINDS,
+  type InstanceKind,
+  type Instr,
+  type IrProgram,
+  type Operand,
+} from './ir';
+import { isArithmeticType, isBitwiseType, type DataType } from './types';
+import { ByteArea } from './memory';
+
+export class IrValidationError extends Error {
+  constructor(readonly errors: string[]) {
+    super(`Ungültiges IR-Programm:\n${errors.join('\n')}`);
+  }
+}
+
+export interface ValidateOptions {
+  areaSizes: Record<Area, number>;
+}
+
+/** Typ eines Operanden im Kontext eines Programms (undefined bei ungültiger Referenz). */
+export function typeOf(p: IrProgram, o: Operand): DataType | undefined {
+  switch (o.k) {
+    case 'const':
+    case 'io':
+      return o.t;
+    case 'slot':
+      return p.slots[o.i]?.t;
+    case 'inst': {
+      const decl = p.instances[o.i];
+      return decl ? INSTANCE_FIELDS[decl.kind][o.f] : undefined;
+    }
+  }
+}
+
+/** Prüft ein IR-Programm statisch. Gibt alle Fehler zurück (leer = gültig). */
+export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
+  const errors: string[] = [];
+  const probes: Record<Area, ByteArea> = {
+    I: new ByteArea('I', opts.areaSizes.I),
+    Q: new ByteArea('Q', opts.areaSizes.Q),
+    M: new ByteArea('M', opts.areaSizes.M),
+  };
+
+  const names = new Set<string>();
+  p.slots.forEach((s) => {
+    const key = s.name.toLowerCase();
+    if (names.has(key)) errors.push(`Variable „${s.name}“ ist doppelt deklariert`);
+    names.add(key);
+  });
+
+  p.code.forEach((ins, pc) => {
+    const err = (msg: string) => errors.push(`Befehl ${pc} (${ins.op}): ${msg}`);
+
+    const operand = (o: Operand | undefined, what: string, expect?: DataType | DataType[]) => {
+      if (!o) {
+        err(`${what} fehlt`);
+        return undefined;
+      }
+      const t = typeOf(p, o);
+      if (!t) {
+        err(`${what}: ungültige Referenz`);
+        return undefined;
+      }
+      if (o.k === 'io' && !probes[o.area].fits(o.t, o.byte)) {
+        err(`${what}: Adresse außerhalb des Bereichs ${o.area}`);
+      }
+      if (o.k === 'io' && (o.bit < 0 || o.bit > 7)) err(`${what}: Bitnummer ${o.bit} ungültig`);
+      if (expect) {
+        const list = Array.isArray(expect) ? expect : [expect];
+        if (!list.includes(t)) err(`${what} hat Typ ${t}, erwartet ${list.join('/')}`);
+      }
+      return t;
+    };
+
+    const target = (o: Operand, what: string, expect?: DataType | DataType[]) => {
+      if (o.k === 'const' || o.k === 'inst') err(`${what} ist nicht beschreibbar`);
+      return operand(o, what, expect);
+    };
+
+    const instance = (i: number, kinds: readonly InstanceKind[]): InstanceKind | undefined => {
+      const decl = p.instances[i];
+      if (!decl) {
+        err(`Instanz ${i} existiert nicht`);
+        return undefined;
+      }
+      if (!kinds.includes(decl.kind)) err(`Instanz „${decl.name}“ (${decl.kind}) passt nicht`);
+      return decl.kind;
+    };
+
+    const jump = (to: number) => {
+      if (!Number.isInteger(to) || to < 0 || to > p.code.length) err(`Sprungziel ${to} ungültig`);
+    };
+
+    switch (ins.op) {
+      case 'mov': {
+        const s = operand(ins.src, 'Quelle');
+        if (s) target(ins.dst, 'Ziel', s);
+        break;
+      }
+      case 'conv':
+        operand(ins.src, 'Quelle');
+        target(ins.dst, 'Ziel');
+        break;
+      case 'un':
+        if (ins.fn === 'not' && !isBitwiseType(ins.t)) err(`NOT nicht auf ${ins.t}`);
+        if (ins.fn !== 'not' && !isArithmeticType(ins.t)) err(`${ins.fn} nicht auf ${ins.t}`);
+        operand(ins.a, 'Operand', ins.t);
+        target(ins.dst, 'Ziel', ins.t);
+        break;
+      case 'bin':
+        switch (ins.fn) {
+          case 'and':
+          case 'or':
+          case 'xor':
+            if (!isBitwiseType(ins.t)) err(`${ins.fn} nicht auf ${ins.t}`);
+            break;
+          case 'shl':
+          case 'shr':
+            if (ins.t !== 'WORD') err(`${ins.fn} nur auf WORD`);
+            break;
+          case 'mod':
+            if (!isArithmeticType(ins.t) || ins.t === 'REAL') err(`MOD nicht auf ${ins.t}`);
+            break;
+          default:
+            if (!isArithmeticType(ins.t)) err(`${ins.fn} nicht auf ${ins.t}`);
+        }
+        operand(ins.a, 'Operand A', ins.t);
+        operand(ins.b, 'Operand B', ins.fn === 'shl' || ins.fn === 'shr' ? 'INT' : ins.t);
+        target(ins.dst, 'Ziel', ins.t);
+        break;
+      case 'cmp':
+        if (ins.t === 'BOOL' && ins.fn !== 'eq' && ins.fn !== 'ne') err(`${ins.fn} nicht auf BOOL`);
+        operand(ins.a, 'Operand A', ins.t);
+        operand(ins.b, 'Operand B', ins.t);
+        target(ins.dst, 'Ziel', 'BOOL');
+        break;
+      case 'fn':
+        validateCall(ins, operand, target, err);
+        break;
+      case 'mux':
+        operand(ins.k, 'K', 'INT');
+        if (ins.ins.length < 2) err('MUX braucht mindestens 2 Eingänge');
+        ins.ins.forEach((o, n) => operand(o, `IN${n}`, ins.t));
+        if (ins.alt) operand(ins.alt, 'ELSE', ins.t);
+        target(ins.dst, 'Ziel', ins.t);
+        break;
+      case 'set':
+      case 'reset':
+        operand(ins.cond, 'Bedingung', 'BOOL');
+        target(ins.dst, 'Ziel', 'BOOL');
+        break;
+      case 'sr':
+        operand(ins.s, 'S', 'BOOL');
+        operand(ins.r, 'R', 'BOOL');
+        target(ins.q, 'Speicher', 'BOOL');
+        if (ins.out) target(ins.out, 'Q', 'BOOL');
+        break;
+      case 'edge':
+        operand(ins.clk, 'CLK', 'BOOL');
+        target(ins.mem, 'Flankenmerker', 'BOOL');
+        target(ins.out, 'Q', 'BOOL');
+        break;
+      case 'trig':
+        instance(ins.i, TRIG_KINDS);
+        operand(ins.clk, 'CLK', 'BOOL');
+        break;
+      case 'tmr': {
+        const kind = instance(ins.i, TIMER_KINDS);
+        operand(ins.in, 'IN', 'BOOL');
+        operand(ins.pt, 'PT', 'TIME');
+        if (ins.r && kind !== 'TONR') err('R gibt es nur bei TONR');
+        if (ins.r) operand(ins.r, 'R', 'BOOL');
+        break;
+      }
+      case 'ctr': {
+        const kind = instance(ins.i, COUNTER_KINDS);
+        operand(ins.pv, 'PV', 'INT');
+        const needs = {
+          CTU: ['cu'],
+          CTD: ['cd'],
+          CTUD: ['cu', 'cd'],
+        } as const;
+        const allowed = {
+          CTU: ['cu', 'r'],
+          CTD: ['cd', 'ld'],
+          CTUD: ['cu', 'cd', 'r', 'ld'],
+        } as const;
+        if (kind === 'CTU' || kind === 'CTD' || kind === 'CTUD') {
+          for (const pin of needs[kind]) if (!ins[pin]) err(`${pin.toUpperCase()} fehlt`);
+          for (const pin of ['cu', 'cd', 'r', 'ld'] as const) {
+            if (!ins[pin]) continue;
+            if (!(allowed[kind] as readonly string[]).includes(pin)) {
+              err(`${pin.toUpperCase()} gibt es nicht bei ${kind}`);
+            }
+            operand(ins[pin], pin.toUpperCase(), 'BOOL');
+          }
+        }
+        break;
+      }
+      case 'jmp':
+        jump(ins.to);
+        break;
+      case 'jz':
+      case 'jnz':
+        operand(ins.cond, 'Bedingung', 'BOOL');
+        jump(ins.to);
+        break;
+      default: {
+        const never: never = ins;
+        err(`Unbekannter Befehl ${(never as Instr).op}`);
+      }
+    }
+  });
+  return errors;
+}
+
+function validateCall(
+  ins: Extract<Instr, { op: 'fn' }>,
+  operand: (
+    o: Operand | undefined,
+    what: string,
+    expect?: DataType | DataType[],
+  ) => DataType | undefined,
+  target: (o: Operand, what: string, expect?: DataType | DataType[]) => DataType | undefined,
+  err: (msg: string) => void,
+): void {
+  const { args, t } = ins;
+  const count = (n: number) => {
+    if (args.length !== n) err(`${ins.fn.toUpperCase()} braucht ${n} Argumente`);
+  };
+  const numeric: DataType[] = ['INT', 'DINT', 'REAL', 'TIME', 'WORD'];
+  switch (ins.fn) {
+    case 'limit':
+    case 'in_range':
+    case 'out_range':
+      count(3);
+      if (!numeric.includes(t)) err(`${ins.fn.toUpperCase()} nicht auf ${t}`);
+      args.forEach((a, n) => operand(a, `Argument ${n + 1}`, t));
+      target(ins.dst, 'Ziel', ins.fn === 'limit' ? t : 'BOOL');
+      break;
+    case 'min':
+    case 'max':
+      if (args.length < 2) err(`${ins.fn.toUpperCase()} braucht mindestens 2 Argumente`);
+      if (!numeric.includes(t)) err(`${ins.fn.toUpperCase()} nicht auf ${t}`);
+      args.forEach((a, n) => operand(a, `IN${n + 1}`, t));
+      target(ins.dst, 'Ziel', t);
+      break;
+    case 'sel':
+      count(3);
+      operand(args[0], 'G', 'BOOL');
+      operand(args[1], 'IN0', t);
+      operand(args[2], 'IN1', t);
+      target(ins.dst, 'Ziel', t);
+      break;
+    case 'norm_x':
+      count(3);
+      if (!isArithmeticType(t)) err(`NORM_X nicht auf ${t}`);
+      args.forEach((a, n) => operand(a, `Argument ${n + 1}`, t));
+      target(ins.dst, 'Ziel', 'REAL');
+      break;
+    case 'scale_x':
+      count(3);
+      if (!isArithmeticType(t)) err(`SCALE_X nicht auf ${t}`);
+      operand(args[0], 'MIN', t);
+      operand(args[1], 'VALUE', 'REAL');
+      operand(args[2], 'MAX', t);
+      target(ins.dst, 'Ziel', t);
+      break;
+  }
+}
