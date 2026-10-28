@@ -1,5 +1,20 @@
 # Changelog
 
+## M4 – FUP-Editor (2026-10-28)
+
+- `@zyklus/fup-model`: Netzwerk-/Box-/Verbindungsmodell im TIA-Stil (Bool-Verbindungen, Operanden an
+  Pins, Negation, erweiterbare Eingänge), Katalog mit 40 Boxen in 6 Kategorien, Absenkung nach SCL mit
+  topologischer Auswertungsreihenfolge, Validierung (offene Pins, Rückkopplung, Wert-Verbindungen …),
+  Rückführung aller Meldungen auf Netzwerk/Box/Pin, Programmgröße = Boxen
+- SCL-Compiler: interne FUP-Funktionen (SR, RS, P_TRIG, N_TRIG, IN_RANGE, OUT_RANGE, CONV) nur für aus
+  FUP erzeugte Bausteine
+- Levels: Übersetzung von SCL und FUP, CPU-Grenze in Netzwerken bzw. Anweisungen; FUP-Referenzlösungen
+  für Level 1–3, Äquivalenztest FUP ⇔ SCL (identische Verläufe über alle Seeds)
+- App: Sprachwahl SCL/FUP je OB, FUP-Editor mit Anweisungsliste (Ziehen oder Klick), Boxen verschieben,
+  Verbindungen ziehen, Negation per Klick, Operandenfelder, automatische Instanz-DBs, Fehler an der Box,
+  Sprung aus der Meldungsliste zur Box; breiteres Programmfeld bei FUP
+- 371 Tests
+
 ## M3 – Level 1–3 spielbar (2026-10-28)
 
 - Spiel-Engine in `sim-core/game`:

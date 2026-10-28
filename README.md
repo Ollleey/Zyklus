@@ -1,7 +1,7 @@
 # ZYKLUS (Arbeitstitel)
 
 Puzzlespiel rund um Steuerungsbau: Aufträge lesen, Baugruppen auf die Hutschiene stecken, Feldgeräte
-verdrahten, in SCL (FUP folgt) programmieren, simulieren und gegen Soll-Verläufe prüfen.
+verdrahten, in SCL oder FUP programmieren, simulieren und gegen Soll-Verläufe prüfen.
 Programmiert wird im Stil des TIA-Portals (S7-1500): OB1, Instanz-DBs, Global-DBs, PLC-Variablentabelle.
 
 ## Starten
@@ -26,7 +26,8 @@ npm run typecheck
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `packages/sim-core`     | SPS-Simulation (IR, Interpreter, Zyklus, Timer/Zähler), Projektmodell, Spiel-Engine (Schaltschrank, Signale, Verifikation) |
 | `packages/scl-compiler` | SCL-Lexer/Parser, Typprüfung, Codegen → IR, Import/Export externer `.scl`-Quellen, Monaco-Sprachdefinition                 |
+| `packages/fup-model`    | FUP-Modell (Netzwerke, Boxen, Verbindungen), Boxkatalog, Absenkung nach SCL                                                |
 | `packages/levels`       | Aufträge als JSON, Referenzlösungen als TIA-Quellen, Tests                                                                 |
 | `apps/game`             | React-App (Vite, Monaco)                                                                                                   |
 
-Dokumentation: [docs/semantik.md](docs/semantik.md) (Laufzeitregeln), [docs/scl.md](docs/scl.md) (Sprachumfang).
+Dokumentation: [docs/semantik.md](docs/semantik.md) (Laufzeitregeln), [docs/scl.md](docs/scl.md) (Sprachumfang), [docs/fup.md](docs/fup.md) (FUP-Editor).

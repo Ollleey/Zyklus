@@ -53,6 +53,10 @@ export interface Location {
   part: 'code' | 'interface' | 'tags' | 'project';
   section?: IfaceSection;
   row?: number;
+  /** FUP: Netzwerk (0-basiert), Box und Pin */
+  network?: number;
+  box?: string;
+  pin?: string;
 }
 
 export interface ProjectDiagnostic extends Diagnostic {
@@ -85,6 +89,8 @@ interface Unit {
   /** Herkunft der Schnittstelle: Tabelle (Projekt) oder Text (Quelle) */
   origin: 'project' | 'source';
   errors: ProjectDiagnostic[];
+  /** aus FUP erzeugt: FUP-Funktionen erlaubt */
+  intrinsics?: boolean;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -221,7 +227,15 @@ function unitFromBlock(b: Block): Unit {
       location: { block: b.name, part: 'project' },
     });
   }
-  return { kind: b.kind, name: b.name, decls, body, origin: 'project', errors };
+  return {
+    kind: b.kind,
+    name: b.name,
+    decls,
+    body,
+    origin: 'project',
+    errors,
+    intrinsics: b.generatedFrom === 'FUP',
+  };
 }
 
 /** Programmgröße nach Spielregel: jede Anweisung zählt 1, verschachtelte zusätzlich. */
@@ -350,6 +364,8 @@ class CodeGen {
   private readonly slotTypes: DataType[] = [];
   private where: Location = { part: 'project' };
   private origin: Unit['origin'] = 'project';
+  /** FUP-Funktionen (__SR, __RS, __PTRIG, __NTRIG, __CONV, IN_RANGE, OUT_RANGE) erlaubt */
+  private intrinsics = false;
 
   constructor(private readonly opts: CompileOptions) {
     const sizes = opts.areaSizes ?? DEFAULT_AREAS;
@@ -412,6 +428,7 @@ class CodeGen {
       }
       if (ob.errors.some((e) => e.severity === 'error' && e.location.part === 'code')) continue;
       this.origin = ob.origin;
+      this.intrinsics = !!ob.intrinsics;
       this.codeBlock(ob);
     }
 
@@ -746,6 +763,13 @@ class CodeGen {
 
   private assign(target: Ref, e: Expr): void {
     const dst = this.writable(target);
+    if (this.intrinsics && e.k === 'call' && e.name === '__CONV') {
+      // FUP-Box CONV: beliebige Konvertierung vom Typ des Eingangs in den Typ des Ziels
+      if (e.args.length !== 1) this.fail('CONV braucht genau einen Eingang', e.span);
+      const src = this.gen(e.args[0]!.e, dst.t);
+      this.b.emit({ op: 'conv', dst: dst.o, src: src.o, mode: 'round' });
+      return;
+    }
     if (e.k === 'lit' || e.k === 'ref') {
       this.store(this.gen(e, dst.t), dst, e.span, e);
       return;
@@ -1177,6 +1201,12 @@ class CodeGen {
   private callType(e: Extract<Expr, { k: 'call' }>): LiteralType | undefined {
     const conv = CONV_RE.exec(e.name);
     if (conv) return conv[2] as DataType;
+    if (
+      this.intrinsics &&
+      ['__SR', '__RS', '__PTRIG', '__NTRIG', 'IN_RANGE', 'OUT_RANGE'].includes(e.name)
+    ) {
+      return 'BOOL';
+    }
     switch (e.name) {
       case 'NORM_X':
         return 'REAL';
@@ -1466,7 +1496,80 @@ class CodeGen {
     return out;
   }
 
+  /** Benannte Argumente einer FUP-Funktion in fester Reihenfolge. */
+  private intrinsicArgs(e: Extract<Expr, { k: 'call' }>, names: string[]): Expr[] {
+    return names.map((n) => {
+      const a = e.args.find((x) => x.name === n);
+      if (!a) this.fail(`${e.name}: Eingang ${n} fehlt`, e.span);
+      return a.e;
+    });
+  }
+
+  /** FUP-Boxen ohne SCL-Gegenstück: SR, RS, P_TRIG, N_TRIG, IN_RANGE, OUT_RANGE. */
+  private intrinsic(e: Extract<Expr, { k: 'call' }>, dst?: Operand): Val | undefined {
+    switch (e.name) {
+      case '__SR':
+      case '__RS': {
+        const [s, r, m] = this.intrinsicArgs(e, ['S', 'R', 'M']);
+        const sv = this.genAs(s!, 'BOOL');
+        const rv = this.genAs(r!, 'BOOL');
+        const mem = this.writable(m as Ref);
+        if (m!.k !== 'ref' || mem.t !== 'BOOL')
+          this.fail('Speicheroperand muss ein Bool sein', m!.span);
+        const o = this.result('BOOL', dst);
+        this.b.emit({
+          op: 'sr',
+          kind: e.name === '__SR' ? 'SR' : 'RS',
+          s: sv,
+          r: rv,
+          q: mem.o,
+          out: o,
+        });
+        return { o, t: 'BOOL' };
+      }
+      case '__PTRIG':
+      case '__NTRIG': {
+        const [clk, m] = this.intrinsicArgs(e, ['CLK', 'M']);
+        const c = this.genAs(clk!, 'BOOL');
+        if (m!.k !== 'ref') this.fail('Flankenmerker muss ein Operand sein', m!.span);
+        const mem = this.writable(m as Ref);
+        if (mem.t !== 'BOOL') this.fail('Flankenmerker muss ein Bool sein', m!.span);
+        const o = this.result('BOOL', dst);
+        this.b.emit({
+          op: 'edge',
+          kind: e.name === '__PTRIG' ? 'P' : 'N',
+          clk: c,
+          mem: mem.o,
+          out: o,
+        });
+        return { o, t: 'BOOL' };
+      }
+      case 'IN_RANGE':
+      case 'OUT_RANGE': {
+        const args = this.intrinsicArgs(e, ['MIN', 'VAL', 'MAX']);
+        const u = this.unifyAll(args);
+        if (!u) this.fail(`${e.name}: Eingänge haben unverträgliche Typen`, e.span);
+        const t = arithmeticOf(concrete(u));
+        if (!isArithmeticType(t)) this.fail(`${e.name} erwartet Zahlen`, e.span);
+        const o = this.result('BOOL', dst);
+        this.b.emit({
+          op: 'fn',
+          fn: e.name === 'IN_RANGE' ? 'in_range' : 'out_range',
+          t,
+          dst: o,
+          args: args.map((a) => this.genAs(a, t)),
+        });
+        return { o, t: 'BOOL' };
+      }
+    }
+    return undefined;
+  }
+
   private call(e: Extract<Expr, { k: 'call' }>, hint?: DataType, dst?: Operand): Val {
+    if (this.intrinsics) {
+      const v = this.intrinsic(e, dst);
+      if (v) return v;
+    }
     if (!isBuiltinFunction(e.name)) {
       if (e.name === 'IN_RANGE' || e.name === 'OUT_RANGE') {
         this.fail(

@@ -12,7 +12,9 @@ import type { CpuCompileResult } from '@zyklus/levels';
 import { t } from '../i18n';
 import { setCompletionSymbols } from '../monaco-setup';
 import { updateProject } from '../state/edit';
+import { emptyFup, isFupBody } from '@zyklus/fup-model';
 import { DbPanel } from './DbPanel';
+import { FupEditor } from './FupEditor';
 import { SclEditor } from './SclEditor';
 import { TagTable } from './TagTable';
 import { VarTable } from './VarTable';
@@ -35,6 +37,7 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
   const [tab, setTab] = useState<Tab>('main');
   const [showIface, setShowIface] = useState(false);
   const [jump, setJump] = useState<{ line: number; col: number; nonce: number }>();
+  const [fupFocus, setFupFocus] = useState<{ network?: number; box?: string; nonce: number }>();
 
   useEffect(() => {
     if (!cpus.some((c) => c.id === cpuId)) setCpuId(cpus[0]?.id);
@@ -134,15 +137,36 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
         </button>
         <span className="tab-spacer" />
         {result && (
-          <span className={`size ${result.size > result.limit ? 'size-over' : ''}`}>
-            {result.size} / {result.limit} {t('program.statements')}
+          <span className={`size ${result.used > result.limit ? 'size-over' : ''}`}>
+            {result.lang === 'FUP'
+              ? `${result.size} Boxen · ${result.used} / ${result.limit} Netzwerke`
+              : `${result.used} / ${result.limit} ${t('program.statements')}`}
           </span>
         )}
       </div>
 
       {tab === 'main' && main && (
         <div className="main-block">
-          <div className="iface">
+          <div className="iface iface-bar">
+            <div className="lang-switch" role="radiogroup" aria-label="Sprache">
+              {(['SCL', 'FUP'] as const).map((l) => (
+                <button
+                  key={l}
+                  role="radio"
+                  aria-checked={main.lang === l}
+                  className={`lang ${main.lang === l ? 'lang-active' : ''}`}
+                  onClick={() =>
+                    changeMain((b) => ({
+                      ...b,
+                      lang: l,
+                      fup: l === 'FUP' && !isFupBody(b.fup) ? emptyFup() : b.fup,
+                    }))
+                  }
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
             <button className="iface-toggle" onClick={() => setShowIface(!showIface)}>
               {showIface ? '▾' : '▸'} {t('program.interface')}{' '}
               <span className="muted">
@@ -165,14 +189,24 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
               </div>
             )}
           </div>
-          <SclEditor
-            value={main.source}
-            onChange={(source) => changeMain((b) => ({ ...b, source }))}
-            diagnostics={diagnostics.filter(
-              (d) => d.location.part === 'code' && d.location.block === MAIN_OB,
-            )}
-            jump={jump}
-          />
+          {main.lang === 'FUP' ? (
+            <FupEditor
+              project={project}
+              block={main}
+              diagnostics={diagnostics.filter((d) => d.location.block === MAIN_OB)}
+              onChange={(p) => change(() => p)}
+              focus={fupFocus}
+            />
+          ) : (
+            <SclEditor
+              value={main.source}
+              onChange={(source) => changeMain((b) => ({ ...b, source }))}
+              diagnostics={diagnostics.filter(
+                (d) => d.location.part === 'code' && d.location.block === MAIN_OB,
+              )}
+              jump={jump}
+            />
+          )}
         </div>
       )}
       {tab === 'tags' && (
@@ -193,7 +227,10 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
       <Problems
         diagnostics={diagnostics}
         onJump={(d) => {
-          if (d.location.part === 'code') {
+          if (d.location.part === 'code' && d.location.network !== undefined) {
+            setTab('main');
+            setFupFocus({ network: d.location.network, box: d.location.box, nonce: Math.random() });
+          } else if (d.location.part === 'code') {
             setTab('main');
             setJump({ line: d.start.line, col: d.start.col, nonce: Math.random() });
           } else if (d.location.part === 'interface') {
@@ -226,13 +263,15 @@ function Problems({
         diagnostics.map((d, i) => (
           <button key={i} className={`problem problem-${d.severity}`} onClick={() => onJump(d)}>
             <span className="problem-where">
-              {d.location.part === 'code'
-                ? `${d.location.block ?? ''} Z. ${d.start.line}`
-                : d.location.part === 'interface'
-                  ? `${d.location.block} · ${d.location.section} Zeile ${(d.location.row ?? 0) + 1}`
-                  : d.location.part === 'tags'
-                    ? `Variablen Zeile ${(d.location.row ?? 0) + 1}`
-                    : (d.location.block ?? 'Projekt')}
+              {d.location.part === 'code' && d.location.network !== undefined
+                ? `NW ${d.location.network + 1}${d.location.box ? ` · ${d.location.box}` : ''}${d.location.pin ? `.${d.location.pin}` : ''}`
+                : d.location.part === 'code'
+                  ? `${d.location.block ?? ''} Z. ${d.start.line}`
+                  : d.location.part === 'interface'
+                    ? `${d.location.block} · ${d.location.section} Zeile ${(d.location.row ?? 0) + 1}`
+                    : d.location.part === 'tags'
+                      ? `Variablen Zeile ${(d.location.row ?? 0) + 1}`
+                      : (d.location.block ?? 'Projekt')}
             </span>
             {formatDiagnostic(d).replace(/^(Fehler|Warnung) in Zeile \d+, Spalte \d+: /, '')}
           </button>

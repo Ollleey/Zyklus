@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@zyklus/sim-core": "*",
-    "@zyklus/scl-compiler": "*"
+    "@zyklus/scl-compiler": "*",
+    "@zyklus/fup-model": "*"
   },
   "scripts": {
     "test": "vitest run",

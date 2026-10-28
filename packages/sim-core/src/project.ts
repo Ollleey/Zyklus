@@ -47,8 +47,13 @@ export interface CodeBlock {
   iface: Partial<Record<IfaceSection, VarDecl[]>>;
   /** SCL: Anweisungsteil (ohne Bausteinkopf) */
   source: string;
-  /** FUP: Netzwerke (ab M4) */
+  /** FUP: Netzwerke (Modell in @zyklus/fup-model) */
   fup?: unknown;
+  /**
+   * Intern: Baustein wurde aus FUP erzeugt. Der SCL-Compiler erlaubt dann die FUP-Funktionen
+   * (SR, RS, P_TRIG, N_TRIG, IN_RANGE, OUT_RANGE, CONV), die es in SCL nicht gibt.
+   */
+  generatedFrom?: 'FUP';
 }
 
 /** Globaler Datenbaustein */

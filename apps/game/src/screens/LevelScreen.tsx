@@ -136,7 +136,9 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
         </div>
       </header>
 
-      <main className="workspace">
+      <main
+        className={`workspace ${[...compiled.cpus.values()].some((c) => c.lang === 'FUP') ? 'workspace-fup' : ''}`}
+      >
         <section className="pane pane-cabinet">
           <h3 className="pane-title">{t('cabinet.title')}</h3>
           <Cabinet
