@@ -1,0 +1,53 @@
+DATA_BLOCK "Fenster"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+IEC_TIMER
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Zweihand"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      bereit : Bool;   // beide Taster waren losgelassen, Zeitfenster noch offen
+      aktiv : Bool;    // Presse darf fahren
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// 0,5 s Zeitfenster ab dem ersten Tastendruck
+	"Fenster".TON(IN := "Links" OR "Rechts", PT := T#500ms);
+
+	IF NOT "Links" AND NOT "Rechts" THEN
+	    "Zweihand".bereit := TRUE;
+	END_IF;
+	IF "Fenster".Q THEN
+	    "Zweihand".bereit := FALSE;
+	END_IF;
+
+	IF "Links" AND "Rechts" AND "Zweihand".bereit THEN
+	    "Zweihand".aktiv := TRUE;
+	END_IF;
+
+	// Loslassen eines Tasters beendet den Hub; neu erst nach Loslassen beider Taster
+	IF NOT ("Links" AND "Rechts") THEN
+	    IF "Zweihand".aktiv THEN
+	        "Zweihand".bereit := FALSE;
+	    END_IF;
+	    "Zweihand".aktiv := FALSE;
+	END_IF;
+
+	"Presse" := "Zweihand".aktiv;
+END_ORGANIZATION_BLOCK

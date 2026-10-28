@@ -1,0 +1,9 @@
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Selbsthaltung. "Stopp" ist ein Öffner: 1 = nicht gedrückt, 0 = gedrückt oder Drahtbruch
+	"Bandmotor" := ("Start" OR "Bandmotor") AND "Stopp";
+END_ORGANIZATION_BLOCK

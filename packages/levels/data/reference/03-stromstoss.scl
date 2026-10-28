@@ -1,0 +1,32 @@
+DATA_BLOCK "Entprellen"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+TON_TIME
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Flanke"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// erst nach 20 ms stabilem Signal als gedrückt werten
+	"Entprellen"(IN := "Taster", PT := T#20ms);
+	"Flanke"(CLK := "Entprellen".Q);
+	// jede steigende Flanke schaltet um
+	"Licht" := "Licht" XOR "Flanke".Q;
+END_ORGANIZATION_BLOCK

@@ -1,0 +1,84 @@
+{
+  "id": "03-stromstoss",
+  "order": 3,
+  "title": { "de": "Stromstoßschalter mit prellendem Taster" },
+  "customer": { "de": "Haustechnik Lindner KG" },
+  "mail": {
+    "from": { "de": "Mara Lindner <mara@haustechnik-lindner.example>" },
+    "subject": { "de": "Flurlicht spinnt" },
+    "body": {
+      "de": "Hallo zusammen,\n\nim Bürogebäude Am Wehr haben wir die alten Stromstoßrelais durch eine kleine Steuerung ersetzt. Seitdem beschweren sich die Mieter: Manchmal geht das Licht beim Drücken an und sofort wieder aus, manchmal passiert gar nichts.\n\nIch vermute, das liegt an den alten Tastern – die prellen wie verrückt. Ein Druck ein, ein Druck aus, mehr will keiner. Könnt ihr das bitte sauber lösen?\n\nDanke und viele Grüße\nMara Lindner"
+    }
+  },
+  "datasheet": {
+    "de": "# Flurlicht Am Wehr\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Lichttaster, Schließer, **prellt** |\n| H1 | DO | Flurbeleuchtung, 1 = an |\n\n## Prellverhalten S1\n\nBeim Drücken und Loslassen schaltet der Kontakt 2 bis 6 Mal zusätzlich um, jeweils im Abstand von 1 bis 5 ms. Danach ist das Signal stabil.\n\n## Funktion\n\n1. Jeder Druck auf **S1** schaltet **H1** um (an → aus → an …).\n2. Das Loslassen des Tasters ändert nichts.\n3. Ein Druck muss **genau einmal** umschalten – Prellen darf kein zusätzliches Umschalten auslösen.\n\n## Zeitverhalten\n\nDie Lampe soll **15 bis 65 ms** nach dem Drücken umschalten. Schneller ist nicht möglich, ohne auf Prellen hereinzufallen.\n\n## Hinweis\n\nBewährt hat sich: Signal erst als gedrückt werten, wenn es eine gewisse Zeit stabil anliegt (Einschaltverzögerung), dann die steigende Flanke auswerten (`R_TRIG`)."
+  },
+  "board": { "width": 10, "ductCapacity": 4 },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "cpu-schnell", "di8", "do8"],
+  "toleranceMs": 25,
+  "plant": { "type": "lamp", "params": { "lamp": "H1" } },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Taster",
+      "name": { "de": "Lichttaster (S1)" },
+      "kind": "DI",
+      "side": "left",
+      "role": "button",
+      "bounce": { "minToggles": 2, "maxToggles": 6, "gapMs": [1, 5] }
+    },
+    {
+      "id": "H1",
+      "tag": "Licht",
+      "name": { "de": "Flurbeleuchtung (H1)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "ein-aus",
+      "name": { "de": "Ein und wieder aus" },
+      "durationMs": 1600,
+      "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+      "stimuli": {
+        "S1": [
+          [200, true],
+          [500, false],
+          [1000, true],
+          [1300, false]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [240, true],
+          [1040, false]
+        ]
+      }
+    },
+    {
+      "id": "schnell",
+      "name": { "de": "Schnell hintereinander" },
+      "durationMs": 1500,
+      "seeds": [11, 12, 13, 14, 15, 16, 17, 18],
+      "stimuli": {
+        "S1": [
+          [200, true],
+          [350, false],
+          [600, true],
+          [750, false],
+          [1000, true],
+          [1150, false]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [240, true],
+          [640, false],
+          [1040, true]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "01-foerderband": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "di1", "type": "di8", "x": 2 },
+      { "id": "do1", "type": "do8", "x": 3 }
+    ],
+    "wires": [
+      { "device": "S1", "module": "di1", "channel": 0 },
+      { "device": "S2", "module": "di1", "channel": 1 },
+      { "device": "M1", "module": "do1", "channel": 0 }
+    ]
+  },
+  "02-zweihand": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "di1", "type": "di8", "x": 2 },
+      { "id": "do1", "type": "do8", "x": 3 }
+    ],
+    "wires": [
+      { "device": "S1", "module": "di1", "channel": 0 },
+      { "device": "S2", "module": "di1", "channel": 1 },
+      { "device": "Y1", "module": "do1", "channel": 0 }
+    ]
+  },
+  "03-stromstoss": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "di1", "type": "di8", "x": 2 },
+      { "id": "do1", "type": "do8", "x": 3 }
+    ],
+    "wires": [
+      { "device": "S1", "module": "di1", "channel": 0 },
+      { "device": "H1", "module": "do1", "channel": 0 }
+    ]
+  }
+}

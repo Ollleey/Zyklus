@@ -1,5 +1,29 @@
 # Changelog
 
+## M3 – Level 1–3 spielbar (2026-10-28)
+
+- Spiel-Engine in `sim-core/game`:
+  - Baugruppenkatalog (CPU klein/mittel/schnell, DI 8, DO 8, AI 2, AO 2), Level-Format mit Validierung
+  - Schaltschrank: Steckplätze, Zuordnung zur CPU, automatische Adressvergabe wie TIA (DI/DO ab Byte 0,
+    AI/AO ab Wort 64), Verdrahtung mit Kanalprüfung, Kabelkanal mit Kapazität je Spalte
+  - PLC-Variablen angeschlossener Geräte werden automatisch angelegt und beim Umstecken nachgeführt
+  - Eingangssignale mit Öffner-Logik und reproduzierbarem Prellen (Seed)
+  - Simulationslauf (Testfall oder Handbetrieb, Einzelzyklus), Soll/Ist-Vergleich mit Toleranzfenster
+    und Prüfung der Schaltanzahl, Verifikation über alle Testfälle und Seeds, Metriken
+- `@zyklus/levels`: Aufträge 1–3 (Förderband mit Selbsthaltung, Zweihandbedienung, Stromstoßschalter mit
+  prellendem Taster) mit Referenzlösungen als TIA-Quellen; Tests prüfen Referenzlösungen, typische
+  Fehllösungen und Determinismus; Speichergrenze je CPU-Typ
+- `apps/game` (React + Vite + Monaco, offline):
+  - Posteingang mit Freischaltung, Auftrags-Mail und Datenblatt
+  - Schaltschrank (SVG): Baugruppen stecken/verschieben/entfernen, Geräte verdrahten, Kanalbelegung, Live-LEDs
+  - Bausteineditor: Main [OB1] mit Schnittstelle (Temp/Constant), SCL-Editor mit Hervorhebung,
+    Fehlermarkierung und Autovervollständigung, PLC-Variablentabelle, Global-/Instanz-DBs, Meldungsliste
+  - Simulation: Start/Pause/Zyklus/×10/×100, Logic Analyzer (Soll grau, Ist farbig, Abweichung rot),
+    Anlagenansicht (Förderband, Presse, Lampe), Handbetrieb mit Tastern
+  - Prüfen mit Ergebnis je Testfall, fehlgeschlagene Seeds direkt ansehen, Bestwerte, Export als `.scl`
+  - Lösungen und Fortschritt im `localStorage`
+- 336 Tests
+
 ## S7-Treue (2026-10-28, zwischen M2 und M3)
 
 Auf Wunsch: SCL und FUP sollen echtes S7 sein (TIA-Bausteineditor-Stil, Referenz S7-1500).
