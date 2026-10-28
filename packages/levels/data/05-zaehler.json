@@ -1,0 +1,121 @@
+{
+  "id": "05-zaehler",
+  "order": 5,
+  "title": { "de": "Teilezähler mit Lichtschranke" },
+  "customer": { "de": "Verpackungstechnik Brandl" },
+  "mail": {
+    "from": { "de": "Sabine Brandl <s.brandl@brandl-verpackung.example>" },
+    "subject": { "de": "Kartons werden halb leer verschickt" },
+    "body": {
+      "de": "Guten Morgen,\n\nan Linie 2 fallen die Teile vom Band in einen Karton. Nach fünf Teilen soll eine Lampe leuchten, damit der Kollege den Karton tauscht und quittiert.\n\nDie alte Steuerung meldet „voll“ aber oft schon nach zwei oder drei Teilen. Ich habe mir die Lichtschranke angesehen: Wenn ein Teil durchfährt, flattert das Signal an den Kanten. Bitte so programmieren, dass jedes Teil genau einmal zählt.\n\nFreundliche Grüße\nSabine Brandl"
+    }
+  },
+  "datasheet": {
+    "de": "# Linie 2 – Kartonzähler\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | DI | Lichtschranke, 1 = Teil im Strahl (ca. 100 ms je Teil), **flattert** an den Kanten |\n| S1 | DI | Taster „Quittieren“, Schließer |\n| H1 | DO | Lampe „Karton voll“ |\n\n## Flattern B1\n\nBeim Eintritt und Austritt eines Teils schaltet das Signal 2 bis 8 Mal zusätzlich um, im Abstand von 1 bis 3 ms.\n\n## Funktion\n\n1. Jedes Teil zählt genau einmal.\n2. Nach dem **5. Teil** leuchtet H1.\n3. **S1** setzt den Zähler auf 0 zurück und löscht H1 – auch wenn der Karton noch nicht voll war.\n\n## Zeitverhalten\n\nH1 soll **0 bis 70 ms** nach dem Eintritt des 5. Teils angehen; nach S1 sofort aus.\n\n## Hinweis\n\nZähler brauchen einen Instanz-DB, z. B. vom Typ `CTU_INT` oder `IEC_COUNTER`."
+  },
+  "board": { "width": 10, "ductCapacity": 4 },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8"],
+  "toleranceMs": 40,
+  "plant": { "type": "counter", "params": { "barrier": "B1", "lamp": "H1", "target": 5 } },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Lichtschranke",
+      "name": { "de": "Lichtschranke (B1)" },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor",
+      "bounce": { "minToggles": 2, "maxToggles": 8, "gapMs": [1, 3] }
+    },
+    {
+      "id": "S1",
+      "tag": "Quittieren",
+      "name": { "de": "Taster Quittieren (S1)" },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "H1",
+      "tag": "Karton_voll",
+      "name": { "de": "Lampe Karton voll (H1)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "zwei-kartons",
+      "name": { "de": "Zwei volle Kartons" },
+      "durationMs": 5500,
+      "seeds": [1, 2, 3, 4, 5, 6],
+      "stimuli": {
+        "B1": [
+          [300, true],
+          [400, false],
+          [700, true],
+          [800, false],
+          [1100, true],
+          [1200, false],
+          [1500, true],
+          [1600, false],
+          [1900, true],
+          [2000, false],
+          [3000, true],
+          [3100, false],
+          [3400, true],
+          [3500, false],
+          [3800, true],
+          [3900, false],
+          [4200, true],
+          [4300, false],
+          [4600, true],
+          [4700, false]
+        ],
+        "S1": [
+          [2500, true],
+          [2600, false]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [1930, true],
+          [2500, false],
+          [4630, true]
+        ]
+      }
+    },
+    {
+      "id": "frueh-quittiert",
+      "name": { "de": "Quittieren bei halbvollem Karton" },
+      "durationMs": 4500,
+      "seeds": [7, 8, 9, 10],
+      "stimuli": {
+        "B1": [
+          [300, true],
+          [400, false],
+          [700, true],
+          [800, false],
+          [1100, true],
+          [1200, false],
+          [2000, true],
+          [2100, false],
+          [2400, true],
+          [2500, false],
+          [2800, true],
+          [2900, false],
+          [3200, true],
+          [3300, false],
+          [3600, true],
+          [3700, false]
+        ],
+        "S1": [
+          [1500, true],
+          [1600, false]
+        ]
+      },
+      "expect": { "H1": [[3630, true]] }
+    }
+  ]
+}

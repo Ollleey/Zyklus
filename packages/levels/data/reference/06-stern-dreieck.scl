@@ -1,0 +1,54 @@
+DATA_BLOCK "T_Stern"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+TON_TIME
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "T_Pause"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+TON_TIME
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Anlauf"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      ein : Bool;   // Motor eingeschaltet
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Stopp ist ein Öffner und hat Vorrang
+	IF "Start" AND "Stopp" THEN
+	    "Anlauf".ein := TRUE;
+	END_IF;
+	IF NOT "Stopp" THEN
+	    "Anlauf".ein := FALSE;
+	END_IF;
+
+	"T_Stern"(IN := "Anlauf".ein, PT := T#2s);
+	// Umschaltpause: Sternschütz muss sicher abgefallen sein (Abfallzeit 30 ms)
+	"T_Pause"(IN := "T_Stern".Q, PT := T#80ms);
+
+	"Netz" := "Anlauf".ein;
+	"Stern" := "Anlauf".ein AND NOT "T_Stern".Q;
+	"Dreieck" := "Anlauf".ein AND "T_Pause".Q;
+END_ORGANIZATION_BLOCK

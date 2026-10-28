@@ -166,7 +166,20 @@ CTU setzt zusätzlich QU, CTD zusätzlich QD (so heißen die Ausgänge im IEC_CO
 | Timer, Zähler, Flanken                                       | 3       |
 | Alles auf REAL, NORM_X, SCALE_X                              | 4       |
 
-## 8. Determinismus
+## 8. Feldsignale und Anlage
+
+- **Digitaleingänge:** Betätigung aus dem Testfall, Öffner invertiert, Prellen/Flattern als zusätzliche
+  Umschaltungen (gerade Anzahl, Endzustand bleibt).
+- **Analogeingänge:** physikalischer Wert (Stimulus linear interpoliert oder Anlagenmodell) →
+  Rohwert `(v − min) / (max − min) · 27648`, begrenzt auf −4864 … 32511. Danach Rauschen
+  (Normalverteilung), Ausreißer und Geberfehler: Drahtbruch/Überlauf **32767**, Unterlauf **−32768**.
+  Die Störungen werden genau einmal je ms gezogen (reproduzierbar).
+- **Relaisausgänge:** Kontakt folgt dem Befehl erst nach Ansprechzeit (15 ms) bzw. Abfallzeit (30 ms);
+  ein kürzerer Befehl wird verschluckt. Gemessen wird immer der Kontakt.
+- **Anlagenmodell:** rechnet nach den CPU-Zyklen eines Ticks mit den Kontaktzuständen weiter;
+  die neuen Messwerte wirken ab dem nächsten Tick.
+
+## 9. Determinismus
 
 - Keine Zeit- oder Zufallsquellen außer Simulationszeit und `Rng` (mulberry32).
 - Störquellen bekommen eigene Seeds über `deriveSeed(levelSeed, kanalname)`, damit das Hinzufügen

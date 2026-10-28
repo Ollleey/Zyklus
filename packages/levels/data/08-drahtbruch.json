@@ -1,0 +1,125 @@
+{
+  "id": "08-drahtbruch",
+  "order": 8,
+  "title": { "de": "Drahtbruch am Temperaturfühler" },
+  "customer": { "de": "Lackiererei Seidel" },
+  "mail": {
+    "from": { "de": "Tobias Seidel <t.seidel@lackiererei-seidel.example>" },
+    "subject": { "de": "Trockenofen – fast abgebrannt" },
+    "body": {
+      "de": "Hallo,\n\nletzte Nacht ist am Trockenofen das Kabel zum Temperaturfühler durchgescheuert. Die Steuerung hat einen Unsinnswert gelesen und die Heizung durchlaufen lassen. Zum Glück hat der Übertemperaturschalter ausgelöst.\n\nWir brauchen eine Temperaturregelung, die einen Geberfehler erkennt, dann sofort die Heizung abschaltet und eine Störleuchte setzt. Die Leuchte soll erst wieder ausgehen, wenn jemand quittiert hat und der Fühler wieder in Ordnung ist.\n\nGrüße\nTobias Seidel"
+    }
+  },
+  "datasheet": {
+    "de": "# Trockenofen – Temperaturregelung\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Temperaturfühler 0…150 °C → 0…27648 |\n| S1 | DI | Taster „Quittieren“, Schließer |\n| K1 | DO | Heizschütz – **Leistungsausgang** (über REL 4) |\n| H1 | DO | Störleuchte |\n\n## Geberfehler\n\nBei **Drahtbruch** oder **Überlauf** liefert die Baugruppe den Rohwert **32767**, bei **Unterlauf** **−32768**. Gültige Werte liegen zwischen −4864 und 32511.\n\n## Funktion\n\n1. **Regelung:** unter 60 °C Heizung ein, über 65 °C Heizung aus, dazwischen unverändert.\n2. **Geberfehler:** Ersatzreaktion „Heizung **aus**“ (sicherer Zustand), **H1 an**.\n3. Nach dem Ende des Fehlers regelt die Heizung sofort wieder normal.\n4. **H1** bleibt an, bis **S1** gedrückt wird **und** kein Fehler mehr ansteht.\n\n## Zeitverhalten\n\nAbweichung höchstens ±40 ms. Beachte die Schaltzeiten des Relais (ein 15 ms, aus 30 ms)."
+  },
+  "board": { "width": 10, "ductCapacity": 4 },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "di8", "do8", "rel4"],
+  "toleranceMs": 40,
+  "plant": { "type": "heater", "params": { "sensor": "B1", "heater": "K1", "alarm": "H1" } },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Temperatur",
+      "name": { "de": "Temperaturfühler (B1)" },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": { "unit": "°C", "min": 0, "max": 150, "noise": 15 }
+    },
+    {
+      "id": "S1",
+      "tag": "Quittieren",
+      "name": { "de": "Taster Quittieren (S1)" },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "K1",
+      "tag": "Heizung",
+      "name": { "de": "Heizschütz (K1)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "actuator",
+      "power": true
+    },
+    {
+      "id": "H1",
+      "tag": "Stoerung",
+      "name": { "de": "Störleuchte (H1)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "rampe-und-bruch",
+      "name": { "de": "Regelung und Drahtbruch" },
+      "durationMs": 12000,
+      "seeds": [1, 2, 3],
+      "stimuli": {
+        "B1": [
+          [0, 50],
+          [4000, 70],
+          [8000, 50]
+        ],
+        "S1": [
+          [11000, true],
+          [11100, false]
+        ]
+      },
+      "faults": { "B1": [[9000, 10000, "break"]] },
+      "expect": {
+        "K1": [
+          [15, true],
+          [3030, false],
+          [6015, true],
+          [9030, false],
+          [10015, true]
+        ],
+        "H1": [
+          [9000, true],
+          [11000, false]
+        ]
+      }
+    },
+    {
+      "id": "ohne-quittung",
+      "name": { "de": "Kurzer Bruch, nicht quittiert" },
+      "durationMs": 4000,
+      "seeds": [4],
+      "stimuli": { "B1": [[0, 70]] },
+      "faults": { "B1": [[2000, 2500, "break"]] },
+      "expect": { "K1": [], "H1": [[2000, true]] }
+    },
+    {
+      "id": "quittieren-waehrend-bruch",
+      "name": { "de": "Quittieren während des Fehlers" },
+      "durationMs": 4000,
+      "seeds": [5],
+      "stimuli": {
+        "B1": [[0, 50]],
+        "S1": [
+          [1500, true],
+          [1600, false],
+          [3000, true],
+          [3100, false]
+        ]
+      },
+      "faults": { "B1": [[1000, 2000, "underflow"]] },
+      "expect": {
+        "K1": [
+          [15, true],
+          [1030, false],
+          [2015, true]
+        ],
+        "H1": [
+          [1000, true],
+          [3000, false]
+        ]
+      }
+    }
+  ]
+}

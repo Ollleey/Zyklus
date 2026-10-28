@@ -33,5 +33,81 @@
       { "device": "S1", "module": "di1", "channel": 0 },
       { "device": "H1", "module": "do1", "channel": 0 }
     ]
+  },
+  "04-ampel": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "di1", "type": "di8", "x": 2 },
+      { "id": "do1", "type": "do8", "x": 3 }
+    ],
+    "wires": [
+      { "device": "S1", "module": "di1", "channel": 0 },
+      { "device": "H1", "module": "do1", "channel": 0 },
+      { "device": "H2", "module": "do1", "channel": 1 },
+      { "device": "H3", "module": "do1", "channel": 2 }
+    ]
+  },
+  "05-zaehler": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "di1", "type": "di8", "x": 2 },
+      { "id": "do1", "type": "do8", "x": 3 }
+    ],
+    "wires": [
+      { "device": "B1", "module": "di1", "channel": 0 },
+      { "device": "S1", "module": "di1", "channel": 1 },
+      { "device": "H1", "module": "do1", "channel": 0 }
+    ]
+  },
+  "06-stern-dreieck": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "di1", "type": "di8", "x": 2 },
+      { "id": "rel1", "type": "rel4", "x": 3 }
+    ],
+    "wires": [
+      { "device": "S1", "module": "di1", "channel": 0 },
+      { "device": "S2", "module": "di1", "channel": 1 },
+      { "device": "K1", "module": "rel1", "channel": 0 },
+      { "device": "K2", "module": "rel1", "channel": 1 },
+      { "device": "K3", "module": "rel1", "channel": 2 }
+    ]
+  },
+  "07-tank": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "ai1", "type": "ai2", "x": 2 },
+      { "id": "rel1", "type": "rel4", "x": 3 }
+    ],
+    "wires": [
+      { "device": "B1", "module": "ai1", "channel": 0 },
+      { "device": "P1", "module": "rel1", "channel": 0 }
+    ]
+  },
+  "08-drahtbruch": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "ai1", "type": "ai2", "x": 2 },
+      { "id": "di1", "type": "di8", "x": 3 },
+      { "id": "rel1", "type": "rel4", "x": 4 },
+      { "id": "do1", "type": "do8", "x": 5 }
+    ],
+    "wires": [
+      { "device": "B1", "module": "ai1", "channel": 0 },
+      { "device": "S1", "module": "di1", "channel": 0 },
+      { "device": "K1", "module": "rel1", "channel": 0 },
+      { "device": "H1", "module": "do1", "channel": 0 }
+    ]
+  },
+  "09-mittelwert": {
+    "modules": [
+      { "id": "cpu1", "type": "cpu-klein", "x": 0 },
+      { "id": "ai1", "type": "ai2", "x": 2 },
+      { "id": "ao1", "type": "ao2", "x": 3 }
+    ],
+    "wires": [
+      { "device": "B1", "module": "ai1", "channel": 0 },
+      { "device": "A1", "module": "ao1", "channel": 0 }
+    ]
   }
 }

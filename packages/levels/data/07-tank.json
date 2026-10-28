@@ -1,0 +1,100 @@
+{
+  "id": "07-tank",
+  "order": 7,
+  "title": { "de": "Hochbehälter mit Füllstandsregelung" },
+  "customer": { "de": "Zweckverband Wasser Talgrund" },
+  "mail": {
+    "from": { "de": "Petra Wendlinger <p.wendlinger@wasser-talgrund.example>" },
+    "subject": { "de": "Pumpe taktet sich kaputt" },
+    "body": {
+      "de": "Hallo,\n\nder Hochbehälter Talgrund wird von einer Pumpe aus dem Brunnen gefüllt. Die Füllstandssonde liefert ein Analogsignal. Unsere bisherige Steuerung schaltet die Pumpe bei 60 % ein und aus – und weil das Signal ein wenig zappelt, schaltet sie dort dutzende Male in der Minute. Die zweite Pumpe in diesem Jahr ist schon hin.\n\nBitte: Pumpe unter 40 % ein, über 80 % aus. Dazwischen soll sie einfach bleiben, wie sie ist.\n\nViele Grüße\nPetra Wendlinger\nNetzbetrieb"
+    }
+  },
+  "datasheet": {
+    "de": "# Hochbehälter Talgrund\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Füllstandssonde 0…100 % → 0…27648, **verrauscht** (± ca. 0,3 %) |\n| P1 | DO | Brunnenpumpe – **Leistungsausgang** (über REL 4) |\n\n## Anlage\n\nDie Pumpe füllt mit 12 %/s, der Verbrauch entnimmt je nach Tageszeit 2 bis 9 %/s. Startfüllstand 50 %.\n\n## Funktion (Zweipunktregelung mit Hysterese)\n\n1. Füllstand **unter 40 %** → Pumpe ein.\n2. Füllstand **über 80 %** → Pumpe aus.\n3. Dazwischen behält die Pumpe ihren Zustand.\n\n## Prüfung\n\n- Füllstand bleibt zwischen 35 % und 85 %.\n- Die Pumpe schaltet höchstens 10-mal je Test.\n\n## Hinweis\n\nRohwert in Prozent: `NORM_X(MIN := 0, VALUE := \"Fuellstand\", MAX := 27648)` liefert 0.0…1.0, `SCALE_X` skaliert auf 0.0…100.0."
+  },
+  "board": { "width": 10, "ductCapacity": 4 },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "di8", "do8", "rel4"],
+  "toleranceMs": 0,
+  "plant": {
+    "type": "tank",
+    "params": { "sensor": "B1", "pump": "P1", "inflow": 12, "level0": 50, "outflow": [[0, 4]] }
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Fuellstand",
+      "name": { "de": "Füllstandssonde (B1)" },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": { "unit": "%", "min": 0, "max": 100, "noise": 80 }
+    },
+    {
+      "id": "P1",
+      "tag": "Pumpe",
+      "name": { "de": "Brunnenpumpe (P1)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor",
+      "power": true
+    }
+  ],
+  "tests": [
+    {
+      "id": "normal",
+      "name": { "de": "Normaler Verbrauch" },
+      "durationMs": 40000,
+      "seeds": [1, 2, 3],
+      "stimuli": {},
+      "checks": [
+        {
+          "kind": "range",
+          "name": { "de": "Füllstand zwischen 35 % und 85 %" },
+          "signal": "plant.level",
+          "min": 35,
+          "max": 85,
+          "from": 0,
+          "to": 40000
+        },
+        {
+          "kind": "maxChanges",
+          "name": { "de": "Pumpe schaltet höchstens 10-mal" },
+          "signal": "P1",
+          "max": 10
+        }
+      ]
+    },
+    {
+      "id": "wechselnd",
+      "name": { "de": "Wechselnder Verbrauch" },
+      "durationMs": 45000,
+      "seeds": [4, 5],
+      "stimuli": {},
+      "plant": {
+        "outflow": [
+          [0, 4],
+          [15000, 9],
+          [30000, 2]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": { "de": "Füllstand zwischen 35 % und 85 %" },
+          "signal": "plant.level",
+          "min": 35,
+          "max": 85,
+          "from": 0,
+          "to": 45000
+        },
+        {
+          "kind": "maxChanges",
+          "name": { "de": "Pumpe schaltet höchstens 10-mal" },
+          "signal": "P1",
+          "max": 10
+        }
+      ]
+    }
+  ]
+}

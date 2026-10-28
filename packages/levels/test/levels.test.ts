@@ -52,7 +52,7 @@ function verify(level: Level, solution: Solution) {
 
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
-    expect(LEVELS.map((l) => l.order)).toEqual([1, 2, 3]);
+    expect(LEVELS.map((l) => l.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   it.each(LEVELS.map((l) => [l.id, l] as const))(
@@ -61,10 +61,13 @@ describe('Kampagne', () => {
       const v = verify(level, reference(level));
       const failed = v.runs
         .filter((r) => !r.passed)
-        .map((r) => `${r.testId}/Seed ${r.seed}: ${JSON.stringify(r.checks)} ${r.stop ?? ''}`);
+        .map(
+          (r) =>
+            `${r.testId}/Seed ${r.seed}: ${JSON.stringify(Object.fromEntries(Object.entries(r.checks).filter(([, c]) => !c.ok)))} ` +
+            `${JSON.stringify(r.criteria.filter((c) => !c.ok))} ${r.stop ?? ''}`,
+        );
       expect(failed).toEqual([]);
       expect(v.passed).toBe(true);
-      expect(v.metrics.cost).toBe(8);
     },
   );
 
@@ -93,15 +96,17 @@ function fupReference(level: Level): Solution {
   return { ...base, projects: { [cpu]: syncDeviceTags(level, analysis, cpu, project) } };
 }
 
+const WITH_FUP = LEVELS.filter((l) => FUP_REFERENCES[l.id]);
+
 describe('FUP-Referenzlösungen', () => {
-  it.each(LEVELS.map((l) => [l.id, l] as const))('%s in FUP besteht alle Tests', (_, level) => {
+  it.each(WITH_FUP.map((l) => [l.id, l] as const))('%s in FUP besteht alle Tests', (_, level) => {
     const v = verify(level, fupReference(level));
     expect(v.runs.filter((r) => !r.passed).map((r) => `${r.testId}/${r.seed}`)).toEqual([]);
     const c = compileSolution(level, fupReference(level));
     expect(c.cpus.get('cpu1')!.lang).toBe('FUP');
   });
 
-  it.each(LEVELS.map((l) => [l.id, l] as const))(
+  it.each(WITH_FUP.map((l) => [l.id, l] as const))(
     '%s: FUP und SCL verhalten sich identisch',
     (_, level) => {
       const scl = verify(level, reference(level));
@@ -126,6 +131,80 @@ describe('Typische Fehllösungen fallen durch', () => {
     expect(v.passed).toBe(false);
     return v;
   };
+  const failedCriteria = (v: ReturnType<typeof fails>) => [
+    ...new Set(v.runs.flatMap((r) => r.criteria.filter((c) => !c.ok).map((c) => c.name.de))),
+  ];
+
+  it('Level 4: Gelbphasen vergessen', () => {
+    fails(
+      '04-ampel',
+      ob(
+        '"Takt".TON(IN := "Betrieb" AND NOT "Takt".Q, PT := T#8s);\n"Rot" := "Betrieb" AND "Takt".ET < T#3s;\n"Gruen" := "Betrieb" AND "Takt".ET >= T#4s AND "Takt".ET < T#7s;',
+        'DATA_BLOCK "Takt"\nNON_RETAIN\nIEC_TIMER\nBEGIN\nEND_DATA_BLOCK',
+      ),
+    );
+  });
+
+  it('Level 5: Zählen ohne Entprellung', () => {
+    const v = fails(
+      '05-zaehler',
+      ob(
+        '"Teile"(CU := "Lichtschranke", R := "Quittieren", PV := 5);\n"Karton_voll" := "Teile".Q;',
+        'DATA_BLOCK "Teile"\nNON_RETAIN\nCTU_INT\nBEGIN\nEND_DATA_BLOCK',
+      ),
+    );
+    expect(v.runs.filter((r) => !r.passed).length).toBeGreaterThan(v.runs.length / 2);
+  });
+
+  it('Level 6: Umschalten ohne Pause schließt kurz', () => {
+    const v = fails(
+      '06-stern-dreieck',
+      ob(
+        'IF "Start" AND "Stopp" THEN "Anlauf".ein := TRUE; END_IF;\nIF NOT "Stopp" THEN "Anlauf".ein := FALSE; END_IF;\n"T_Stern"(IN := "Anlauf".ein, PT := T#2s);\n"Netz" := "Anlauf".ein;\n"Stern" := "Anlauf".ein AND NOT "T_Stern".Q;\n"Dreieck" := "Anlauf".ein AND "T_Stern".Q;',
+        'DATA_BLOCK "T_Stern"\nNON_RETAIN\nTON_TIME\nBEGIN\nEND_DATA_BLOCK\nDATA_BLOCK "Anlauf"\nNON_RETAIN\nVAR ein : Bool; END_VAR\nBEGIN\nEND_DATA_BLOCK',
+      ),
+    );
+    expect(failedCriteria(v)).toEqual(['Stern- und Dreieckschütz nie gleichzeitig']);
+  });
+
+  it('Level 6: Schütze am Digitalausgang statt am Relais', () => {
+    const level = levelById('06-stern-dreieck')!;
+    const board = {
+      modules: [
+        { id: 'cpu1', type: 'cpu-klein', x: 0 },
+        { id: 'di1', type: 'di8', x: 2 },
+        { id: 'do1', type: 'do8', x: 3 },
+      ],
+      wires: BOARDS['06-stern-dreieck']!.wires.map((w) =>
+        w.module === 'rel1' ? { ...w, module: 'do1' } : w,
+      ),
+    };
+    const c = compileSolution(
+      level,
+      solutionFor(level, readFileSync(join(DATA, '06-stern-dreieck.scl'), 'utf8'), board),
+    );
+    expect(c.analysis.issues.filter((i) => i.code === 'needs-relay')).toHaveLength(3);
+  });
+
+  it('Level 7: ein Schaltpunkt ohne Hysterese taktet', () => {
+    const v = fails('07-tank', ob('"Pumpe" := "Fuellstand" < 16589;  // 60 %'));
+    expect(failedCriteria(v)).toEqual(['Pumpe schaltet höchstens 10-mal']);
+  });
+
+  it('Level 8: ohne Geberfehlererkennung', () => {
+    const v = fails(
+      '08-drahtbruch',
+      ob(
+        '#grad := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Temperatur", MAX := 27648), MAX := 150.0);\nIF #grad < 60.0 THEN "Heizung" := TRUE; END_IF;\nIF #grad > 65.0 THEN "Heizung" := FALSE; END_IF;',
+      ).replace('BEGIN', 'VAR_TEMP grad : Real; END_VAR\nBEGIN'),
+    );
+    expect(v.runs.every((r) => !r.passed)).toBe(true);
+  });
+
+  it('Level 9: Messwert ungefiltert ausgeben', () => {
+    const v = fails('09-mittelwert', ob('"Anzeige" := "Durchfluss";'));
+    expect(v.runs.every((r) => !r.passed)).toBe(true);
+  });
 
   it('Level 1: ohne Selbsthaltung', () => {
     fails('01-foerderband', ob('"Bandmotor" := "Start" AND "Stopp";'));

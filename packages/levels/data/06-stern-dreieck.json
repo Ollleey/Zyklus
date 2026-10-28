@@ -1,0 +1,228 @@
+{
+  "id": "06-stern-dreieck",
+  "order": 6,
+  "title": { "de": "Stern-Dreieck-Anlauf" },
+  "customer": { "de": "Mühle Ostertag" },
+  "mail": {
+    "from": { "de": "Jakob Ostertag <jakob@muehle-ostertag.example>" },
+    "subject": { "de": "Sicherung fliegt beim Anlauf" },
+    "body": {
+      "de": "Servus,\n\nunser großer Lüftermotor wird im Stern-Dreieck-Verfahren angelassen, damit der Anlaufstrom nicht die Sicherung wirft. Seit dem Umbau knallt es aber ab und zu beim Umschalten – der Elektriker sagt, Stern- und Dreieckschütz waren kurz gleichzeitig zu. Das ist ein Kurzschluss!\n\nBitte eine Steuerung, die das sicher verhindert. Die Schütze schalten nicht sofort, das steht im Datenblatt der Relaisbaugruppe.\n\nGruß aus der Mühle\nJakob Ostertag"
+    }
+  },
+  "datasheet": {
+    "de": "# Lüfter – Stern-Dreieck-Anlauf\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster „Start“, Schließer |\n| S2 | DI | Taster „Stopp“, **Öffner** |\n| K1 | DO | Netzschütz – **Leistungsausgang** |\n| K2 | DO | Sternschütz – **Leistungsausgang** |\n| K3 | DO | Dreieckschütz – **Leistungsausgang** |\n\nSchütze müssen über eine **Relaisbaugruppe (REL 4)** angesteuert werden. Deren Kontakte schließen 15 ms nach dem Befehl und öffnen erst 30 ms danach.\n\n## Ablauf\n\n1. **Start:** K1 und K2 ein (Sternbetrieb).\n2. Nach **2 s**: K2 aus.\n3. **Umschaltpause** von mindestens 50 ms, höchstens 200 ms.\n4. K3 ein (Dreieckbetrieb), K1 bleibt ein.\n5. **Stopp** (oder Drahtbruch an S2) schaltet sofort alles ab. Stopp hat Vorrang vor Start.\n\n## Sicherheit\n\n**K2 und K3 dürfen niemals gleichzeitig geschlossen sein** – auch nicht für eine Millisekunde."
+  },
+  "board": { "width": 10, "ductCapacity": 4 },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "rel4"],
+  "toleranceMs": 20,
+  "plant": { "type": "stardelta", "params": { "main": "K1", "star": "K2", "delta": "K3" } },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Start",
+      "name": { "de": "Taster Start (S1)" },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S2",
+      "tag": "Stopp",
+      "name": { "de": "Taster Stopp, Öffner (S2)" },
+      "kind": "DI",
+      "side": "left",
+      "role": "button",
+      "nc": true
+    },
+    {
+      "id": "K1",
+      "tag": "Netz",
+      "name": { "de": "Netzschütz (K1)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "actuator",
+      "power": true
+    },
+    {
+      "id": "K2",
+      "tag": "Stern",
+      "name": { "de": "Sternschütz (K2)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "actuator",
+      "power": true
+    },
+    {
+      "id": "K3",
+      "tag": "Dreieck",
+      "name": { "de": "Dreieckschütz (K3)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "actuator",
+      "power": true
+    }
+  ],
+  "tests": [
+    {
+      "id": "anlauf",
+      "name": { "de": "Anlauf und Stopp" },
+      "durationMs": 5000,
+      "seeds": [1],
+      "stimuli": {
+        "S1": [
+          [500, true],
+          [600, false]
+        ],
+        "S2": [
+          [4000, true],
+          [4200, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "exclusive",
+          "name": { "de": "Stern- und Dreieckschütz nie gleichzeitig" },
+          "signals": ["K2", "K3"]
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Netzschütz im Betrieb ein" },
+          "signal": "K1",
+          "value": true,
+          "from": 600,
+          "to": 4000
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Sternbetrieb ca. 2 s" },
+          "signal": "K2",
+          "value": true,
+          "from": 600,
+          "to": 2400
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Sternschütz nach dem Umschalten aus" },
+          "signal": "K2",
+          "value": false,
+          "from": 2650,
+          "to": 5000
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Kein Dreieck vor Ablauf der Sternzeit" },
+          "signal": "K3",
+          "value": false,
+          "from": 0,
+          "to": 2400
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Dreieckbetrieb nach max. 200 ms Pause" },
+          "signal": "K3",
+          "value": true,
+          "from": 2750,
+          "to": 4000
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Nach Stopp: Netzschütz aus" },
+          "signal": "K1",
+          "value": false,
+          "from": 4100,
+          "to": 5000
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Nach Stopp: Dreieckschütz aus" },
+          "signal": "K3",
+          "value": false,
+          "from": 4100,
+          "to": 5000
+        }
+      ]
+    },
+    {
+      "id": "stopp-im-stern",
+      "name": { "de": "Stopp während des Sternbetriebs" },
+      "durationMs": 3500,
+      "seeds": [1],
+      "stimuli": {
+        "S1": [
+          [500, true],
+          [600, false]
+        ],
+        "S2": [
+          [1500, true],
+          [1700, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "exclusive",
+          "name": { "de": "Stern- und Dreieckschütz nie gleichzeitig" },
+          "signals": ["K2", "K3"]
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Netzschütz läuft an" },
+          "signal": "K1",
+          "value": true,
+          "from": 600,
+          "to": 1500
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Kein Dreieckbetrieb" },
+          "signal": "K3",
+          "value": false,
+          "from": 0,
+          "to": 3500
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Nach Stopp alles aus (K1)" },
+          "signal": "K1",
+          "value": false,
+          "from": 1600,
+          "to": 3500
+        },
+        {
+          "kind": "always",
+          "name": { "de": "Nach Stopp alles aus (K2)" },
+          "signal": "K2",
+          "value": false,
+          "from": 1600,
+          "to": 3500
+        }
+      ]
+    },
+    {
+      "id": "start-bei-stopp",
+      "name": { "de": "Start bei gedrücktem Stopp" },
+      "durationMs": 2000,
+      "seeds": [1],
+      "stimuli": {
+        "S2": [
+          [300, true],
+          [1000, false]
+        ],
+        "S1": [
+          [500, true],
+          [700, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": { "de": "Motor bleibt aus" },
+          "signal": "K1",
+          "value": false,
+          "from": 0,
+          "to": 2000
+        }
+      ]
+    }
+  ]
+}

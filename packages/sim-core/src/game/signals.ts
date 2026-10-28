@@ -1,5 +1,71 @@
 import { Rng, deriveSeed } from '../prng';
-import type { Device, Edge } from './level';
+import type { AnalogSpec, Device, Edge, FaultKind } from './level';
+
+/** S7-Normbereich und Sonderwerte */
+export const RAW_NOMINAL = 27648;
+export const RAW_OVERRANGE = 32511;
+export const RAW_UNDERRANGE = -4864;
+export const RAW_OVERFLOW = 32767;
+export const RAW_UNDERFLOW = -32768;
+
+/** Physikalischer Wert → Rohwert 0…27648 (Über-/Untersteuerbereich begrenzt wie bei S7). */
+export function toRaw(v: number, a: AnalogSpec): number {
+  const raw = Math.round(((v - a.min) / (a.max - a.min)) * RAW_NOMINAL);
+  return Math.max(RAW_UNDERRANGE, Math.min(RAW_OVERRANGE, raw));
+}
+
+export function fromRaw(raw: number, a: AnalogSpec): number {
+  return a.min + (raw / RAW_NOMINAL) * (a.max - a.min);
+}
+
+/** Linear interpolierter Wert einer Punktfolge (vor dem ersten Punkt: erster Wert). */
+export function interpolate(points: Edge[], t: number, initial = 0): number {
+  if (!points.length) return initial;
+  if (t <= points[0]![0]) return points[0]![1] as number;
+  for (let i = 1; i < points.length; i++) {
+    const [t1, v1] = points[i]! as [number, number];
+    if (t <= t1) {
+      const [t0, v0] = points[i - 1]! as [number, number];
+      return v0 + ((v1 - v0) * (t - t0)) / (t1 - t0);
+    }
+  }
+  return points[points.length - 1]![1] as number;
+}
+
+export function faultAt(
+  faults: [number, number, FaultKind][] | undefined,
+  t: number,
+): FaultKind | undefined {
+  return faults?.find(([a, b]) => t >= a && t < b)?.[2];
+}
+
+/**
+ * Störungen eines Analogeingangs. Muss genau einmal je ms aufgerufen werden, damit die
+ * Zufallsfolge (Seed) reproduzierbar bleibt.
+ */
+export class AnalogDisturbance {
+  private readonly rng: Rng;
+
+  constructor(
+    private readonly device: Device,
+    seed: number,
+  ) {
+    this.rng = new Rng(deriveSeed(seed, `analog:${device.id}`));
+  }
+
+  /** Rohwert mit Rauschen, Ausreißern und Geberfehlern */
+  apply(cleanRaw: number, fault: FaultKind | undefined): number {
+    const a = this.device.analog!;
+    let raw = cleanRaw;
+    if (a.noise) raw += this.rng.gaussian(0, a.noise);
+    if (a.spikes && this.rng.chance(a.spikes.perSecond / 1000)) {
+      raw += (this.rng.chance(0.5) ? 1 : -1) * a.spikes.amplitude;
+    }
+    if (fault === 'break' || fault === 'overflow') return RAW_OVERFLOW;
+    if (fault === 'underflow') return RAW_UNDERFLOW;
+    return Math.max(RAW_UNDERFLOW, Math.min(RAW_OVERFLOW, Math.round(raw)));
+  }
+}
 
 /** Wert eines stückweise konstanten Signals zum Zeitpunkt t (vor der ersten Flanke: `initial`). */
 export function valueAt(

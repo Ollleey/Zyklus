@@ -1,5 +1,24 @@
 # Changelog
 
+## M5 – Signalstörungen und Analogtechnik (2026-10-28)
+
+- Engine:
+  - Analogeingänge mit Messbereich (physikalisch ↔ 0…27648), linear interpolierten Stimuli,
+    Rauschen, Ausreißern und Geberfehlern (Drahtbruch/Überlauf 32767, Unterlauf −32768), alles per Seed
+    reproduzierbar; Über-/Untersteuerbereich begrenzt wie S7
+  - Relaisbaugruppe REL 4 (Ansprechzeit 15 ms, Abfallzeit 30 ms); Leistungsverbraucher (Schütze, Pumpen)
+    brauchen einen Relaisausgang
+  - Anlagenmodell Tank (Pumpe, veränderlicher Verbrauch) mit Rückkopplung auf den Messwert
+  - Kriterien statt fester Soll-Verläufe: `always`, `range`, `exclusive`, `maxChanges`, `track`;
+    Aufzeichnung von Anlagenzustand (`plant.*`) und störungsfreiem Messwert (`true.*`)
+- Level 4–9: Baustellenampel, Teilezähler mit flatternder Lichtschranke, Stern-Dreieck-Anlauf mit
+  Verriegelung, Hochbehälter mit Hysterese, Drahtbruch mit Ersatzreaktion, Glättung eines verrauschten
+  Messwerts – jeweils mit Referenzlösung und Tests für typische Fehllösungen
+- App: Analogspuren im Logic Analyzer (Messwert und wahrer Wert), Anlagenzeilen, Anlagenansichten
+  (Ampel, Lichtschranke, Stern-Dreieck, Tank, Ofen, Durchfluss), Schalter und Schieberegler im
+  Handbetrieb, verletzte Kriterien im Prüfdialog
+- 398 Tests
+
 ## M4 – FUP-Editor (2026-10-28)
 
 - `@zyklus/fup-model`: Netzwerk-/Box-/Verbindungsmodell im TIA-Stil (Bool-Verbindungen, Operanden an

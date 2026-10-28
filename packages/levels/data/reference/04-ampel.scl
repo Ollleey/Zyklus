@@ -1,0 +1,23 @@
+DATA_BLOCK "Takt"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+IEC_TIMER
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Ein Zeitglied für den ganzen 8-s-Umlauf; startet sich selbst neu
+	"Takt".TON(IN := "Betrieb" AND NOT "Takt".Q, PT := T#8s);
+
+	"Rot" := "Betrieb" AND "Takt".ET < T#4s;
+	"Gelb" := "Betrieb" AND (("Takt".ET >= T#3s AND "Takt".ET < T#4s) OR "Takt".ET >= T#7s);
+	"Gruen" := "Betrieb" AND "Takt".ET >= T#4s AND "Takt".ET < T#7s;
+END_ORGANIZATION_BLOCK

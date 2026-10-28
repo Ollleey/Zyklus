@@ -1,0 +1,31 @@
+DATA_BLOCK "Entprellen"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+TON_TIME
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Teile"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+CTU_INT
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Teil erst zählen, wenn die Lichtschranke 20 ms stabil unterbrochen ist
+	"Entprellen"(IN := "Lichtschranke", PT := T#20ms);
+	"Teile"(CU := "Entprellen".Q, R := "Quittieren", PV := 5);
+	"Karton_voll" := "Teile".Q;
+END_ORGANIZATION_BLOCK

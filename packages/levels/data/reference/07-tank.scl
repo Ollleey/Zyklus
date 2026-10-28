@@ -1,0 +1,19 @@
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      prozent : Real;
+   END_VAR
+
+BEGIN
+	#prozent := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Fuellstand", MAX := 27648), MAX := 100.0);
+
+	// Zweipunktregelung mit Hysterese: dazwischen bleibt die Pumpe, wie sie ist
+	IF #prozent < 40.0 THEN
+	    "Pumpe" := TRUE;
+	END_IF;
+	IF #prozent > 80.0 THEN
+	    "Pumpe" := FALSE;
+	END_IF;
+END_ORGANIZATION_BLOCK

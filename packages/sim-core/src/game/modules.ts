@@ -1,7 +1,7 @@
 import { CPU_TYPES, type CpuType } from '../catalog';
 import type { Text } from './text';
 
-export type ModuleKind = 'cpu' | 'di' | 'do' | 'ai' | 'ao';
+export type ModuleKind = 'cpu' | 'di' | 'do' | 'ai' | 'ao' | 'rel';
 export type ChannelKind = 'DI' | 'DO' | 'AI' | 'AO';
 
 export interface ModuleType {
@@ -14,6 +14,8 @@ export interface ModuleType {
   /** Anzahl E/A-Kanäle (CPU: 0) */
   channels: number;
   cpu?: CpuType;
+  /** Relaisausgang: Ansprech- und Abfallverzögerung in ms */
+  delay?: { on: number; off: number };
   description: Text;
 }
 
@@ -62,6 +64,18 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
     channels: 2,
     description: { de: '2 analoge Eingänge, Rohwert 0…27648.' },
   },
+  rel4: {
+    id: 'rel4',
+    name: { de: 'REL 4' },
+    kind: 'rel',
+    width: 1,
+    price: 3,
+    channels: 4,
+    delay: { on: 15, off: 30 },
+    description: {
+      de: '4 Relaisausgänge für Schütze/Leistung. Ansprechzeit 15 ms, Abfallzeit 30 ms.',
+    },
+  },
   ao2: {
     id: 'ao2',
     name: { de: 'AO 2' },
@@ -74,7 +88,10 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
 };
 
 export function channelKind(kind: ModuleKind): ChannelKind | undefined {
-  return kind === 'cpu' ? undefined : (kind.toUpperCase() as ChannelKind);
+  if (kind === 'cpu') return undefined;
+  // Relaisausgänge sind elektrisch Digitalausgänge
+  if (kind === 'rel') return 'DO';
+  return kind.toUpperCase() as ChannelKind;
 }
 
 export function moduleType(id: string): ModuleType {

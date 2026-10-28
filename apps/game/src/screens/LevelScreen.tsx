@@ -239,6 +239,15 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
                 sim.setManual(d, v);
                 if (!sim.running) sim.play();
               }}
+              analogValue={(d) => {
+                const v = run?.isActuated(d);
+                const dev = level.devices.find((x) => x.id === d);
+                return typeof v === 'number' ? v : (dev?.analog?.min ?? 0);
+              }}
+              onAnalog={(d, v) => {
+                sim.setManual(d, v);
+                if (!sim.running) sim.play();
+              }}
             />
           </div>
         </section>

@@ -43,6 +43,7 @@ export type BoardIssueCode =
   | 'channel-used'
   | 'device-twice'
   | 'duct-full'
+  | 'needs-relay'
   | 'unwired';
 
 export interface BoardIssue {
@@ -59,6 +60,8 @@ export interface Binding {
   cpu: string;
   address: string;
   t: DataType;
+  /** über einen Relaisausgang angeschlossen: Schaltverzögerung in ms */
+  delay?: { on: number; off: number };
 }
 
 export interface BoardAnalysis {
@@ -148,19 +151,25 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       continue;
     }
     cpuOf.set(m.id, cpu);
+    // Relaisausgänge belegen wie DO ein Ausgangsbyte
+    const k = t.kind === 'rel' ? 'do' : (t.kind as 'di' | 'do' | 'ai' | 'ao');
     for (let ch = 0; ch < t.channels; ch++) {
       let addr: string;
-      if (t.kind === 'di' || t.kind === 'do') {
-        const byte = counters[t.kind];
-        addr = formatAddress({ area: t.kind === 'di' ? 'I' : 'Q', size: 'X', byte, bit: ch });
+      if (k === 'di' || k === 'do') {
+        addr = formatAddress({
+          area: k === 'di' ? 'I' : 'Q',
+          size: 'X',
+          byte: counters[k],
+          bit: ch,
+        });
       } else {
-        const word = counters[t.kind] + ch * 2;
-        addr = formatAddress({ area: t.kind === 'ai' ? 'I' : 'Q', size: 'W', byte: word, bit: 0 });
+        const word = counters[k] + ch * 2;
+        addr = formatAddress({ area: k === 'ai' ? 'I' : 'Q', size: 'W', byte: word, bit: 0 });
       }
       channelAddress.set(`${m.id}:${ch}`, addr);
     }
-    if (t.kind === 'di' || t.kind === 'do') counters[t.kind] += 1;
-    else counters[t.kind] += t.channels * 2;
+    if (k === 'di' || k === 'do') counters[k] += 1;
+    else counters[k] += t.channels * 2;
   }
   if (!sorted.some((m) => types.get(m.id)!.kind === 'cpu')) {
     err({ code: 'no-cpu', message: 'Es ist keine CPU gesteckt' });
@@ -202,6 +211,15 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       });
       continue;
     }
+    if (dev.power && t.kind !== 'rel') {
+      err({
+        code: 'needs-relay',
+        message: `${dev.name.de} ist ein Leistungsverbraucher und braucht einen Relaisausgang`,
+        device: w.device,
+        module: w.module,
+      });
+      continue;
+    }
     const key = `${mod.id}:${w.channel}`;
     if (usedChannels.has(key)) {
       err({
@@ -232,6 +250,7 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
         cpu: cpuId,
         address,
         t: dev.kind === 'DI' || dev.kind === 'DO' ? 'BOOL' : 'INT',
+        delay: t.delay,
       });
     }
   }

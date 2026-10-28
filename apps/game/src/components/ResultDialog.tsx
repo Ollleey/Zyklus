@@ -42,6 +42,14 @@ export function ResultDialog({ level, result, best, onClose, onInspect }: Props)
                         {firstFail.stop ? ` – ${firstFail.stop}` : ''}
                       </button>
                     )}
+                    {firstFail?.criteria
+                      .filter((c) => !c.ok)
+                      .map((c, k) => (
+                        <div key={k} className="criterion-fail">
+                          ✗ {tr(c.name)}
+                          {c.detail ? ` (${c.detail})` : ''}
+                        </div>
+                      ))}
                   </td>
                 </tr>
               );

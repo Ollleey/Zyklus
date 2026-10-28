@@ -21,7 +21,7 @@ export interface SimControls {
   step: () => void;
   reset: () => void;
   setSpeed: (s: number) => void;
-  setManual: (device: string, v: boolean) => void;
+  setManual: (device: string, v: boolean | number) => void;
 }
 
 /** Steuert einen schrittweisen Simulationslauf im Browser (Echtzeit × Faktor). */

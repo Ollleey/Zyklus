@@ -14,6 +14,17 @@ export interface BounceSpec {
   gapMs: [number, number];
 }
 
+/** Analoger Messbereich: physikalisch min…max ↔ Rohwert 0…27648 (S7-Normbereich). */
+export interface AnalogSpec {
+  unit: string;
+  min: number;
+  max: number;
+  /** Rauschen: Standardabweichung in Digits */
+  noise?: number;
+  /** Ausreißer: mittlere Anzahl je Sekunde und Höhe in Digits */
+  spikes?: { perSecond: number; amplitude: number };
+}
+
 /** Feldgerät am Rand des Schaltschranks (fest vom Level vorgegeben). */
 export interface Device {
   id: string;
@@ -26,18 +37,61 @@ export interface Device {
   role: DeviceRole;
   /** Öffner: elektrisches Signal ist 1, solange nicht betätigt */
   nc?: boolean;
+  /** Prellen bzw. Flattern bei jeder Flanke */
   bounce?: BounceSpec;
+  /** Analoggeräte (AI/AO) */
+  analog?: AnalogSpec;
+  /** Leistungsverbraucher (Schütz, Motor): braucht einen Relaisausgang */
+  power?: boolean;
 }
+
+/** Geberfehler an einem Analogeingang: Drahtbruch/Überlauf = 32767, Unterlauf = −32768 */
+export type FaultKind = 'break' | 'overflow' | 'underflow';
+
+/**
+ * Prüfkriterium für Aufgaben, bei denen kein fester Soll-Verlauf vorgegeben werden kann.
+ * `signal` ist eine Geräte-id, `plant.<größe>` (Anlagenzustand) oder `true.<id>` (Messwert ohne Störung).
+ */
+export type Check =
+  | { kind: 'always'; name: Text; signal: string; value: boolean; from: number; to: number }
+  | {
+      kind: 'range';
+      name: Text;
+      signal: string;
+      min: number;
+      max: number;
+      from: number;
+      to: number;
+    }
+  | { kind: 'exclusive'; name: Text; signals: string[]; from?: number; to?: number }
+  | { kind: 'maxChanges'; name: Text; signal: string; max: number; from?: number; to?: number }
+  | {
+      kind: 'track';
+      name: Text;
+      signal: string;
+      reference: string;
+      tolerance: number;
+      from: number;
+      to?: number;
+    };
 
 export interface TestCase {
   id: string;
   name: Text;
   durationMs: number;
   seeds: number[];
-  /** Betätigung je Eingangsgerät (physikalisch: gedrückt/nicht gedrückt) */
+  /**
+   * Betätigung je Eingangsgerät: bei DI gedrückt/nicht gedrückt (stufig),
+   * bei AI physikalische Werte, zwischen den Punkten linear interpoliert.
+   */
   stimuli: Record<string, Edge[]>;
   /** Soll-Verlauf je Ausgangsgerät */
-  expect: Record<string, Edge[]>;
+  expect?: Record<string, Edge[]>;
+  /** Geberfehler je Analogeingang: [von, bis, Art] */
+  faults?: Record<string, [number, number, FaultKind][]>;
+  /** Parameter des Anlagenmodells für diesen Test (überschreibt Level-Parameter) */
+  plant?: Record<string, unknown>;
+  checks?: Check[];
 }
 
 export interface Level {
@@ -105,7 +159,12 @@ export function validateLevel(json: unknown): Level {
     ) {
       p.push(`Gerät ${d.id}: bounce ungültig`);
     }
+    if ((d.kind === 'AI' || d.kind === 'AO') && (!d.analog || !(d.analog.max > d.analog.min))) {
+      p.push(`Gerät ${d.id}: analog (min < max) fehlt`);
+    }
   }
+  const knownSignal = (s: string) =>
+    devices.has(s) || s.startsWith('plant.') || (s.startsWith('true.') && devices.has(s.slice(5)));
 
   const checkEdges = (where: string, edges: Edge[], duration: number) => {
     let last = -1;
@@ -131,6 +190,22 @@ export function validateLevel(json: unknown): Level {
         p.push(`Test ${tc.id}: Soll für ${dev} ist kein Ausgangsgerät`);
       checkEdges(`Test ${tc.id} / ${dev}`, edges, tc.durationMs);
     }
+    for (const dev of Object.keys(tc.faults ?? {})) {
+      if (devices.get(dev)?.kind !== 'AI')
+        p.push(`Test ${tc.id}: Fehler für ${dev} ist kein Analogeingang`);
+    }
+    for (const c of tc.checks ?? []) {
+      if (!isText(c.name)) p.push(`Test ${tc.id}: Kriterium ohne Namen`);
+      const signals =
+        c.kind === 'exclusive'
+          ? c.signals
+          : c.kind === 'track'
+            ? [c.signal, c.reference]
+            : [c.signal];
+      for (const s of signals)
+        if (!knownSignal(s)) p.push(`Test ${tc.id}: unbekanntes Signal ${s}`);
+    }
+    if (!tc.expect && !tc.checks) p.push(`Test ${tc.id}: weder expect noch checks`);
   }
   if (p.length) throw new LevelError(id, p);
   return l;

@@ -1,0 +1,46 @@
+DATA_BLOCK "Ofen"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      stoerung : Bool;   // gespeicherte Störmeldung
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      fehler : Bool;
+      grad : Real;
+   END_VAR
+
+BEGIN
+	// Drahtbruch/Überlauf = 32767, Unterlauf = -32768; gültig ist -4864 … 32511
+	#fehler := "Temperatur" > 32511 OR "Temperatur" < -4864;
+
+	IF #fehler THEN
+	    "Ofen".stoerung := TRUE;
+	END_IF;
+	IF "Quittieren" AND NOT #fehler THEN
+	    "Ofen".stoerung := FALSE;
+	END_IF;
+	"Stoerung" := "Ofen".stoerung;
+
+	IF #fehler THEN
+	    // Ersatzreaktion: sicherer Zustand
+	    "Heizung" := FALSE;
+	ELSE
+	    #grad := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Temperatur", MAX := 27648), MAX := 150.0);
+	    IF #grad < 60.0 THEN
+	        "Heizung" := TRUE;
+	    END_IF;
+	    IF #grad > 65.0 THEN
+	        "Heizung" := FALSE;
+	    END_IF;
+	END_IF;
+END_ORGANIZATION_BLOCK

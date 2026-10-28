@@ -1,0 +1,108 @@
+{
+  "id": "04-ampel",
+  "order": 4,
+  "title": { "de": "Baustellenampel" },
+  "customer": { "de": "Stadtwerke Kleinhausen" },
+  "mail": {
+    "from": { "de": "Bernd Aigner <b.aigner@stadtwerke-kleinhausen.example>" },
+    "subject": { "de": "Ampel für die Brückensanierung" },
+    "body": {
+      "de": "Hallo,\n\nab Montag sanieren wir die Mühlbachbrücke, der Verkehr läuft einspurig. Unsere Leihampel ist kaputt, und bis Ersatz kommt, brauchen wir eine eigene Steuerung.\n\nDer Ablauf ist der übliche: Rot, Rot-Gelb, Grün, Gelb, wieder Rot. Die Zeiten stehen im Datenblatt. Mit dem Schlüsselschalter wird die Ampel ein- und ausgeschaltet. Beim Einschalten muss sie immer mit Rot anfangen.\n\nViele Grüße\nBernd Aigner\nTiefbau"
+    }
+  },
+  "datasheet": {
+    "de": "# Baustellenampel\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Schlüsselschalter „Betrieb“ (1 = ein) |\n| H1 | DO | Rot |\n| H2 | DO | Gelb |\n| H3 | DO | Grün |\n\n## Ablauf (wiederholt sich, solange S1 = 1)\n\n| Phase | Dauer | Rot | Gelb | Grün |\n|---|---|---|---|---|\n| Rot | 3 s | 1 | 0 | 0 |\n| Rot-Gelb | 1 s | 1 | 1 | 0 |\n| Grün | 3 s | 0 | 0 | 1 |\n| Gelb | 1 s | 0 | 1 | 0 |\n\n## Funktion\n\n1. Mit S1 = 1 beginnt der Ablauf mit der Phase **Rot**.\n2. Mit S1 = 0 sind sofort alle Lampen aus.\n3. Erneutes Einschalten beginnt wieder bei Rot.\n\n## Zeitverhalten\n\nUmschaltzeitpunkte dürfen um höchstens ±60 ms abweichen.\n\n## Hinweis\n\nEin einziges Zeitglied für den ganzen Umlauf genügt: Die abgelaufene Zeit `ET` lässt sich mit Zeitkonstanten vergleichen, z. B. `\"Takt\".ET < T#3s`."
+  },
+  "board": { "width": 10, "ductCapacity": 4 },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8"],
+  "toleranceMs": 60,
+  "plant": { "type": "traffic", "params": { "red": "H1", "yellow": "H2", "green": "H3" } },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Betrieb",
+      "name": { "de": "Schlüsselschalter Betrieb (S1)" },
+      "kind": "DI",
+      "side": "left",
+      "role": "switch"
+    },
+    {
+      "id": "H1",
+      "tag": "Rot",
+      "name": { "de": "Rot (H1)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    },
+    {
+      "id": "H2",
+      "tag": "Gelb",
+      "name": { "de": "Gelb (H2)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    },
+    {
+      "id": "H3",
+      "tag": "Gruen",
+      "name": { "de": "Grün (H3)" },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "umlauf",
+      "name": { "de": "Anderthalb Umläufe" },
+      "durationMs": 12000,
+      "seeds": [1],
+      "stimuli": {
+        "S1": [
+          [200, true],
+          [11000, false]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [200, true],
+          [4200, false],
+          [8200, true],
+          [11000, false]
+        ],
+        "H2": [
+          [3200, true],
+          [4200, false],
+          [7200, true],
+          [8200, false]
+        ],
+        "H3": [
+          [4200, true],
+          [7200, false]
+        ]
+      }
+    },
+    {
+      "id": "aus-und-ein",
+      "name": { "de": "Ausschalten und neu starten" },
+      "durationMs": 6000,
+      "seeds": [1],
+      "stimuli": {
+        "S1": [
+          [500, true],
+          [2000, false],
+          [3000, true]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [500, true],
+          [2000, false],
+          [3000, true]
+        ],
+        "H2": [],
+        "H3": []
+      }
+    }
+  ]
+}

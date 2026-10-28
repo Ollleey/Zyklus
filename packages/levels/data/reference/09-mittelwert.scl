@@ -1,0 +1,28 @@
+DATA_BLOCK "Filter"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      wert : Real;      // geglätteter Wert
+      bereit : Bool;    // erster Messwert übernommen
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	IF NOT "Filter".bereit THEN
+	    "Filter".wert := INT_TO_REAL("Durchfluss");
+	    "Filter".bereit := TRUE;
+	END_IF;
+
+	// exponentieller Mittelwert über ca. 8 Zyklen
+	"Filter".wert := "Filter".wert + (INT_TO_REAL("Durchfluss") - "Filter".wert) / 8.0;
+	"Anzeige" := REAL_TO_INT("Filter".wert);
+END_ORGANIZATION_BLOCK
