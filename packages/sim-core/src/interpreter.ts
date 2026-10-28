@@ -4,6 +4,7 @@ import type { Instr, IrProgram, Operand } from './ir';
 import type { ByteArea } from './memory';
 import { energyOf } from './metrics/weights';
 import {
+  bitWidth,
   isIntegerType,
   normalize,
   roundHalfEven,
@@ -174,15 +175,21 @@ export function convert(
     const i = mode === 'trunc' ? Math.trunc(n) : roundHalfEven(n);
     return saturate(to, i);
   }
-  if ((from === 'INT' && to === 'WORD') || (from === 'WORD' && to === 'INT'))
-    return normalize(to, n);
+  if (sameBitPattern(from, to)) return normalize(to, n);
   return saturate(to, n);
+}
+
+/** Typpaare gleicher Breite, bei denen das Bitmuster übernommen wird. */
+function sameBitPattern(a: DataType, b: DataType): boolean {
+  const pair = (x: DataType, y: DataType) => (a === x && b === y) || (a === y && b === x);
+  return pair('INT', 'WORD') || pair('DINT', 'DWORD') || pair('TIME', 'DWORD');
 }
 
 function unary(fn: 'not' | 'neg' | 'abs', t: DataType, a: Value): Value {
   switch (fn) {
     case 'not':
-      return t === 'BOOL' ? !a : ~(a as number) & 0xffff;
+      // normalize beim Schreiben schneidet auf die Breite des Typs zu
+      return t === 'BOOL' ? !a : ~(a as number);
     case 'neg':
       return -(a as number);
     case 'abs':
@@ -221,9 +228,10 @@ function binary(fn: Extract<Instr, { op: 'bin' }>['fn'], t: DataType, av: Value,
     case 'xor':
       return a ^ b;
     case 'shl':
-      return b <= 0 ? a : b >= 16 ? 0 : (a << b) & 0xffff;
+      // a · 2^b ist exakt; normalize schneidet auf die Typbreite zu
+      return b <= 0 ? a : b >= bitWidth(t) ? 0 : a * 2 ** b;
     case 'shr':
-      return b <= 0 ? a : b >= 16 ? 0 : a >>> b;
+      return b <= 0 ? a : b >= bitWidth(t) ? 0 : a >>> b;
   }
 }
 

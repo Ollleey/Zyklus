@@ -31,14 +31,16 @@ Steuerung abweicht, ist das markiert (**Spielregel**).
 
 ## 3. Datentypen
 
-| Typ  | Darstellung                     | Überlauf bei Arithmetik |
-| ---- | ------------------------------- | ----------------------- |
-| BOOL | `boolean`                       | –                       |
-| INT  | 16 bit, vorzeichenbehaftet      | Zweierkomplement (wrap) |
-| DINT | 32 bit, vorzeichenbehaftet      | wrap                    |
-| WORD | 16 bit, vorzeichenlos           | wrap                    |
-| TIME | 32 bit ms, vorzeichenbehaftet   | wrap                    |
-| REAL | IEEE-754 32 bit (`Math.fround`) | ±Inf / NaN wie IEEE     |
+| Typ   | Darstellung                     | Überlauf bei Arithmetik |
+| ----- | ------------------------------- | ----------------------- |
+| BOOL  | `boolean`                       | –                       |
+| INT   | 16 bit, vorzeichenbehaftet      | Zweierkomplement (wrap) |
+| DINT  | 32 bit, vorzeichenbehaftet      | wrap                    |
+| BYTE  | 8 bit Bitfolge                  | – (keine Arithmetik)    |
+| WORD  | 16 bit Bitfolge                 | – (keine Arithmetik)    |
+| DWORD | 32 bit Bitfolge                 | – (keine Arithmetik)    |
+| TIME  | 32 bit ms, vorzeichenbehaftet   | wrap                    |
+| REAL  | IEEE-754 32 bit (`Math.fround`) | ±Inf / NaN wie IEEE     |
 
 - Ganzzahlige Division schneidet Richtung 0 ab; `MOD` hat das Vorzeichen des Dividenden.
 - **Spielregel:** Ganzzahlige Division bzw. MOD durch 0 ergibt 0 (keine Fehlerreaktion).
@@ -48,7 +50,7 @@ Steuerung abweicht, ist das markiert (**Spielregel**).
 
 - REAL → Ganzzahl: Modus `round` (kaufmännisch auf gerade Zahl, IEC `ROUND`) oder `trunc`, danach
   **Sättigung** auf den Zielbereich. NaN → 0.
-- INT ↔ WORD: Bitmuster wird übernommen (`-1` ↔ `16#FFFF`).
+- INT ↔ WORD, DINT ↔ DWORD, TIME ↔ DWORD: Bitmuster wird übernommen (`-1` ↔ `16#FFFF`).
 - TIME ↔ DINT: identisch.
 - Andere Ganzzahl-Verengungen (z. B. DINT → INT): **Sättigung**.
 - BOOL → Zahl: 0/1. Zahl → BOOL: ≠ 0.
@@ -58,7 +60,8 @@ Steuerung abweicht, ist das markiert (**Spielregel**).
 - `%I`, `%Q`, `%M` sind byte-adressiert (Standard 128 Byte E/A, 256 Byte Merker).
 - Wörter/Doppelwörter liegen **big-endian**: `%MW0` = `%MB0` (High) und `%MB1` (Low); `%M1.0` ist
   das niederwertigste Bit von `%MW0`.
-- Adressformen: `%I0.0`, `%Q1.7`, `%M10.3` (Bit), `%IW64`, `%QW2`, `%MW4` (Wort), `%ID0`, `%MD8` (Doppelwort).
+- Adressformen: `%I0.0`, `%Q1.7`, `%M10.3` (Bit), `%IB0`, `%MB3` (Byte), `%IW64`, `%QW2`, `%MW4`
+  (Wort), `%ID0`, `%MD8` (Doppelwort). In SCL haben sie die TIA-Typen Byte/Word/DWord.
 - Variablen (Global-DB, statische Instanzdaten, TEMP) liegen in typisierten **Slots** und sind
   nicht über Absolutadressen erreichbar.
 - **Spielregel:** TEMP-Variablen starten jeden Zyklus mit ihrem Startwert (bei echter Hardware undefiniert).
@@ -144,8 +147,12 @@ auch wenn R/LD aktiv ist). An den INT-Grenzen bleibt der Zähler stehen.
 
 ### Wortlogik und Schieben
 
-`AND/OR/XOR/NOT` auf WORD. `SHL`/`SHR` (nur WORD, Schiebeweite INT): Nullen werden nachgeschoben,
-herausgeschobene Bits gehen verloren; Weite ≥ 16 → 0; Weite ≤ 0 → unverändert.
+`AND/OR/XOR/NOT` auf BYTE/WORD/DWORD. `SHL`/`SHR` (Bitfolgen, Schiebeweite INT): Nullen werden
+nachgeschoben, herausgeschobene Bits gehen verloren; Weite ≥ Bitbreite → 0; Weite ≤ 0 → unverändert.
+
+### Zähler im IEC_COUNTER-Instanz-DB
+
+CTU setzt zusätzlich QU, CTD zusätzlich QD (so heißen die Ausgänge im IEC_COUNTER-DB von TIA).
 
 ## 7. Metriken
 

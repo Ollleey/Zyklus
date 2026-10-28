@@ -9,7 +9,7 @@ import {
   type IrProgram,
   type Operand,
 } from './ir';
-import { isArithmeticType, isBitwiseType, type DataType } from './types';
+import { isArithmeticType, isBitStringType, isBitwiseType, type DataType } from './types';
 import { ByteArea } from './memory';
 
 export class IrValidationError extends Error {
@@ -121,7 +121,7 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
             break;
           case 'shl':
           case 'shr':
-            if (ins.t !== 'WORD') err(`${ins.fn} nur auf WORD`);
+            if (!isBitStringType(ins.t)) err(`${ins.fn} nur auf BYTE/WORD/DWORD`);
             break;
           case 'mod':
             if (!isArithmeticType(ins.t) || ins.t === 'REAL') err(`MOD nicht auf ${ins.t}`);
@@ -233,7 +233,7 @@ function validateCall(
   const count = (n: number) => {
     if (args.length !== n) err(`${ins.fn.toUpperCase()} braucht ${n} Argumente`);
   };
-  const numeric: DataType[] = ['INT', 'DINT', 'REAL', 'TIME', 'WORD'];
+  const numeric: DataType[] = ['INT', 'DINT', 'REAL', 'TIME', 'BYTE', 'WORD', 'DWORD'];
   switch (ins.fn) {
     case 'limit':
     case 'in_range':

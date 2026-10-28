@@ -1,19 +1,19 @@
-import type { DataType } from '@zyklus/sim-core';
+import type { CodeBlockKind, DataType, IfaceSection } from '@zyklus/sim-core';
 import type { Span } from './diagnostics';
 
 /**
  * Variablenreferenz:
- * - `local`  #name           (nur lokale Deklarationen)
- * - `tag`    "name"          (PLC-Variablentabelle bzw. Global-DB mit Member)
- * - `auto`   name            (erst lokal, dann PLC-Variable)
+ * - `local`  #name           (Schnittstelle des Bausteins)
+ * - `tag`    "name"          (PLC-Variable bzw. Datenbaustein mit Pfad)
+ * - `auto`   name            (erst lokal, dann global)
  * - `addr`   %I0.0
  */
 export interface Ref {
   k: 'ref';
   scope: 'local' | 'tag' | 'auto' | 'addr';
   name: string;
-  /** z. B. Q bei #T1.Q oder Wert bei "Daten".Wert */
-  member?: string;
+  /** Elementzugriffe, z. B. ['Q'] bei "T1_DB".Q oder ['T1', 'ET'] bei "Daten".T1.ET */
+  path: string[];
   span: Span;
 }
 
@@ -65,25 +65,39 @@ export type Stmt =
   | { k: 'for'; v: Ref; from: Expr; to: Expr; by?: Expr; body: Stmt[]; span: Span }
   | { k: 'while'; cond: Expr; body: Stmt[]; span: Span }
   | { k: 'repeat'; body: Stmt[]; cond: Expr; span: Span }
+  | { k: 'region'; name: string; body: Stmt[]; span: Span }
   | { k: 'exit'; span: Span }
   | { k: 'continue'; span: Span }
   | { k: 'return'; span: Span }
+  /** Aufruf einer Instanz: "T1_DB"(…), "IEC_Timer_0_DB".TON(…), #inst(…) */
   | { k: 'fbcall'; inst: Ref; args: FbArg[]; span: Span }
   /** Aufruf einer Funktion als Anweisung (Ergebnis wird verworfen → Fehler im Compiler) */
   | { k: 'exprstmt'; e: Expr; span: Span };
 
-export type DeclSection = 'VAR' | 'VAR_TEMP' | 'CONST';
-
 export interface Decl {
-  section: DeclSection;
+  section: IfaceSection;
   name: string;
   typeName: string;
   typeSpan: Span;
   init?: Expr;
+  /** Quelltext des Startwerts (für den Import in das Projektmodell) */
+  initText?: string;
   span: Span;
 }
 
-export interface SclUnit {
+/** Ein Baustein aus einer externen SCL-Quelle. */
+export interface SourceBlock {
+  kind: CodeBlockKind | 'DB';
+  name: string;
+  nameSpan: Span;
+  title?: string;
+  /** bei Instanz-DBs: Typ (IEC_TIMER, "MeinFB", …) */
+  instanceOf?: string;
   decls: Decl[];
   body: Stmt[];
+  /** Anweisungsteil als Text (zwischen BEGIN und END_…) */
+  bodyText: string;
+  /** Zeile, in der der Anweisungsteil beginnt (für Positionsangaben) */
+  bodyLine: number;
+  span: Span;
 }

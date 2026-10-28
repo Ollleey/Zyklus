@@ -12,3 +12,4 @@ export * from './simulation';
 export * from './catalog';
 export * from './prng';
 export * from './tags';
+export * from './project';

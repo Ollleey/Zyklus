@@ -1,8 +1,8 @@
 import type { DataType } from './types';
 
 export type Area = 'I' | 'Q' | 'M';
-/** X = Bit, W = Wort (16 bit), D = Doppelwort (32 bit) */
-export type AccessSize = 'X' | 'W' | 'D';
+/** X = Bit, B = Byte, W = Wort (16 bit), D = Doppelwort (32 bit) */
+export type AccessSize = 'X' | 'B' | 'W' | 'D';
 
 export interface Address {
   area: Area;
@@ -12,7 +12,7 @@ export interface Address {
   bit: number;
 }
 
-const ADDRESS_RE = /^%([IQM])(?:(\d+)\.([0-7])|([WD])(\d+))$/i;
+const ADDRESS_RE = /^%([IQM])(?:(\d+)\.([0-7])|([BWD])(\d+))$/i;
 
 export class AddressError extends Error {}
 
@@ -20,7 +20,9 @@ export class AddressError extends Error {}
 export function parseAddress(text: string): Address {
   const m = ADDRESS_RE.exec(text.trim());
   if (!m)
-    throw new AddressError(`Ungültige Adresse „${text}“ (erwartet z. B. %I0.0, %IW64, %MD10)`);
+    throw new AddressError(
+      `Ungültige Adresse „${text}“ (erwartet z. B. %I0.0, %IB0, %IW64, %MD10)`,
+    );
   const area = m[1]!.toUpperCase() as Area;
   if (m[2] !== undefined) {
     return { area, size: 'X', byte: Number(m[2]), bit: Number(m[3]) };
@@ -36,20 +38,33 @@ export function sizeOfType(t: DataType): AccessSize {
   switch (t) {
     case 'BOOL':
       return 'X';
+    case 'BYTE':
+      return 'B';
     case 'INT':
     case 'WORD':
       return 'W';
     case 'DINT':
+    case 'DWORD':
     case 'REAL':
     case 'TIME':
       return 'D';
   }
 }
 
+/**
+ * Standardtyp einer Absolutadresse für Engine-Hilfsfunktionen (Tests, Peripherie):
+ * Wörter als INT, Doppelwörter als DINT. Der SCL-Compiler verwendet stattdessen
+ * die TIA-Typen (siehe `tiaTypeForSize`).
+ */
 export function defaultTypeForSize(size: AccessSize): DataType {
-  return size === 'X' ? 'BOOL' : size === 'W' ? 'INT' : 'DINT';
+  return size === 'X' ? 'BOOL' : size === 'B' ? 'BYTE' : size === 'W' ? 'INT' : 'DINT';
+}
+
+/** Typ einer Absolutadresse wie in TIA: %IB → BYTE, %IW → WORD, %ID → DWORD. */
+export function tiaTypeForSize(size: AccessSize): DataType {
+  return size === 'X' ? 'BOOL' : size === 'B' ? 'BYTE' : size === 'W' ? 'WORD' : 'DWORD';
 }
 
 export function byteLength(size: AccessSize): number {
-  return size === 'X' ? 1 : size === 'W' ? 2 : 4;
+  return size === 'X' || size === 'B' ? 1 : size === 'W' ? 2 : 4;
 }

@@ -156,11 +156,14 @@ export function evalCounter(s: InstanceState, x: CounterInputs): void {
       if (x.r) s.CV = 0;
       else if (up && s.CV < INT_MAX) s.CV++;
       s.Q = s.CV >= x.pv;
+      // im IEC_COUNTER-DB heißt der Ausgang von CTU „QU“
+      s.QU = s.Q;
       break;
     case 'CTD':
       if (x.ld) s.CV = x.pv;
       else if (down && s.CV > INT_MIN) s.CV--;
       s.Q = s.CV <= 0;
+      s.QD = s.Q;
       break;
     case 'CTUD':
       if (x.r) s.CV = 0;

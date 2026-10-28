@@ -13,9 +13,19 @@ import { KEYWORDS } from './lexer';
 
 export const SCL_LANGUAGE_ID = 'scl';
 
-export const SCL_TYPES = ['BOOL', 'INT', 'DINT', 'REAL', 'WORD', 'TIME'];
+export const SCL_TYPES = ['BOOL', 'BYTE', 'WORD', 'DWORD', 'INT', 'DINT', 'REAL', 'TIME'];
 
+/** Instanztypen und Anweisungsnamen der Systembausteine */
 export const SCL_FB_TYPES = [
+  'IEC_TIMER',
+  'IEC_COUNTER',
+  'TP_TIME',
+  'TON_TIME',
+  'TOF_TIME',
+  'TONR_TIME',
+  'CTU_INT',
+  'CTD_INT',
+  'CTUD_INT',
   'TP',
   'TON',
   'TOF',
@@ -25,8 +35,6 @@ export const SCL_FB_TYPES = [
   'CTUD',
   'R_TRIG',
   'F_TRIG',
-  'SR',
-  'RS',
 ];
 
 export const SCL_FUNCTIONS = [
@@ -38,8 +46,6 @@ export const SCL_FUNCTIONS = [
   'MUX',
   'NORM_X',
   'SCALE_X',
-  'IN_RANGE',
-  'OUT_RANGE',
   'SHL',
   'SHR',
   'ROUND',
@@ -49,6 +55,7 @@ export const SCL_FUNCTIONS = [
 
 export const sclMonarch = {
   ignoreCase: true,
+  unicode: true,
   defaultToken: '',
   keywords: KEYWORDS.filter(
     (k) => !['AND', 'OR', 'XOR', 'NOT', 'MOD', 'TRUE', 'FALSE'].includes(k),
@@ -63,15 +70,19 @@ export const sclMonarch = {
       [/\(\*/, 'comment', '@commentParen'],
       [/\/\*/, 'comment', '@commentSlash'],
       [/(?:T|TIME)#-?(?:\d+(?:\.\d+)?(?:ms|d|h|m|s)_?)+/i, 'number.time'],
-      [/(?:INT|DINT|WORD|REAL|BOOL)#[-+]?(?:16#[0-9A-F_]+|8#[0-7_]+|2#[01_]+|[\w.]+)/i, 'number'],
+      [
+        /(?:INT|DINT|BYTE|WORD|DWORD|REAL|BOOL|B|W|DW)#[-+]?(?:16#[0-9A-F_]+|8#[0-7_]+|2#[01_]+|[\w.]+)/i,
+        'number',
+      ],
       [/(?:16#[0-9A-F_]+|8#[0-7_]+|2#[01_]+)/i, 'number.hex'],
       [/\d[\d_]*\.\d+(?:e[-+]?\d+)?/i, 'number.float'],
       [/\d[\d_]*(?:e[-+]?\d+)?/i, 'number'],
-      [/%[IQM](?:\d+\.\d+|[WD]\d+)/i, 'variable.address'],
-      [/#[A-Za-z_]\w*/, 'variable.local'],
+      [/%[IQM](?:\d+\.\d+|[BWD]\d+)/i, 'variable.address'],
+      [/#[\p{L}_][\p{L}\p{N}_]*/u, 'variable.local'],
       [/"[^"]*"/, 'variable.global'],
+      [/'[^']*'/, 'string'],
       [
-        /[A-Za-z_]\w*/,
+        /[\p{L}_][\p{L}\p{N}_]*/u,
         {
           cases: {
             '@keywords': 'keyword',
@@ -112,9 +123,9 @@ export const sclLanguageConfiguration = {
     { open: '"', close: '"' },
   ],
   indentationRules: {
-    increaseIndentPattern: /^\s*(IF|ELSIF|ELSE|CASE|FOR|WHILE|REPEAT|VAR|VAR_TEMP)\b.*$/i,
+    increaseIndentPattern: /^\s*(IF|ELSIF|ELSE|CASE|FOR|WHILE|REPEAT|REGION)\b.*$/i,
     decreaseIndentPattern:
-      /^\s*(END_IF|ELSIF|ELSE|END_CASE|END_FOR|END_WHILE|UNTIL|END_REPEAT|END_VAR)\b.*$/i,
+      /^\s*(END_IF|ELSIF|ELSE|END_CASE|END_FOR|END_WHILE|UNTIL|END_REPEAT|END_REGION)\b.*$/i,
   },
 };
 

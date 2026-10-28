@@ -2,7 +2,7 @@ import type { DataType } from '@zyklus/sim-core';
 import { SclError, type Pos, type Span } from './diagnostics';
 
 export type TokenKind =
-  | 'ident' // Bezeichner oder Schlüsselwort (value = Originaltext)
+  | 'ident' // Bezeichner (value = Originaltext)
   | 'keyword' // value = Schlüsselwort in Großbuchstaben
   | 'local' // #name
   | 'quoted' // "name"
@@ -10,6 +10,7 @@ export type TokenKind =
   | 'int' // ganze Zahl ohne Typpräfix
   | 'real' // Gleitkommazahl ohne Typpräfix
   | 'typed' // Literal mit Typpräfix (INT#5, T#1s, WORD#16#FF); 16#FF allein ist 'int'
+  | 'string' // 'text' (nur in Attributen der Quelle)
   | 'op' // Operator / Satzzeichen
   | 'eof';
 
@@ -20,6 +21,11 @@ export interface Token extends Span {
   num?: number;
   /** bei typed: Datentyp */
   type?: DataType;
+  /** bei REGION und TITLE: Rest der Zeile */
+  text?: string;
+  /** Zeichenoffsets im Quelltext (für Import/Export) */
+  from: number;
+  to: number;
 }
 
 export const KEYWORDS = [
@@ -44,6 +50,8 @@ export const KEYWORDS = [
   'EXIT',
   'CONTINUE',
   'RETURN',
+  'REGION',
+  'END_REGION',
   'AND',
   'OR',
   'XOR',
@@ -52,9 +60,23 @@ export const KEYWORDS = [
   'TRUE',
   'FALSE',
   'VAR',
+  'VAR_INPUT',
+  'VAR_OUTPUT',
+  'VAR_IN_OUT',
   'VAR_TEMP',
   'END_VAR',
   'CONSTANT',
+  'BEGIN',
+  'ORGANIZATION_BLOCK',
+  'END_ORGANIZATION_BLOCK',
+  'FUNCTION_BLOCK',
+  'END_FUNCTION_BLOCK',
+  'FUNCTION',
+  'END_FUNCTION',
+  'DATA_BLOCK',
+  'END_DATA_BLOCK',
+  'STRUCT',
+  'END_STRUCT',
 ] as const;
 
 const KEYWORD_SET = new Set<string>(KEYWORDS);
@@ -84,16 +106,23 @@ const OPERATORS = [
   '&',
   '[',
   ']',
+  '{',
+  '}',
 ];
 
 const TYPE_PREFIXES: Record<string, DataType> = {
+  BOOL: 'BOOL',
+  BYTE: 'BYTE',
+  WORD: 'WORD',
+  DWORD: 'DWORD',
   INT: 'INT',
   DINT: 'DINT',
   REAL: 'REAL',
-  WORD: 'WORD',
   TIME: 'TIME',
   T: 'TIME',
-  BOOL: 'BOOL',
+  B: 'BYTE',
+  W: 'WORD',
+  DW: 'DWORD',
 };
 
 const DURATION_UNITS: [string, number][] = [
@@ -105,8 +134,9 @@ const DURATION_UNITS: [string, number][] = [
 ];
 
 const isDigit = (c: string | undefined) => c !== undefined && c >= '0' && c <= '9';
-const isIdentStart = (c: string | undefined) => c !== undefined && /[A-Za-z_]/.test(c);
-const isIdentPart = (c: string | undefined) => c !== undefined && /[A-Za-z0-9_]/.test(c);
+// TIA erlaubt Buchstaben inkl. Umlaute in Namen
+const isIdentStart = (c: string | undefined) => c !== undefined && /[\p{L}_]/u.test(c);
+const isIdentPart = (c: string | undefined) => c !== undefined && /[\p{L}\p{N}_]/u.test(c);
 
 /** Zerlegt SCL-Quelltext in Tokens. Wirft SclError beim ersten lexikalischen Fehler. */
 export function tokenize(src: string): Token[] {
@@ -129,6 +159,14 @@ export function tokenize(src: string): Token[] {
   };
   const fail = (msg: string, start: Pos): never => {
     throw new SclError(msg, { start, end: pos() });
+  };
+  const restOfLine = (): string => {
+    let s = '';
+    while (i < src.length && src[i] !== '\n') {
+      s += src[i];
+      advance();
+    }
+    return s.trim();
   };
 
   /** liest Ziffern (mit _ als Trenner) in der gegebenen Basis */
@@ -210,6 +248,9 @@ export function tokenize(src: string): Token[] {
   while (i < src.length) {
     const c = src[i]!;
     const start = pos();
+    const from = i;
+    const push = (t: Omit<Token, 'start' | 'end' | 'from' | 'to'>) =>
+      tokens.push({ ...t, start, end: pos(), from, to: i });
 
     if (c === ' ' || c === '\t' || c === '\r' || c === '\n') {
       advance();
@@ -236,7 +277,7 @@ export function tokenize(src: string): Token[] {
         name += src[i];
         advance();
       }
-      tokens.push({ kind: 'local', value: name, start, end: pos() });
+      push({ kind: 'local', value: name });
       continue;
     }
 
@@ -250,22 +291,35 @@ export function tokenize(src: string): Token[] {
       if (src[i] !== '"') fail('Anführungszeichen wird nicht geschlossen', start);
       advance();
       if (!name) fail('Leerer Name in Anführungszeichen', start);
-      tokens.push({ kind: 'quoted', value: name, start, end: pos() });
+      push({ kind: 'quoted', value: name });
+      continue;
+    }
+
+    if (c === "'") {
+      advance();
+      let text = '';
+      while (i < src.length && src[i] !== "'" && src[i] !== '\n') {
+        text += src[i];
+        advance();
+      }
+      if (src[i] !== "'") fail('Hochkomma wird nicht geschlossen', start);
+      advance();
+      push({ kind: 'string', value: text });
       continue;
     }
 
     if (c === '%') {
-      const m = /^%[IQM](?:\d+\.\d+|[WD]\d+)/i.exec(src.slice(i));
-      if (!m) fail('Ungültige Adresse (z. B. %I0.0, %IW64, %MD10)', start);
+      const m = /^%[IQM](?:\d+\.\d+|[BWD]\d+)/i.exec(src.slice(i));
+      if (!m) fail('Ungültige Adresse (z. B. %I0.0, %IB0, %IW64, %MD10)', start);
       advance(m![0].length);
-      tokens.push({ kind: 'address', value: m![0].toUpperCase(), start, end: pos() });
+      push({ kind: 'address', value: m![0].toUpperCase() });
       continue;
     }
 
     if (isDigit(c)) {
       const { num, isReal } = readNumber(start);
       if (isIdentPart(src[i])) fail('Ungültige Zahl', start);
-      tokens.push({ kind: isReal ? 'real' : 'int', value: String(num), num, start, end: pos() });
+      push({ kind: isReal ? 'real' : 'int', value: String(num), num });
       continue;
     }
 
@@ -299,21 +353,29 @@ export function tokenize(src: string): Token[] {
           num = sign * r.num;
           if (isIdentPart(src[i])) fail('Ungültige Zahl', start);
         }
-        tokens.push({ kind: 'typed', value: word, num, type, start, end: pos() });
+        push({ kind: 'typed', value: word, num, type });
         continue;
       }
-      if (KEYWORD_SET.has(upper)) {
-        tokens.push({ kind: 'keyword', value: upper, start, end: pos() });
-      } else {
-        tokens.push({ kind: 'ident', value: word, start, end: pos() });
+      if (upper === 'REGION') {
+        // REGION <Name bis Zeilenende>
+        push({ kind: 'keyword', value: upper, text: restOfLine() });
+        continue;
       }
+      if (upper === 'TITLE' && /^\s*=/.test(src.slice(i, i + 40))) {
+        while (src[i] !== '=') advance();
+        advance();
+        push({ kind: 'ident', value: 'TITLE', text: restOfLine() });
+        continue;
+      }
+      if (KEYWORD_SET.has(upper)) push({ kind: 'keyword', value: upper });
+      else push({ kind: 'ident', value: word });
       continue;
     }
 
     const op = OPERATORS.find((o) => src.startsWith(o, i));
     if (op) {
       advance(op.length);
-      tokens.push({ kind: 'op', value: op, start, end: pos() });
+      push({ kind: 'op', value: op });
       continue;
     }
 
@@ -321,6 +383,6 @@ export function tokenize(src: string): Token[] {
     fail(`Unerwartetes Zeichen „${c}“`, start);
   }
 
-  tokens.push({ kind: 'eof', value: '', start: pos(), end: pos() });
+  tokens.push({ kind: 'eof', value: '', start: pos(), end: pos(), from: i, to: i });
   return tokens;
 }

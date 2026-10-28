@@ -8,6 +8,7 @@ import {
   roundHalfEven,
   convert,
   io,
+  tiaTypeForSize,
 } from '../src';
 
 describe('Datentypen', () => {
@@ -53,9 +54,17 @@ describe('Konvertierung', () => {
     expect(convert(-1e9, 'REAL', 'INT')).toBe(-32768);
     expect(convert(NaN, 'REAL', 'DINT')).toBe(0);
   });
-  it('INT ↔ WORD übernimmt das Bitmuster', () => {
+  it('INT ↔ WORD und DINT ↔ DWORD übernehmen das Bitmuster', () => {
     expect(convert(-1, 'INT', 'WORD')).toBe(0xffff);
     expect(convert(0x8000, 'WORD', 'INT')).toBe(-32768);
+    expect(convert(-1, 'DINT', 'DWORD')).toBe(0xffffffff);
+    expect(convert(0x80000000, 'DWORD', 'DINT')).toBe(-2147483648);
+  });
+  it('BYTE/DWORD-Normalisierung und Sättigung', () => {
+    expect(normalize('BYTE', 0x1ff)).toBe(0xff);
+    expect(normalize('DWORD', -1)).toBe(0xffffffff);
+    expect(convert(300, 'INT', 'BYTE')).toBe(255);
+    expect(convert(-5, 'INT', 'BYTE')).toBe(0);
   });
   it('DINT → INT sättigt', () => {
     expect(convert(100000, 'DINT', 'INT')).toBe(32767);
@@ -77,12 +86,22 @@ describe('Adressen', () => {
     expect(parseAddress('%MD10')).toEqual({ area: 'M', size: 'D', byte: 10, bit: 0 });
   });
   it('lehnt Unsinn ab', () => {
-    for (const s of ['I0.0', '%I0.8', '%X1', '%IW', '%MB3']) {
+    for (const s of ['I0.0', '%I0.8', '%X1', '%IW', '%MX3', '%QL0']) {
       expect(() => parseAddress(s), s).toThrow(/Ungültige Adresse/);
     }
   });
   it('formatAddress ist die Umkehrung', () => {
-    for (const s of ['%I0.3', '%QW2', '%MD100']) expect(formatAddress(parseAddress(s))).toBe(s);
+    for (const s of ['%I0.3', '%IB1', '%QW2', '%MD100']) {
+      expect(formatAddress(parseAddress(s))).toBe(s);
+    }
+  });
+  it('TIA-Typen für Absolutadressen', () => {
+    expect(['X', 'B', 'W', 'D'].map((s) => tiaTypeForSize(s as 'X'))).toEqual([
+      'BOOL',
+      'BYTE',
+      'WORD',
+      'DWORD',
+    ]);
   });
   it('io() prüft Typ gegen Adressgröße', () => {
     expect(io('%MD4', 'REAL')).toMatchObject({ t: 'REAL', byte: 4 });

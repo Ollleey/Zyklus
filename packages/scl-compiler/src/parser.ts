@@ -1,4 +1,5 @@
-import type { Arg, BinaryOp, CaseLabel, Decl, Expr, FbArg, Ref, SclUnit, Stmt } from './ast';
+import type { IfaceSection } from '@zyklus/sim-core';
+import type { Arg, BinaryOp, CaseLabel, Decl, Expr, FbArg, Ref, SourceBlock, Stmt } from './ast';
 import { SclError, joinSpans, type Diagnostic, type Span } from './diagnostics';
 import { tokenize, type Token } from './lexer';
 
@@ -14,29 +15,90 @@ const BLOCK_ENDS = new Set([
   'END_WHILE',
   'UNTIL',
   'END_REPEAT',
+  'END_REGION',
   'END_VAR',
+  'END_ORGANIZATION_BLOCK',
+  'END_FUNCTION_BLOCK',
+  'END_FUNCTION',
+  'END_DATA_BLOCK',
 ]);
 
-export interface ParseResult {
-  unit: SclUnit;
+const BLOCK_KEYWORDS: Record<string, { kind: SourceBlock['kind']; end: string }> = {
+  ORGANIZATION_BLOCK: { kind: 'OB', end: 'END_ORGANIZATION_BLOCK' },
+  FUNCTION_BLOCK: { kind: 'FB', end: 'END_FUNCTION_BLOCK' },
+  FUNCTION: { kind: 'FC', end: 'END_FUNCTION' },
+  DATA_BLOCK: { kind: 'DB', end: 'END_DATA_BLOCK' },
+};
+
+const SECTION_KEYWORDS: Record<string, IfaceSection> = {
+  VAR_INPUT: 'Input',
+  VAR_OUTPUT: 'Output',
+  VAR_IN_OUT: 'InOut',
+  VAR: 'Static',
+  VAR_TEMP: 'Temp',
+};
+
+export interface BodyResult {
+  body: Stmt[];
   diagnostics: Diagnostic[];
 }
 
-/** Parst SCL-Quelltext. Syntaxfehler werden gesammelt; der Parser setzt nach `;` bzw. Blockende wieder auf. */
-export function parse(src: string): ParseResult {
-  let tokens: Token[];
+export interface SourceResult {
+  blocks: SourceBlock[];
+  diagnostics: Diagnostic[];
+}
+
+function lex(src: string): { tokens?: Token[]; diagnostics: Diagnostic[] } {
   try {
-    tokens = tokenize(src);
+    return { tokens: tokenize(src), diagnostics: [] };
   } catch (e) {
     if (e instanceof SclError) {
-      return {
-        unit: { decls: [], body: [] },
-        diagnostics: [{ severity: 'error', message: e.message, ...e.span }],
-      };
+      return { diagnostics: [{ severity: 'error', message: e.message, ...e.span }] };
     }
     throw e;
   }
-  return new Parser(tokens).parseUnit();
+}
+
+/**
+ * Parst den Anweisungsteil eines Bausteins (wie im TIA-Editor: ohne Kopf und Schnittstelle).
+ * Syntaxfehler werden gesammelt; der Parser setzt nach `;` bzw. Blockende wieder auf.
+ */
+export function parseBody(src: string): BodyResult {
+  const { tokens, diagnostics } = lex(src);
+  if (!tokens) return { body: [], diagnostics };
+  const p = new Parser(tokens, src);
+  const body = p.stmtList(() => false);
+  return { body, diagnostics: p.diagnostics };
+}
+
+/** Parst einen einzelnen Ausdruck (z. B. Startwert aus der Schnittstellentabelle). */
+export function parseExpression(src: string): { expr?: Expr; diagnostics: Diagnostic[] } {
+  const { tokens, diagnostics } = lex(src);
+  if (!tokens) return { diagnostics };
+  const p = new Parser(tokens, src);
+  try {
+    const expr = p.expr();
+    p.expectEof();
+    return { expr, diagnostics: [] };
+  } catch (e) {
+    if (!(e instanceof SclError)) throw e;
+    return { diagnostics: [{ severity: 'error', message: e.message, ...e.span }] };
+  }
+}
+
+/** Parst eine externe SCL-Quelle mit ORGANIZATION_BLOCK / FUNCTION_BLOCK / DATA_BLOCK … */
+export function parseSource(src: string): SourceResult {
+  const { tokens, diagnostics } = lex(src);
+  if (!tokens) return { blocks: [], diagnostics };
+  const p = new Parser(tokens, src);
+  const blocks = p.sourceBlocks();
+  return { blocks, diagnostics: p.diagnostics };
+}
+
+/** true, wenn der Text wie eine vollständige SCL-Quelle beginnt. */
+export function looksLikeSource(src: string): boolean {
+  const stripped = src.replace(/\/\/.*$/gm, '').replace(/\(\*[\s\S]*?\*\)/g, '');
+  return /^\s*(ORGANIZATION_BLOCK|FUNCTION_BLOCK|FUNCTION|DATA_BLOCK)\b/i.test(stripped);
 }
 
 function describe(t: Token): string {
@@ -47,6 +109,8 @@ function describe(t: Token): string {
       return `„#${t.value}“`;
     case 'quoted':
       return `„"${t.value}"“`;
+    case 'string':
+      return `„'${t.value}'“`;
     default:
       return `„${t.value}“`;
   }
@@ -54,9 +118,12 @@ function describe(t: Token): string {
 
 class Parser {
   private p = 0;
-  private readonly diagnostics: Diagnostic[] = [];
+  readonly diagnostics: Diagnostic[] = [];
 
-  constructor(private readonly tokens: Token[]) {}
+  constructor(
+    private readonly tokens: Token[],
+    private readonly src: string,
+  ) {}
 
   // ---------- Hilfsfunktionen ----------
 
@@ -82,6 +149,10 @@ class Parser {
     return t.kind === 'keyword' && t.value === v;
   }
 
+  private isIdent(v: string, t = this.t): boolean {
+    return t.kind === 'ident' && t.value.toUpperCase() === v;
+  }
+
   private error(msg: string, span: Span = this.t): never {
     throw new SclError(msg, { start: span.start, end: span.end });
   }
@@ -98,6 +169,10 @@ class Parser {
       this.error(`${v} erwartet${context ? ` ${context}` : ''}, gefunden ${describe(this.t)}`);
     }
     return this.next();
+  }
+
+  expectEof(): void {
+    if (this.t.kind !== 'eof') this.error(`Unerwartet: ${describe(this.t)}`);
   }
 
   private optionalSemicolon(): void {
@@ -123,35 +198,131 @@ class Parser {
     }
   }
 
-  // ---------- Programm ----------
+  /** überspringt Attribute in geschweiften Klammern, z. B. { S7_Optimized_Access := 'TRUE' } */
+  private skipAttributes(): void {
+    while (this.isOp('{')) {
+      const open = this.next();
+      while (!this.isOp('}')) {
+        if (this.t.kind === 'eof') this.error('„}“ fehlt', open);
+        this.next();
+      }
+      this.next();
+    }
+  }
 
-  parseUnit(): ParseResult {
-    const decls: Decl[] = [];
-    while (this.isKw('VAR') || this.isKw('VAR_TEMP')) {
+  // ---------- Externe Quelle ----------
+
+  sourceBlocks(): SourceBlock[] {
+    const blocks: SourceBlock[] = [];
+    while (this.t.kind !== 'eof') {
       const start = this.p;
       try {
-        decls.push(...this.declBlock());
+        blocks.push(this.sourceBlock());
       } catch (e) {
         this.record(e);
-        while (this.t.kind !== 'eof' && !this.isKw('END_VAR')) this.next();
-        if (this.isKw('END_VAR')) this.next();
+        // bis zum nächsten Bausteinende springen
+        const ends = Object.values(BLOCK_KEYWORDS).map((b) => b.end);
+        const atBlockEnd = (t: Token) =>
+          t.kind === 'eof' || (t.kind === 'keyword' && ends.includes(t.value));
+        while (!atBlockEnd(this.t)) this.next();
+        this.next();
         if (this.p === start) this.next();
       }
     }
-    const body = this.stmtList(() => this.t.kind === 'eof');
-    return { unit: { decls, body }, diagnostics: this.diagnostics };
+    return blocks;
   }
 
-  private declBlock(): Decl[] {
-    const head = this.next();
-    let section: Decl['section'] = head.value === 'VAR_TEMP' ? 'VAR_TEMP' : 'VAR';
-    if (section === 'VAR' && this.isKw('CONSTANT')) {
-      this.next();
-      section = 'CONST';
+  private sourceBlock(): SourceBlock {
+    const head = this.t;
+    const info = head.kind === 'keyword' ? BLOCK_KEYWORDS[head.value] : undefined;
+    if (!info) {
+      this.error(
+        `Bausteinanfang erwartet (ORGANIZATION_BLOCK, FUNCTION_BLOCK, FUNCTION, DATA_BLOCK), gefunden ${describe(head)}`,
+      );
     }
+    this.next();
+    const nameTok = this.next();
+    if (nameTok.kind !== 'quoted' && nameTok.kind !== 'ident') {
+      this.error(`Bausteinname erwartet, gefunden ${describe(nameTok)}`, nameTok);
+    }
+    if (info.kind === 'FC' && this.isOp(':')) {
+      this.next();
+      this.next(); // Rückgabetyp, z. B. Void
+    }
+
+    let title: string | undefined;
+    let instanceOf: string | undefined;
     const decls: Decl[] = [];
-    while (!this.isKw('END_VAR')) {
-      if (this.t.kind === 'eof') this.error('END_VAR fehlt', head);
+    // Kopf: TITLE, Attribute, VERSION, NON_RETAIN, bei Instanz-DBs der Typ
+    for (;;) {
+      if (this.isIdent('TITLE')) {
+        title = this.next().text;
+      } else if (this.isOp('{')) {
+        this.skipAttributes();
+      } else if (this.isIdent('VERSION')) {
+        this.next();
+        this.expectOp(':', 'nach VERSION');
+        this.next();
+      } else if (
+        this.isIdent('NON_RETAIN') ||
+        this.isIdent('RETAIN') ||
+        this.isIdent('AUTHOR') ||
+        this.isIdent('FAMILY') ||
+        this.isIdent('NAME')
+      ) {
+        const kw = this.next();
+        if (kw.value.toUpperCase() !== 'NON_RETAIN' && kw.value.toUpperCase() !== 'RETAIN') {
+          this.expectOp(':');
+          this.next();
+        }
+      } else if (
+        info.kind === 'DB' &&
+        (this.t.kind === 'ident' || this.t.kind === 'quoted') &&
+        !instanceOf
+      ) {
+        instanceOf = this.next().value;
+      } else {
+        break;
+      }
+    }
+
+    while (
+      this.t.kind === 'keyword' &&
+      (this.t.value in SECTION_KEYWORDS || this.t.value === 'STRUCT')
+    ) {
+      decls.push(...this.declSection());
+    }
+
+    const begin = this.expectKw('BEGIN', 'vor dem Anweisungsteil');
+    const body = this.stmtList(() => this.isKw(info.end));
+    const end = this.expectKw(info.end, 'am Bausteinende');
+    return {
+      kind: info.kind,
+      name: nameTok.value,
+      nameSpan: nameTok,
+      title,
+      instanceOf,
+      decls,
+      body,
+      bodyText: this.src.slice(begin.to, end.from),
+      bodyLine: begin.end.line,
+      span: joinSpans(head, end),
+    };
+  }
+
+  private declSection(): Decl[] {
+    const head = this.next();
+    let section: IfaceSection = SECTION_KEYWORDS[head.value] ?? 'Static';
+    const endKw = head.value === 'STRUCT' ? 'END_STRUCT' : 'END_VAR';
+    if (this.isKw('CONSTANT')) {
+      this.next();
+      section = 'Constant';
+    }
+    while (this.isIdent('RETAIN') || this.isIdent('NON_RETAIN') || this.isIdent('DB_SPECIFIC'))
+      this.next();
+    const decls: Decl[] = [];
+    while (!this.isKw(endKw)) {
+      if (this.t.kind === 'eof') this.error(`${endKw} fehlt`, head);
       const names: Token[] = [];
       do {
         if (names.length) this.next(); // Komma
@@ -159,16 +330,22 @@ class Parser {
           this.error(`Variablenname erwartet, gefunden ${describe(this.t)}`);
         }
         names.push(this.next());
+        this.skipAttributes();
       } while (this.isOp(','));
       this.expectOp(':', 'nach dem Variablennamen');
-      if (this.t.kind !== 'ident') this.error(`Datentyp erwartet, gefunden ${describe(this.t)}`);
+      if (this.t.kind !== 'ident' && this.t.kind !== 'quoted') {
+        this.error(`Datentyp erwartet, gefunden ${describe(this.t)}`);
+      }
       const typeTok = this.next();
       let init: Expr | undefined;
+      let initText: string | undefined;
       if (this.isOp(':=')) {
         this.next();
+        const from = this.t.from;
         init = this.expr();
-      } else if (section === 'CONST') {
-        this.error('Konstante braucht einen Wert (name : TYP := wert;)');
+        initText = this.src.slice(from, this.tokens[this.p - 1]!.to);
+      } else if (section === 'Constant') {
+        this.error('Konstante braucht einen Wert (name : Typ := wert;)');
       }
       const semi = this.expectOp(';', 'am Ende der Deklaration');
       for (const n of names) {
@@ -178,18 +355,19 @@ class Parser {
           typeName: typeTok.value,
           typeSpan: typeTok,
           init,
+          initText,
           span: joinSpans(n, semi),
         });
       }
     }
-    this.next(); // END_VAR
+    this.next();
     this.optionalSemicolon();
     return decls;
   }
 
   // ---------- Anweisungen ----------
 
-  private stmtList(atEnd: () => boolean): Stmt[] {
+  stmtList(atEnd: () => boolean): Stmt[] {
     const out: Stmt[] = [];
     while (!atEnd() && this.t.kind !== 'eof') {
       const start = this.p;
@@ -227,6 +405,16 @@ class Parser {
           return this.whileStmt();
         case 'REPEAT':
           return this.repeatStmt();
+        case 'REGION': {
+          this.next();
+          const body = this.stmtList(this.endsWith('END_REGION'));
+          const end = this.expectKw(
+            'END_REGION',
+            `zum Abschluss von REGION ${t.text ?? ''}`.trim(),
+          );
+          this.optionalSemicolon();
+          return { k: 'region', name: t.text ?? '', body, span: joinSpans(t, end) };
+        }
         case 'EXIT':
         case 'CONTINUE':
         case 'RETURN': {
@@ -236,13 +424,16 @@ class Parser {
         }
         case 'VAR':
         case 'VAR_TEMP':
-          this.error('Deklarationen müssen vor den Anweisungen stehen');
+        case 'VAR_INPUT':
+        case 'VAR_OUTPUT':
+        case 'VAR_IN_OUT':
+          this.error('Variablen werden in der Bausteinschnittstelle deklariert, nicht im Code');
       }
       this.error(`Unerwartetes Schlüsselwort ${t.value}`);
     }
 
     if (t.kind === 'ident' && this.isOp('(', this.peek())) {
-      // Funktion oder FB-Instanz ohne # – der Compiler entscheidet
+      // Funktion oder Instanz ohne Anführungszeichen – der Compiler entscheidet
       return this.callStmt();
     }
     if (t.kind === 'local' || t.kind === 'quoted' || t.kind === 'ident' || t.kind === 'address') {
@@ -259,7 +450,7 @@ class Parser {
 
   private callStmt(): Stmt {
     const name = this.t;
-    // Benannte Parameter mit => deuten auf FB hin; sonst als Funktionsaufruf parsen
+    // Benannte Parameter mit := / => deuten auf einen Instanzaufruf hin
     const save = this.p;
     this.next();
     this.next(); // (
@@ -268,7 +459,7 @@ class Parser {
     const isEmpty = this.isOp(')');
     this.p = save;
     if (fbLike || isEmpty) {
-      const inst: Ref = { k: 'ref', scope: 'auto', name: name.value, span: name };
+      const inst: Ref = { k: 'ref', scope: 'auto', name: name.value, path: [], span: name };
       this.next();
       return this.fbCall(inst);
     }
@@ -287,7 +478,7 @@ class Parser {
         nameTok.kind !== 'ident' ||
         !(this.isOp(':=', this.peek()) || this.isOp('=>', this.peek()))
       ) {
-        this.error('FB-Aufrufe brauchen benannte Parameter, z. B. IN := …, PT := …');
+        this.error('Bausteinaufrufe brauchen benannte Parameter, z. B. IN := …, PT := …');
       }
       this.next();
       if (this.next().value === ':=') {
@@ -374,8 +565,9 @@ class Parser {
         if (this.isOp('..')) {
           this.next();
           const hi = this.caseValue();
-          if (hi.name)
+          if (hi.name) {
             this.error('Konstantennamen als CASE-Marke werden nicht unterstützt', hi.span);
+          }
           labels.push({ lo: lo.v, hi: hi.v, span: joinSpans(lo.span, hi.span) });
         } else {
           labels.push({ lo: lo.v, span: lo.span });
@@ -445,20 +637,20 @@ class Parser {
     return this.binaryLevel(0);
   }
 
-  private static readonly LEVELS: { ops: string[]; kw?: boolean }[] = [
-    { ops: ['OR'] },
-    { ops: ['XOR'] },
-    { ops: ['AND', '&'] },
-    { ops: ['=', '<>'] },
-    { ops: ['<', '<=', '>', '>='] },
-    { ops: ['+', '-'] },
-    { ops: ['*', '/', 'MOD'] },
+  private static readonly LEVELS: string[][] = [
+    ['OR'],
+    ['XOR'],
+    ['AND', '&'],
+    ['=', '<>'],
+    ['<', '<=', '>', '>='],
+    ['+', '-'],
+    ['*', '/', 'MOD'],
   ];
 
   private matchLevel(level: number): BinaryOp | undefined {
     const t = this.t;
     if (t.kind !== 'op' && t.kind !== 'keyword') return undefined;
-    if (!Parser.LEVELS[level]!.ops.includes(t.value)) return undefined;
+    if (!Parser.LEVELS[level]!.includes(t.value)) return undefined;
     return (t.value === '&' ? 'AND' : t.value) as BinaryOp;
   }
 
@@ -536,9 +728,12 @@ class Parser {
     const args: Arg[] = [];
     while (!this.isOp(')')) {
       if (args.length) this.expectOp(',', 'zwischen Argumenten');
-      // ELSE ist Schlüsselwort, aber auch Parametername bei MUX
-      const paramName = this.t.kind === 'ident' || this.isKw('ELSE');
-      if (paramName && this.isOp(':=', this.peek())) {
+      if (this.isKw('ELSE') && this.isOp(':=', this.peek())) {
+        this.error(
+          `${name.value.toUpperCase()} hat keinen Parameter ELSE – der Ersatzwert heißt INELSE`,
+        );
+      }
+      if (this.t.kind === 'ident' && this.isOp(':=', this.peek())) {
         const n = this.next();
         this.next();
         const e = this.expr();
@@ -566,16 +761,18 @@ class Parser {
               ? 'auto'
               : this.error(`Variable erwartet, gefunden ${describe(t)}`, t);
     let span: Span = t;
-    let member: string | undefined;
-    if (this.isOp('.') && scope !== 'addr') {
+    const path: string[] = [];
+    while (this.isOp('.') && scope !== 'addr') {
       this.next();
       const m = this.t;
-      if (m.kind !== 'ident' && m.kind !== 'keyword') this.error('Name nach „.“ erwartet');
+      if (m.kind !== 'ident' && m.kind !== 'keyword' && m.kind !== 'quoted') {
+        this.error('Name nach „.“ erwartet');
+      }
       this.next();
-      member = m.value;
+      path.push(m.value);
       span = joinSpans(t, m);
     }
     if (this.isOp('[')) this.error('Arrays werden nicht unterstützt');
-    return { k: 'ref', scope, name: t.value, member, span };
+    return { k: 'ref', scope, name: t.value, path, span };
   }
 }

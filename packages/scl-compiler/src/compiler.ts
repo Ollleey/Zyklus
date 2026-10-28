@@ -1,39 +1,65 @@
 import {
   AddressError,
   ByteArea,
-  INSTANCE_FIELDS,
   ProgramBuilder,
-  c as constOf,
+  TagTable,
   integerRange,
   io,
   isArithmeticType,
+  isBitStringType,
   normalize,
   parseAddress,
+  tiaTypeForSize,
   validateProgram,
   type Area,
+  type Block,
   type CallFn,
   type DataType,
+  type IfaceSection,
   type InstanceKind,
   type Instr,
   type IrProgram,
   type Operand,
-  type TagTable,
+  type PlcProject,
+  type Tag,
   type Value,
+  type VarDecl,
 } from '@zyklus/sim-core';
-import type { Arg, BinaryOp, Decl, Expr, FbArg, LiteralType, Ref, Stmt } from './ast';
+import type { BinaryOp, Decl, Expr, FbArg, LiteralType, Ref, Stmt } from './ast';
 import { SclError, type Diagnostic, type Span } from './diagnostics';
-import { parse } from './parser';
+import { parseBody, parseExpression, parseSource } from './parser';
+import {
+  FB_INPUTS,
+  FB_OUTPUTS,
+  instanceMembers,
+  instanceType,
+  methodFamily,
+  type InstanceType,
+} from './systemblocks';
+import {
+  ELEMENTARY,
+  acceptsIntLiteral,
+  arithmeticOf,
+  concrete,
+  implicitOk,
+  isLiteralType,
+  typeName,
+  unify,
+} from './typerules';
 
-export interface GlobalDb {
-  name: string;
-  vars: { name: string; t: DataType; init?: Value }[];
+/** Wo eine Meldung hingehört: Codeteil, Schnittstellenzeile, Variablentabelle oder Projekt. */
+export interface Location {
+  block?: string;
+  part: 'code' | 'interface' | 'tags' | 'project';
+  section?: IfaceSection;
+  row?: number;
+}
+
+export interface ProjectDiagnostic extends Diagnostic {
+  location: Location;
 }
 
 export interface CompileOptions {
-  /** PLC-Variablentabelle der CPU */
-  tags?: TagTable;
-  /** globaler Datenbaustein der CPU, ansprechbar als "Name".variable */
-  globalDb?: GlobalDb;
   /** Größe der Speicherbereiche (Standard wie Cpu: 128/128/256 Byte) */
   areaSizes?: Record<Area, number>;
 }
@@ -41,198 +67,171 @@ export interface CompileOptions {
 export interface CompileResult {
   ok: boolean;
   program?: IrProgram;
-  diagnostics: Diagnostic[];
+  diagnostics: ProjectDiagnostic[];
   /** Programmgröße: Anzahl Anweisungen (nicht Zeilen) */
   statementCount: number;
 }
 
 const DEFAULT_AREAS: Record<Area, number> = { I: 128, Q: 128, M: 256 };
-const ELEMENTARY: Record<string, DataType> = {
-  BOOL: 'BOOL',
-  INT: 'INT',
-  DINT: 'DINT',
-  REAL: 'REAL',
-  WORD: 'WORD',
-  TIME: 'TIME',
-};
+const NO_SPAN: Span = { start: { line: 1, col: 1 }, end: { line: 1, col: 1 } };
 
-type FbKind = InstanceKind | 'SR' | 'RS';
-
-const FB_TYPES: Record<string, FbKind> = {
-  TP: 'TP',
-  TON: 'TON',
-  TOF: 'TOF',
-  TONR: 'TONR',
-  TP_TIME: 'TP',
-  TON_TIME: 'TON',
-  TOF_TIME: 'TOF',
-  TONR_TIME: 'TONR',
-  CTU: 'CTU',
-  CTD: 'CTD',
-  CTUD: 'CTUD',
-  CTU_INT: 'CTU',
-  CTD_INT: 'CTD',
-  CTUD_INT: 'CTUD',
-  R_TRIG: 'R_TRIG',
-  F_TRIG: 'F_TRIG',
-  SR: 'SR',
-  RS: 'RS',
-};
-
-/** Ein- und Ausgänge der FBs: [Name, Typ, Pflicht] */
-const FB_INPUTS: Record<FbKind, [string, DataType, boolean][]> = {
-  TP: [
-    ['IN', 'BOOL', true],
-    ['PT', 'TIME', true],
-  ],
-  TON: [
-    ['IN', 'BOOL', true],
-    ['PT', 'TIME', true],
-  ],
-  TOF: [
-    ['IN', 'BOOL', true],
-    ['PT', 'TIME', true],
-  ],
-  TONR: [
-    ['IN', 'BOOL', true],
-    ['R', 'BOOL', false],
-    ['PT', 'TIME', true],
-  ],
-  CTU: [
-    ['CU', 'BOOL', true],
-    ['R', 'BOOL', false],
-    ['PV', 'INT', true],
-  ],
-  CTD: [
-    ['CD', 'BOOL', true],
-    ['LD', 'BOOL', false],
-    ['PV', 'INT', true],
-  ],
-  CTUD: [
-    ['CU', 'BOOL', true],
-    ['CD', 'BOOL', true],
-    ['R', 'BOOL', false],
-    ['LD', 'BOOL', false],
-    ['PV', 'INT', true],
-  ],
-  R_TRIG: [['CLK', 'BOOL', true]],
-  F_TRIG: [['CLK', 'BOOL', true]],
-  SR: [
-    ['S1', 'BOOL', true],
-    ['R', 'BOOL', true],
-  ],
-  RS: [
-    ['S', 'BOOL', true],
-    ['R1', 'BOOL', true],
-  ],
-};
-
-function fbOutputs(kind: FbKind): Record<string, DataType> {
-  if (kind === 'SR' || kind === 'RS') return { Q1: 'BOOL' };
-  return INSTANCE_FIELDS[kind] as Record<string, DataType>;
+/** Einheitliche Sicht auf einen Baustein – egal ob aus dem Projektmodell oder aus einer Quelle. */
+interface Unit {
+  kind: 'OB' | 'FB' | 'FC' | 'DB' | 'IDB';
+  name: string;
+  decls: (Decl & { row?: number })[];
+  instanceOf?: string;
+  body: Stmt[];
+  /** Herkunft der Schnittstelle: Tabelle (Projekt) oder Text (Quelle) */
+  origin: 'project' | 'source';
+  errors: ProjectDiagnostic[];
 }
 
-const FUNCTIONS: Record<string, { params: string[]; variadic?: boolean }> = {
-  ABS: { params: ['IN'] },
-  LIMIT: { params: ['MN', 'IN', 'MX'] },
-  MIN: { params: ['IN1', 'IN2'], variadic: true },
-  MAX: { params: ['IN1', 'IN2'], variadic: true },
-  SEL: { params: ['G', 'IN0', 'IN1'] },
-  MUX: { params: ['K', 'IN0', 'IN1'], variadic: true },
-  NORM_X: { params: ['MIN', 'VALUE', 'MAX'] },
-  SCALE_X: { params: ['MIN', 'VALUE', 'MAX'] },
-  IN_RANGE: { params: ['MIN', 'VAL', 'MAX'] },
-  OUT_RANGE: { params: ['MIN', 'VAL', 'MAX'] },
-  SHL: { params: ['IN', 'N'] },
-  SHR: { params: ['IN', 'N'] },
-  ROUND: { params: ['IN'] },
-  TRUNC: { params: ['IN'] },
-};
+// ---------------------------------------------------------------------------------------------
+// Einstiegspunkte
+// ---------------------------------------------------------------------------------------------
 
-const CONV_RE = /^(BOOL|INT|DINT|REAL|WORD|TIME)_TO_(BOOL|INT|DINT|REAL|WORD|TIME)$/;
-
-export function isBuiltinFunction(name: string): boolean {
-  const n = name.toUpperCase();
-  return n in FUNCTIONS || CONV_RE.test(n);
+/** Übersetzt das Projekt einer CPU (Variablentabelle + Bausteine) in ein IR-Programm. */
+export function compileProject(project: PlcProject, opts: CompileOptions = {}): CompileResult {
+  return compileUnits(project.blocks.map(unitFromBlock), project.tags, opts);
 }
 
-/** Implizit erlaubte Erweiterungen (verlustfrei bzw. wie TIA ohne IEC-Prüfung). */
-function implicitOk(from: DataType, to: DataType): boolean {
-  return (
-    from === to ||
-    (from === 'INT' && (to === 'DINT' || to === 'REAL')) ||
-    (from === 'DINT' && to === 'REAL')
-  );
-}
-
-function isLiteralType(t: LiteralType): t is 'ANY_INT' | 'ANY_REAL' {
-  return t === 'ANY_INT' || t === 'ANY_REAL';
-}
-
-/** Gemeinsamer Typ zweier Operanden oder undefined, wenn unverträglich. */
-function unify(a: LiteralType, b: LiteralType): LiteralType | undefined {
-  if (a === b) return a;
-  if (a === 'ANY_INT' || b === 'ANY_INT') {
-    const o = a === 'ANY_INT' ? b : a;
-    if (o === 'ANY_REAL') return 'ANY_REAL';
-    return o === 'INT' || o === 'DINT' || o === 'REAL' || o === 'WORD' ? o : undefined;
-  }
-  if (a === 'ANY_REAL' || b === 'ANY_REAL') {
-    const o = a === 'ANY_REAL' ? b : a;
-    return o === 'REAL' || o === 'INT' || o === 'DINT' ? 'REAL' : undefined;
-  }
-  if (implicitOk(a, b)) return b;
-  if (implicitOk(b, a)) return a;
-  return undefined;
-}
-
-function concrete(t: LiteralType): DataType {
-  return t === 'ANY_INT' ? 'INT' : t === 'ANY_REAL' ? 'REAL' : t;
-}
-
-function typeName(t: LiteralType): string {
-  return t === 'ANY_INT' ? 'Ganzzahl-Konstante' : t === 'ANY_REAL' ? 'Gleitkomma-Konstante' : t;
-}
-
-type Sym =
-  | { k: 'var'; name: string; t: DataType; op: Operand; temp: boolean; decl?: Decl; used: boolean }
-  | { k: 'const'; name: string; t: DataType; v: Value; decl: Decl; used: boolean }
-  | { k: 'fb'; name: string; kind: FbKind; i: number; q1?: Operand; decl: Decl; used: boolean };
-
-type Resolved =
-  | { k: 'value'; op: Operand; t: DataType; writable: boolean; input?: boolean; isConst?: boolean }
-  | { k: 'fb'; sym: Extract<Sym, { k: 'fb' }> };
-
-interface Val {
-  o: Operand;
-  t: DataType;
-}
-
-interface Loop {
-  exits: Extract<Instr, { op: 'jmp' }>[];
-  continues: Extract<Instr, { op: 'jmp' }>[];
-}
-
-/** Übersetzt SCL-Quelltext in ein IR-Programm (OB1). */
-export function compileScl(source: string, opts: CompileOptions = {}): CompileResult {
-  const parsed = parse(source);
-  const statementCount = countStatements(parsed.unit.body);
+/** Übersetzt eine externe SCL-Quelle (ORGANIZATION_BLOCK / DATA_BLOCK …). */
+export function compileSource(
+  src: string,
+  opts: CompileOptions & { tags?: Tag[] } = {},
+): CompileResult {
+  const parsed = parseSource(src);
   if (parsed.diagnostics.length) {
-    return { ok: false, diagnostics: parsed.diagnostics, statementCount };
+    return {
+      ok: false,
+      diagnostics: parsed.diagnostics.map((d) => ({ ...d, location: { part: 'code' } })),
+      statementCount: 0,
+    };
   }
-  const gen = new CodeGen(opts);
-  const program = gen.run(parsed.unit.decls, parsed.unit.body);
-  const diagnostics = gen.diagnostics.sort(
-    (a, b) => a.start.line - b.start.line || a.start.col - b.start.col,
+  const units: Unit[] = parsed.blocks.map((b) => ({
+    kind: b.kind === 'DB' && b.instanceOf ? 'IDB' : b.kind,
+    name: b.name,
+    decls: b.decls,
+    instanceOf: b.instanceOf,
+    body: b.body,
+    origin: 'source',
+    errors: [],
+  }));
+  return compileUnits(units, opts.tags ?? [], opts);
+}
+
+/**
+ * Bequemer Einstieg für einen OB1-Anweisungsteil: Variablentabelle, weitere Bausteine
+ * (DBs) und Schnittstelle des OB können mitgegeben werden.
+ */
+export function compileScl(
+  body: string,
+  opts: CompileOptions & {
+    tags?: Tag[] | TagTable;
+    blocks?: Block[];
+    temp?: VarDecl[];
+    constants?: VarDecl[];
+  } = {},
+): CompileResult {
+  const tags = opts.tags instanceof TagTable ? opts.tags.list() : (opts.tags ?? []);
+  return compileProject(
+    {
+      tags,
+      blocks: [
+        {
+          kind: 'OB',
+          name: 'Main',
+          number: 1,
+          lang: 'SCL',
+          iface: { Temp: opts.temp ?? [], Constant: opts.constants ?? [] },
+          source: body,
+        },
+        ...(opts.blocks ?? []),
+      ],
+    },
+    opts,
   );
-  const ok = !diagnostics.some((d) => d.severity === 'error');
-  return { ok, program: ok ? program : undefined, diagnostics, statementCount };
+}
+
+function unitFromBlock(b: Block): Unit {
+  const errors: ProjectDiagnostic[] = [];
+  const rowsToDecls = (section: IfaceSection, rows: VarDecl[]) =>
+    rows.map((v, row) => {
+      let init: Expr | undefined;
+      if (v.init !== undefined && v.init.trim() !== '') {
+        const r = parseExpression(v.init);
+        if (r.diagnostics.length) {
+          errors.push({
+            ...r.diagnostics[0]!,
+            message: `Startwert von ${v.name}: ${r.diagnostics[0]!.message}`,
+            ...NO_SPAN,
+            location: { block: b.name, part: b.kind === 'DB' ? 'code' : 'interface', section, row },
+          });
+        }
+        init = r.expr;
+      }
+      return {
+        section,
+        name: v.name,
+        typeName: v.type,
+        typeSpan: NO_SPAN,
+        init,
+        initText: v.init,
+        span: NO_SPAN,
+        row,
+      };
+    });
+
+  if (b.kind === 'DB') {
+    return {
+      kind: 'DB',
+      name: b.name,
+      decls: rowsToDecls('Static', b.vars),
+      body: [],
+      origin: 'project',
+      errors,
+    };
+  }
+  if (b.kind === 'IDB') {
+    return {
+      kind: 'IDB',
+      name: b.name,
+      decls: [],
+      instanceOf: b.of,
+      body: [],
+      origin: 'project',
+      errors,
+    };
+  }
+  const decls = Object.entries(b.iface).flatMap(([section, rows]) =>
+    rowsToDecls(section as IfaceSection, rows ?? []),
+  );
+  let body: Stmt[] = [];
+  if (b.lang === 'SCL') {
+    const parsed = parseBody(b.source);
+    body = parsed.body;
+    for (const d of parsed.diagnostics)
+      errors.push({ ...d, location: { block: b.name, part: 'code' } });
+  } else {
+    errors.push({
+      severity: 'error',
+      message: 'FUP-Bausteine werden noch nicht übersetzt',
+      ...NO_SPAN,
+      location: { block: b.name, part: 'project' },
+    });
+  }
+  return { kind: b.kind, name: b.name, decls, body, origin: 'project', errors };
 }
 
 /** Programmgröße nach Spielregel: jede Anweisung zählt 1, verschachtelte zusätzlich. */
 export function countStatements(body: Stmt[]): number {
   let n = 0;
   for (const s of body) {
+    if (s.k === 'region') {
+      n += countStatements(s.body);
+      continue;
+    }
     n++;
     switch (s.k) {
       case 'if':
@@ -253,18 +252,104 @@ export function countStatements(body: Stmt[]): number {
   return n;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Übersetzung
+// ---------------------------------------------------------------------------------------------
+
+const CONV_RE =
+  /^(BOOL|BYTE|WORD|DWORD|INT|DINT|REAL|TIME)_TO_(BOOL|BYTE|WORD|DWORD|INT|DINT|REAL|TIME)$/;
+
+const FUNCTIONS: Record<string, { params: string[]; variadic?: boolean }> = {
+  ABS: { params: ['IN'] },
+  LIMIT: { params: ['MN', 'IN', 'MX'] },
+  MIN: { params: ['IN1', 'IN2'], variadic: true },
+  MAX: { params: ['IN1', 'IN2'], variadic: true },
+  SEL: { params: ['G', 'IN0', 'IN1'] },
+  MUX: { params: ['K', 'IN0', 'IN1'], variadic: true },
+  NORM_X: { params: ['MIN', 'VALUE', 'MAX'] },
+  SCALE_X: { params: ['MIN', 'VALUE', 'MAX'] },
+  SHL: { params: ['IN', 'N'] },
+  SHR: { params: ['IN', 'N'] },
+  ROUND: { params: ['IN'] },
+  TRUNC: { params: ['IN'] },
+};
+
+export function isBuiltinFunction(name: string): boolean {
+  const n = name.toUpperCase();
+  return n in FUNCTIONS || CONV_RE.test(n);
+}
+
+function compileUnits(units: Unit[], tags: Tag[], opts: CompileOptions): CompileResult {
+  const gen = new CodeGen(opts);
+  const program = gen.run(units, tags);
+  const diagnostics = gen.diagnostics;
+  const ok = !diagnostics.some((d) => d.severity === 'error');
+  return { ok, program: ok ? program : undefined, diagnostics, statementCount: gen.statementCount };
+}
+
+type Sym =
+  | {
+      k: 'var';
+      name: string;
+      t: DataType;
+      op: Operand;
+      decl: Decl & { row?: number };
+      used: boolean;
+    }
+  | {
+      k: 'const';
+      name: string;
+      t: DataType;
+      v: Value;
+      decl: Decl & { row?: number };
+      used: boolean;
+    };
+
+interface InstEntry {
+  key: string;
+  display: string;
+  typeName: string;
+  type: InstanceType;
+  /** bei generischen Instanzen: Anweisung aus dem ersten Aufruf */
+  kind?: InstanceKind;
+  irIndex?: number;
+}
+
+interface DbEntry {
+  name: string;
+  vars: Map<string, { t: DataType; op: Operand } | { inst: InstEntry }>;
+}
+
+type Resolved =
+  | { k: 'value'; op: Operand; t: DataType; writable: boolean; input?: boolean; isConst?: boolean }
+  | { k: 'instance'; entry: InstEntry };
+
+interface Val {
+  o: Operand;
+  t: DataType;
+}
+
+interface Loop {
+  exits: Extract<Instr, { op: 'jmp' }>[];
+  continues: Extract<Instr, { op: 'jmp' }>[];
+}
+
 class CodeGen {
-  readonly diagnostics: Diagnostic[] = [];
+  readonly diagnostics: ProjectDiagnostic[] = [];
+  statementCount = 0;
   private readonly b = new ProgramBuilder();
+  private tags = new TagTable();
   private readonly locals = new Map<string, Sym>();
-  private readonly db = new Map<string, Extract<Sym, { k: 'var' }>>();
+  private readonly dbs = new Map<string, DbEntry>();
+  private readonly idbs = new Map<string, InstEntry>();
   private readonly areas: Record<Area, ByteArea>;
   private readonly temps = new Map<DataType, Operand[]>();
   private tempUse = new Map<DataType, number>();
   private readonly loops: Loop[] = [];
   private readonly returns: Extract<Instr, { op: 'jmp' }>[] = [];
-  /** Typ je Slot-Index (spiegelt die Deklarationen im ProgramBuilder) */
   private readonly slotTypes: DataType[] = [];
+  private where: Location = { part: 'project' };
+  private origin: Unit['origin'] = 'project';
 
   constructor(private readonly opts: CompileOptions) {
     const sizes = opts.areaSizes ?? DEFAULT_AREAS;
@@ -275,37 +360,70 @@ class CodeGen {
     };
   }
 
-  private newSlot(name: string, t: DataType, init?: Value, temp = false): Operand {
-    this.slotTypes.push(t);
-    return temp ? this.b.temp(name, t, init) : this.b.slot(name, t, init);
-  }
+  run(units: Unit[], tags: Tag[]): IrProgram {
+    this.loadTags(tags);
+    for (const u of units) this.diagnostics.push(...u.errors);
 
-  run(decls: Decl[], body: Stmt[]): IrProgram {
-    for (const v of this.opts.globalDb?.vars ?? []) {
-      const op = this.newSlot(`${this.opts.globalDb!.name}.${v.name}`, v.t, v.init);
-      this.db.set(v.name.toLowerCase(), {
-        k: 'var',
-        name: v.name,
-        t: v.t,
-        op,
-        temp: false,
-        used: true,
-      });
-    }
-    for (const d of decls) this.guard(() => this.declare(d));
-    this.stmts(body);
-    for (const r of this.returns) r.to = this.b.pc;
-
-    for (const s of this.locals.values()) {
-      if (!s.used && s.decl) {
-        this.warn(`Variable #${s.name} wird nicht verwendet`, s.decl.span);
+    const names = new Map<string, Unit>();
+    for (const u of units) {
+      const key = u.name.toLowerCase();
+      this.where = { block: u.name, part: 'project' };
+      if (names.has(key)) {
+        this.guard(() => this.fail(`Bausteinname „${u.name}“ ist doppelt vergeben`, NO_SPAN));
+        continue;
+      }
+      names.set(key, u);
+      if (this.tags.get(u.name)) {
+        this.guard(() =>
+          this.fail(`„${u.name}“ ist sowohl PLC-Variable als auch Baustein`, NO_SPAN),
+        );
       }
     }
+
+    for (const u of units) {
+      this.origin = u.origin;
+      if (u.kind === 'DB') this.globalDb(u);
+      if (u.kind === 'IDB') this.instanceDb(u);
+    }
+
+    const obs = units.filter((u) => u.kind === 'OB');
+    for (const u of units) {
+      if (u.kind === 'FB' || u.kind === 'FC') {
+        this.where = { block: u.name, part: 'project' };
+        this.guard(() =>
+          this.fail('Eigene FB/FC werden in einer späteren Version unterstützt', NO_SPAN),
+        );
+      }
+    }
+    if (obs.length === 0) {
+      this.where = { part: 'project' };
+      this.guard(() => this.fail('Kein Organisationsbaustein „Main“ (OB1) vorhanden', NO_SPAN));
+    }
+    for (const ob of obs) {
+      if (ob !== obs[0]) {
+        this.where = { block: ob.name, part: 'project' };
+        this.guard(() =>
+          this.fail(
+            'Weitere OBs (Weck-/Prozessalarm) werden in einer späteren Version unterstützt',
+            NO_SPAN,
+          ),
+        );
+        continue;
+      }
+      if (ob.errors.some((e) => e.severity === 'error' && e.location.part === 'code')) continue;
+      this.origin = ob.origin;
+      this.codeBlock(ob);
+    }
+
+    this.diagnostics.sort(
+      (a, b) =>
+        (a.location.block ?? '').localeCompare(b.location.block ?? '') ||
+        a.start.line - b.start.line ||
+        a.start.col - b.start.col,
+    );
     const program = this.b.build();
     if (!this.diagnostics.some((d) => d.severity === 'error')) {
-      const errors = validateProgram(program, {
-        areaSizes: this.opts.areaSizes ?? DEFAULT_AREAS,
-      });
+      const errors = validateProgram(program, { areaSizes: this.opts.areaSizes ?? DEFAULT_AREAS });
       if (errors.length) throw new Error(`Interner Compilerfehler:\n${errors.join('\n')}`);
     }
     return program;
@@ -317,8 +435,17 @@ class CodeGen {
     throw new SclError(msg, span);
   }
 
+  private push(
+    severity: 'error' | 'warning',
+    message: string,
+    span: Span,
+    where = this.where,
+  ): void {
+    this.diagnostics.push({ severity, message, start: span.start, end: span.end, location: where });
+  }
+
   private warn(msg: string, span: Span): void {
-    this.diagnostics.push({ severity: 'warning', message: msg, start: span.start, end: span.end });
+    this.push('warning', msg, span);
   }
 
   /** Führt f aus und wandelt SclError in eine Diagnose um (Fehler bricht nur die Anweisung ab). */
@@ -327,57 +454,161 @@ class CodeGen {
       f();
     } catch (e) {
       if (!(e instanceof SclError)) throw e;
-      this.diagnostics.push({ severity: 'error', message: e.message, ...e.span });
+      this.push('error', e.message, e.span);
     }
   }
 
-  // ---------- Deklarationen ----------
+  /** Ort einer Deklaration: Tabellenzeile (Projekt) oder Textstelle (Quelle). */
+  private declWhere(block: string, d: Decl & { row?: number }): Location {
+    return this.origin === 'project'
+      ? { block, part: 'interface', section: d.section, row: d.row }
+      : { block, part: 'code' };
+  }
 
-  private declare(d: Decl): void {
-    const key = d.name.toLowerCase();
-    if (this.locals.has(key)) this.fail(`#${d.name} ist bereits deklariert`, d.span);
-    const upper = d.typeName.toUpperCase();
-    const fb = FB_TYPES[upper];
-    if (fb) {
-      if (d.section !== 'VAR') {
-        this.fail(`FB-Instanzen (${upper}) nur im Abschnitt VAR erlaubt`, d.typeSpan);
+  // ---------- Variablentabelle, Datenbausteine ----------
+
+  private loadTags(tags: Tag[]): void {
+    tags.forEach((t, row) => {
+      try {
+        this.tags.add(t);
+      } catch (e) {
+        this.push('error', (e as Error).message, NO_SPAN, { part: 'tags', row });
       }
-      if (d.init) this.fail('FB-Instanzen haben keinen Startwert', d.init.span);
-      if (fb === 'SR' || fb === 'RS') {
-        const q1 = this.newSlot(`${d.name}.Q1`, 'BOOL');
-        this.locals.set(key, { k: 'fb', name: d.name, kind: fb, i: -1, q1, decl: d, used: false });
-      } else {
-        const inst = this.b.instance(d.name, fb);
-        this.locals.set(key, { k: 'fb', name: d.name, kind: fb, i: inst.i, decl: d, used: false });
+    });
+    for (const [a, b] of this.tags.overlaps()) {
+      this.push('warning', `PLC-Variablen „${a}“ und „${b}“ überlappen sich`, NO_SPAN, {
+        part: 'tags',
+      });
+    }
+  }
+
+  private newSlot(name: string, t: DataType, init?: Value, temp = false): Operand {
+    this.slotTypes.push(t);
+    return temp ? this.b.temp(name, t, init) : this.b.slot(name, t, init);
+  }
+
+  private globalDb(u: Unit): void {
+    const db: DbEntry = { name: u.name, vars: new Map() };
+    this.dbs.set(u.name.toLowerCase(), db);
+    for (const d of u.decls) {
+      this.where = this.declWhere(u.name, d);
+      this.guard(() => {
+        const key = d.name.toLowerCase();
+        if (db.vars.has(key)) this.fail(`${d.name} ist im Datenbaustein doppelt vorhanden`, d.span);
+        const it = instanceType(d.typeName);
+        if (it) {
+          if (d.init) this.fail('Instanzen haben keinen Startwert', d.init.span);
+          db.vars.set(key, {
+            inst: {
+              key: `${u.name}.${d.name}`.toLowerCase(),
+              display: `${u.name}.${d.name}`,
+              typeName: d.typeName,
+              type: it,
+            },
+          });
+          return;
+        }
+        const t = this.elementary(d);
+        const init = d.init ? this.constantValue(d.init, t) : undefined;
+        db.vars.set(key, { t, op: this.newSlot(`${u.name}.${d.name}`, t, init) });
+      });
+    }
+  }
+
+  private instanceDb(u: Unit): void {
+    this.where = { block: u.name, part: 'project' };
+    this.guard(() => {
+      const it = instanceType(u.instanceOf ?? '');
+      if (!it) {
+        this.fail(
+          `Instanz-DB „${u.name}“: unbekannter Typ „${u.instanceOf}“ (erwartet z. B. IEC_TIMER, IEC_COUNTER, TON_TIME, R_TRIG)`,
+          NO_SPAN,
+        );
       }
-      return;
-    }
-    const t = ELEMENTARY[upper];
-    if (!t) this.fail(`Unbekannter Datentyp „${d.typeName}“`, d.typeSpan);
-    const init = d.init ? this.constantValue(d.init, t) : undefined;
-    if (d.section === 'CONST') {
-      this.locals.set(key, { k: 'const', name: d.name, t, v: init!, decl: d, used: false });
-      return;
-    }
-    const op = this.newSlot(d.name, t, init, d.section === 'VAR_TEMP');
-    this.locals.set(key, {
-      k: 'var',
-      name: d.name,
-      t,
-      op,
-      temp: d.section === 'VAR_TEMP',
-      decl: d,
-      used: false,
+      this.idbs.set(u.name.toLowerCase(), {
+        key: u.name.toLowerCase(),
+        display: u.name,
+        typeName: u.instanceOf!,
+        type: it,
+      });
     });
   }
 
-  /** Wert eines konstanten Ausdrucks (nur Literale bzw. Konstanten). */
+  private elementary(d: Decl): DataType {
+    const t = ELEMENTARY[d.typeName.toUpperCase()];
+    if (!t) this.fail(`Unbekannter Datentyp „${d.typeName}“`, d.typeSpan);
+    return t;
+  }
+
+  /** IR-Instanz zu einem Eintrag (wird beim ersten Gebrauch angelegt). */
+  private instIndex(e: InstEntry): number {
+    if (e.irIndex === undefined) {
+      const kind = e.type.generic
+        ? (e.kind ?? (e.type.family === 'timer' ? 'TON' : 'CTU'))
+        : e.type.kind;
+      e.kind = kind;
+      e.irIndex = this.b.instance(e.display, kind).i;
+    }
+    return e.irIndex;
+  }
+
+  // ---------- Codebausteine ----------
+
+  private codeBlock(u: Unit): void {
+    for (const d of u.decls) {
+      this.where = this.declWhere(u.name, d);
+      this.guard(() => this.declareLocal(u, d));
+    }
+    this.where = { block: u.name, part: 'code' };
+    this.collectMethods(u.body);
+    this.statementCount += countStatements(u.body);
+    this.stmts(u.body);
+    for (const r of this.returns) r.to = this.b.pc;
+    for (const s of this.locals.values()) {
+      if (!s.used)
+        this.push(
+          'warning',
+          `Variable #${s.name} wird nicht verwendet`,
+          s.decl.span,
+          this.declWhere(u.name, s.decl),
+        );
+    }
+  }
+
+  private declareLocal(u: Unit, d: Decl): void {
+    const allowed: IfaceSection[] = u.kind === 'OB' ? ['Temp', 'Constant'] : [];
+    if (!allowed.includes(d.section)) {
+      this.fail(
+        `Im OB gibt es nur Temp und Constant – statische Daten gehören in einen Datenbaustein`,
+        d.span,
+      );
+    }
+    const key = d.name.toLowerCase();
+    if (this.locals.has(key)) this.fail(`#${d.name} ist bereits deklariert`, d.span);
+    if (instanceType(d.typeName)) {
+      this.fail(
+        `Instanzen (${d.typeName}) gehören in einen Instanz-DB, z. B. "${d.name}_DB" vom Typ ${d.typeName}`,
+        d.typeSpan,
+      );
+    }
+    const t = this.elementary(d);
+    const init = d.init ? this.constantValue(d.init, t) : undefined;
+    if (d.section === 'Constant') {
+      this.locals.set(key, { k: 'const', name: d.name, t, v: init!, decl: d, used: false });
+      return;
+    }
+    const op = this.newSlot(d.name, t, init, true);
+    this.locals.set(key, { k: 'var', name: d.name, t, op, decl: d, used: false });
+  }
+
+  /** Wert eines konstanten Ausdrucks (nur Literale bzw. lokale Konstanten). */
   private constantValue(e: Expr, t: DataType): Value {
-    if (e.k === 'ref' && e.scope !== 'addr' && !e.member) {
+    if (e.k === 'ref' && e.scope !== 'addr' && e.path.length === 0) {
       const s = this.locals.get(e.name.toLowerCase());
       if (s?.k === 'const' && e.scope !== 'tag') {
         s.used = true;
-        if (!implicitOk(s.t, t)) this.fail(`Konstante vom Typ ${s.t} passt nicht zu ${t}`, e.span);
+        if (!implicitOk(s.t, t))
+          this.fail(`Konstante vom Typ ${typeName(s.t)} passt nicht zu ${typeName(t)}`, e.span);
         return normalize(t, s.v);
       }
     }
@@ -385,6 +616,51 @@ class CodeGen {
     const lit = this.literal(e, t);
     if (!implicitOk(lit.t, t)) this.typeMismatch(e.t, t, e.span);
     return normalize(t, lit.v);
+  }
+
+  /** Vorab: Welche Anweisung (TON, CTU …) wird auf generischen Instanzen aufgerufen? */
+  private collectMethods(body: Stmt[]): void {
+    const visit = (list: Stmt[]) => {
+      for (const s of list) {
+        switch (s.k) {
+          case 'fbcall': {
+            const last = s.inst.path[s.inst.path.length - 1];
+            if (!last || !methodFamily(last)) break;
+            const entry = this.lookupInstance({ ...s.inst, path: s.inst.path.slice(0, -1) });
+            if (entry?.type.generic && !entry.kind) entry.kind = last.toUpperCase() as InstanceKind;
+            break;
+          }
+          case 'if':
+            s.branches.forEach((b) => visit(b.body));
+            if (s.else) visit(s.else);
+            break;
+          case 'case':
+            s.items.forEach((i) => visit(i.body));
+            if (s.else) visit(s.else);
+            break;
+          case 'for':
+          case 'while':
+          case 'repeat':
+          case 'region':
+            visit(s.body);
+            break;
+        }
+      }
+    };
+    visit(body);
+  }
+
+  /** Instanzeintrag zu einer Referenz ohne Fehlermeldung (für die Vorabanalyse). */
+  private lookupInstance(r: Ref): InstEntry | undefined {
+    if (r.scope === 'addr' || r.scope === 'local') return undefined;
+    const idb = this.idbs.get(r.name.toLowerCase());
+    if (idb && r.path.length === 0) return idb;
+    const db = this.dbs.get(r.name.toLowerCase());
+    if (db && r.path.length === 1) {
+      const v = db.vars.get(r.path[0]!.toLowerCase());
+      if (v && 'inst' in v) return v.inst;
+    }
+    return undefined;
   }
 
   // ---------- Anweisungen ----------
@@ -407,6 +683,8 @@ class CodeGen {
         return this.caseStmt(s);
       case 'for':
         return this.forStmt(s);
+      case 'region':
+        return this.stmts(s.body);
       case 'while': {
         const loop: Loop = { exits: [], continues: [] };
         const top = this.b.pc;
@@ -444,8 +722,8 @@ class CodeGen {
         return this.fbCall(s.inst, s.args, s.span);
       case 'exprstmt': {
         const name = s.e.k === 'call' ? s.e.name : 'des Ausdrucks';
-        if (s.e.k === 'call' && this.locals.get(name.toLowerCase())?.k === 'fb') {
-          this.fail('FB-Aufrufe brauchen benannte Parameter, z. B. IN := …, PT := …', s.span);
+        if (s.e.k === 'call' && !isBuiltinFunction(name)) {
+          this.fail('Bausteinaufrufe brauchen benannte Parameter, z. B. IN := …, PT := …', s.span);
         }
         this.fail(
           `Das Ergebnis von ${name} wird nicht verwendet – Zuweisung fehlt (z. B. #x := ${name}(…);)`,
@@ -492,22 +770,27 @@ class CodeGen {
     const hint =
       to === 'TIME' && isLiteralType(from)
         ? ' – Zeitangaben schreibt man z. B. T#500ms'
-        : f !== to && ELEMENTARY[f]
+        : f !== to
           ? ` – verwende ${f}_TO_${to}`
           : '';
-    this.fail(`Typkonflikt: ${typeName(from)} kann nicht in ${to} umgewandelt werden${hint}`, span);
+    this.fail(
+      `Typkonflikt: ${typeName(from)} kann nicht in ${typeName(to)} umgewandelt werden${hint}`,
+      span,
+    );
   }
 
   private writable(r: Ref): Val {
     const res = this.resolve(r);
-    if (res.k === 'fb') this.fail(`Instanz ${r.name} kann nicht zugewiesen werden`, r.span);
+    if (res.k === 'instance')
+      this.fail(`Instanz ${refText(r)} kann nicht zugewiesen werden`, r.span);
     if (res.isConst) this.fail(`${r.name} ist eine Konstante`, r.span);
     if (!res.writable) this.fail(`${refText(r)} kann nur gelesen werden`, r.span);
-    if (res.input)
+    if (res.input) {
       this.warn(
         `Schreibzugriff auf Eingang ${refText(r)} – wird im nächsten Zyklus überschrieben`,
         r.span,
       );
+    }
     return { o: res.op, t: res.t };
   }
 
@@ -531,15 +814,16 @@ class CodeGen {
     const natural = this.infer(s.sel);
     const t =
       natural === 'DINT' ? 'DINT' : natural === 'INT' || natural === 'ANY_INT' ? 'INT' : undefined;
-    if (!t)
+    if (!t) {
       this.fail(
-        `CASE-Ausdruck muss INT oder DINT sein, ist ${typeName(natural ?? 'BOOL')}`,
+        `CASE-Ausdruck muss Int oder DInt sein, ist ${typeName(natural ?? 'BOOL')}`,
         s.sel.span,
       );
+    }
     const sel = this.genAs(s.sel, t);
     const hit = this.temp('BOOL');
     const [lo, hi] = integerRange(t);
-    const seen: [number, number, Span][] = [];
+    const seen: [number, number][] = [];
     const jumps: Extract<Instr, { op: 'jnz' }>[][] = [];
 
     for (const item of s.items) {
@@ -547,11 +831,11 @@ class CodeGen {
       for (const l of item.labels) {
         const a = l.lo;
         const z = l.hi ?? l.lo;
-        if (a < lo || z > hi) this.fail(`CASE-Marke liegt außerhalb von ${t}`, l.span);
+        if (a < lo || z > hi) this.fail(`CASE-Marke liegt außerhalb von ${typeName(t)}`, l.span);
         if (a > z) this.fail('Bereich ist leer: Untergrenze größer als Obergrenze', l.span);
-        const clash = seen.find(([x, y]) => a <= y && x <= z);
-        if (clash) this.fail('CASE-Marke kommt mehrfach vor', l.span);
-        seen.push([a, z, l.span]);
+        if (seen.some(([x, y]) => a <= y && x <= z))
+          this.fail('CASE-Marke kommt mehrfach vor', l.span);
+        seen.push([a, z]);
         if (l.hi === undefined) {
           this.b.emit({ op: 'cmp', fn: 'eq', t, dst: hit, a: sel, b: this.constant(t, a) });
         } else {
@@ -583,8 +867,8 @@ class CodeGen {
   private forStmt(s: Extract<Stmt, { k: 'for' }>): void {
     const v = this.writable(s.v);
     if (v.t !== 'INT' && v.t !== 'DINT')
-      this.fail('Laufvariable muss INT oder DINT sein', s.v.span);
-    this.store(this.gen(s.from, v.t), v, s.from.span);
+      this.fail('Laufvariable muss Int oder DInt sein', s.v.span);
+    this.store(this.gen(s.from, v.t), v, s.from.span, s.from);
 
     // Endwert wird einmal vor der Schleife ausgewertet
     let end = this.gen(s.to, v.t);
@@ -620,35 +904,77 @@ class CodeGen {
     this.closeLoop(loop, cont, this.b.pc);
   }
 
+  /** Aufruf einer Systembaustein-Instanz: "DB"(…), "DB".TON(…), "Daten".T1.TON(…) */
   private fbCall(instRef: Ref, args: FbArg[], span: Span): void {
-    if (
-      instRef.scope === 'auto' &&
-      isBuiltinFunction(instRef.name) &&
-      !this.locals.has(instRef.name.toLowerCase())
-    ) {
+    if (instRef.scope === 'auto' && instRef.path.length === 0 && isBuiltinFunction(instRef.name)) {
       this.fail(
         `${instRef.name.toUpperCase()} ist eine Funktion und liefert einen Wert – verwende sie in einer Zuweisung`,
         span,
       );
     }
-    const res = this.resolve(instRef);
-    if (res.k !== 'fb') this.fail(`${refText(instRef)} ist keine FB-Instanz`, instRef.span);
-    const { sym } = res;
-    const params = FB_INPUTS[sym.kind];
-    const outputs = fbOutputs(sym.kind);
+    if (instRef.scope === 'local') {
+      this.fail(
+        'Multiinstanzen (#Instanz(…)) gibt es nur in Funktionsbausteinen – lege im OB einen Instanz-DB an',
+        instRef.span,
+      );
+    }
+
+    let entry: InstEntry;
+    let kind: InstanceKind;
+    const last = instRef.path[instRef.path.length - 1];
+    const family = last ? methodFamily(last) : undefined;
+    if (family) {
+      const prefix: Ref = { ...instRef, path: instRef.path.slice(0, -1) };
+      const res = this.resolve(prefix);
+      if (res.k !== 'instance') this.fail(`${refText(prefix)} ist keine Instanz`, instRef.span);
+      entry = res.entry;
+      if (!entry.type.generic || entry.type.family !== family) {
+        this.fail(
+          entry.type.generic
+            ? `${refText(prefix)} ist vom Typ ${entry.typeName} – ${last!.toUpperCase()} passt nicht dazu`
+            : `${refText(prefix)} ist vom Typ ${entry.typeName} und wird direkt aufgerufen: ${refText(prefix)}(…)`,
+          instRef.span,
+        );
+      }
+      kind = last!.toUpperCase() as InstanceKind;
+      this.instIndex(entry);
+      if (entry.kind !== kind) {
+        this.fail(
+          `${refText(prefix)} wird bereits als ${entry.kind} verwendet – lege für ${kind} einen eigenen DB an`,
+          instRef.span,
+        );
+      }
+    } else {
+      const res = this.resolve(instRef);
+      if (res.k !== 'instance') this.fail(`${refText(instRef)} ist keine Instanz`, instRef.span);
+      entry = res.entry;
+      if (entry.type.generic) {
+        const methods =
+          entry.type.family === 'timer' ? 'TON, TOF, TP oder TONR' : 'CTU, CTD oder CTUD';
+        this.fail(
+          `${refText(instRef)} ist vom Typ ${entry.typeName} – rufe ${refText(instRef)}.TON(…) auf (${methods})`,
+          instRef.span,
+        );
+      }
+      kind = entry.type.kind;
+    }
+    const i = this.instIndex(entry);
+
+    const params = FB_INPUTS[kind];
+    const outputs = FB_OUTPUTS[kind];
     const given = new Map<string, FbArg>();
     for (const a of args) {
       if (given.has(a.name)) this.fail(`Parameter ${a.name} ist doppelt angegeben`, a.span);
       given.set(a.name, a);
       if (a.e && !params.some(([n]) => n === a.name)) {
         this.fail(
-          `${sym.kind} hat keinen Eingang ${a.name} (Eingänge: ${params.map(([n]) => n).join(', ')})`,
+          `${kind} hat keinen Eingang ${a.name} (Eingänge: ${params.map(([n]) => n).join(', ')})`,
           a.span,
         );
       }
       if (a.out && !outputs[a.name]) {
         this.fail(
-          `${sym.kind} hat keinen Ausgang ${a.name} (Ausgänge: ${Object.keys(outputs).join(', ')})`,
+          `${kind} hat keinen Ausgang ${a.name} (Ausgänge: ${Object.keys(outputs).join(', ')})`,
           a.span,
         );
       }
@@ -657,25 +983,25 @@ class CodeGen {
     for (const [name, t, required] of params) {
       const a = given.get(name);
       if (!a?.e) {
-        if (required) this.fail(`Eingang ${name} von ${sym.kind} fehlt`, span);
+        if (required) this.fail(`Eingang ${name} von ${kind} fehlt`, span);
         continue;
       }
       inputs[name] = this.genAs(a.e, t);
     }
 
-    switch (sym.kind) {
+    switch (kind) {
       case 'TP':
       case 'TON':
       case 'TOF':
       case 'TONR':
-        this.b.emit({ op: 'tmr', i: sym.i, in: inputs.IN!, pt: inputs.PT!, r: inputs.R });
+        this.b.emit({ op: 'tmr', i, in: inputs.IN!, pt: inputs.PT!, r: inputs.R });
         break;
       case 'CTU':
       case 'CTD':
       case 'CTUD':
         this.b.emit({
           op: 'ctr',
-          i: sym.i,
+          i,
           cu: inputs.CU,
           cd: inputs.CD,
           r: inputs.R,
@@ -685,36 +1011,16 @@ class CodeGen {
         break;
       case 'R_TRIG':
       case 'F_TRIG':
-        this.b.emit({ op: 'trig', i: sym.i, clk: inputs.CLK! });
-        break;
-      case 'SR':
-        this.b.emit({ op: 'sr', kind: 'SR', s: inputs.S1!, r: inputs.R!, q: sym.q1! });
-        break;
-      case 'RS':
-        this.b.emit({ op: 'sr', kind: 'RS', s: inputs.S!, r: inputs.R1!, q: sym.q1! });
+        this.b.emit({ op: 'trig', i, clk: inputs.CLK! });
         break;
     }
 
     for (const a of args) {
       if (!a.out) continue;
       const dst = this.writable(a.out);
-      const src = this.fbField(sym, a.name, a.span);
-      this.store(src, dst, a.span);
+      const t = outputs[a.name]!;
+      this.store({ o: { k: 'inst', i, f: a.name as 'Q' }, t }, dst, a.span);
     }
-  }
-
-  private fbField(sym: Extract<Sym, { k: 'fb' }>, field: string, span: Span): Val {
-    const f = field.toUpperCase();
-    const outputs = fbOutputs(sym.kind);
-    const t = outputs[f];
-    if (!t) {
-      this.fail(
-        `${sym.kind} hat kein Element ${field} (verfügbar: ${Object.keys(outputs).join(', ')})`,
-        span,
-      );
-    }
-    if (sym.kind === 'SR' || sym.kind === 'RS') return { o: sym.q1!, t };
-    return { o: { k: 'inst', i: sym.i, f: f as 'Q' }, t };
   }
 
   // ---------- Namensauflösung ----------
@@ -729,55 +1035,90 @@ class CodeGen {
         return this.fromSym(s, r, quiet);
       }
       case 'tag':
-        return this.tag(r);
+        return this.global(r);
       case 'auto': {
         const s = this.locals.get(r.name.toLowerCase());
         if (s) return this.fromSym(s, r, quiet);
-        if (this.opts.tags?.get(r.name) || this.isDb(r.name)) return this.tag(r);
-        this.fail(`„${r.name}“ ist weder lokal deklariert noch eine PLC-Variable`, r.span);
+        const known =
+          this.tags.get(r.name) ||
+          this.dbs.has(r.name.toLowerCase()) ||
+          this.idbs.has(r.name.toLowerCase());
+        if (known) return this.global(r);
+        this.fail(
+          `„${r.name}“ ist weder lokal deklariert noch eine PLC-Variable oder ein Datenbaustein`,
+          r.span,
+        );
       }
     }
   }
 
-  private isDb(name: string): boolean {
-    return !!this.opts.globalDb && this.opts.globalDb.name.toLowerCase() === name.toLowerCase();
-  }
-
   private fromSym(s: Sym, r: Ref, quiet: boolean): Resolved {
     if (!quiet) s.used = true;
-    if (s.k === 'fb') {
-      if (!r.member) return { k: 'fb', sym: s };
-      const f = this.fbField(s, r.member, r.span);
-      return { k: 'value', op: f.o, t: f.t, writable: false };
-    }
-    if (r.member) this.fail(`#${s.name} hat keine Elemente`, r.span);
-    if (s.k === 'const')
+    if (r.path.length) this.fail(`#${s.name} hat keine Elemente`, r.span);
+    if (s.k === 'const') {
       return { k: 'value', op: this.constant(s.t, s.v), t: s.t, writable: false, isConst: true };
+    }
     return { k: 'value', op: s.op, t: s.t, writable: true };
   }
 
-  private tag(r: Ref): Resolved {
-    if (this.isDb(r.name)) {
-      if (!r.member)
+  /** "Tag", "DB".Variable, "DB".Instanz.Element, "IDB".Element */
+  private global(r: Ref): Resolved {
+    const key = r.name.toLowerCase();
+    const idb = this.idbs.get(key);
+    if (idb) {
+      if (r.path.length === 0) return { k: 'instance', entry: idb };
+      if (r.path.length > 1) this.fail(`${refText(r)}: zu viele Elemente`, r.span);
+      return this.member(idb, r.path[0]!, r);
+    }
+    const db = this.dbs.get(key);
+    if (db) {
+      if (r.path.length === 0) {
         this.fail(`Datenbaustein „${r.name}“ braucht ein Element, z. B. "${r.name}".Wert`, r.span);
-      const v = this.db.get(r.member.toLowerCase());
-      if (!v) this.fail(`„${r.name}“ hat kein Element ${r.member}`, r.span);
+      }
+      const v = db.vars.get(r.path[0]!.toLowerCase());
+      if (!v) this.fail(`„${r.name}“ hat kein Element ${r.path[0]}`, r.span);
+      if ('inst' in v) {
+        if (r.path.length === 1) return { k: 'instance', entry: v.inst };
+        if (r.path.length > 2) this.fail(`${refText(r)}: zu viele Elemente`, r.span);
+        return this.member(v.inst, r.path[1]!, r);
+      }
+      if (r.path.length > 1) this.fail(`„${r.name}".${r.path[0]} hat keine Elemente`, r.span);
       return { k: 'value', op: v.op, t: v.t, writable: true };
     }
-    const op = this.opts.tags?.resolve(r.name);
-    if (!op || op.k !== 'io') this.fail(`PLC-Variable „${r.name}“ ist nicht definiert`, r.span);
-    if (r.member) this.fail(`„${r.name}“ hat keine Elemente`, r.span);
+    const op = this.tags.resolve(r.name);
+    if (!op || op.k !== 'io') {
+      this.fail(
+        r.path.length
+          ? `Datenbaustein „${r.name}“ ist nicht definiert`
+          : `PLC-Variable „${r.name}“ ist nicht definiert`,
+        r.span,
+      );
+    }
+    if (r.path.length) this.fail(`PLC-Variable „${r.name}“ hat keine Elemente`, r.span);
     if (!this.areas[op.area].fits(op.t, op.byte)) {
       this.fail(`PLC-Variable „${r.name}“ liegt außerhalb des Adressbereichs`, r.span);
     }
     return { k: 'value', op, t: op.t, writable: true, input: op.area === 'I' };
   }
 
+  private member(e: InstEntry, name: string, r: Ref): Resolved {
+    const i = this.instIndex(e);
+    const members = instanceMembers(e.type, e.kind!);
+    const m = members[name.toUpperCase()];
+    if (!m) {
+      this.fail(
+        `${e.typeName}${e.type.generic ? ` (${e.kind})` : ''} hat kein Element ${name} (verfügbar: ${Object.keys(members).join(', ')})`,
+        r.span,
+      );
+    }
+    return { k: 'value', op: { k: 'inst', i, f: m[0] }, t: m[1], writable: false };
+  }
+
   private address(r: Ref): Resolved {
     let op: Operand;
     try {
-      parseAddress(r.name);
-      op = io(r.name);
+      const a = parseAddress(r.name);
+      op = io(r.name, tiaTypeForSize(a.size));
     } catch (e) {
       if (e instanceof AddressError) this.fail(e.message, r.span);
       throw e;
@@ -805,8 +1146,9 @@ class CodeGen {
         }
         case 'unary': {
           const t = this.infer(e.e);
-          if (e.op === 'NOT' && t === 'ANY_INT') return 'WORD';
-          return t;
+          if (!t) return undefined;
+          if (e.op === 'NOT') return t === 'ANY_INT' ? 'WORD' : t;
+          return isLiteralType(t) ? t : arithmeticOf(t);
         }
         case 'binary':
           return this.binaryType(e.op, this.infer(e.a), this.infer(e.b));
@@ -825,10 +1167,11 @@ class CodeGen {
     if ((op === '*' || op === '/') && a === 'TIME' && isIntish(b)) return 'TIME';
     if (op === '*' && b === 'TIME' && isIntish(a)) return 'TIME';
     if (op === 'AND' || op === 'OR' || op === 'XOR') {
-      const u = unify(a, b);
+      const u = unify(a, b, 'bits');
       return u === 'ANY_INT' ? 'WORD' : u;
     }
-    return unify(a, b);
+    const u = unify(a, b);
+    return u && !isLiteralType(u) ? arithmeticOf(u) : u;
   }
 
   private callType(e: Extract<Expr, { k: 'call' }>): LiteralType | undefined {
@@ -837,12 +1180,11 @@ class CodeGen {
     switch (e.name) {
       case 'NORM_X':
         return 'REAL';
-      case 'IN_RANGE':
-      case 'OUT_RANGE':
-        return 'BOOL';
       case 'SHL':
-      case 'SHR':
-        return 'WORD';
+      case 'SHR': {
+        const t = this.infer(this.callArgs(e)[0]!);
+        return t === 'ANY_INT' ? 'WORD' : t;
+      }
       case 'ROUND':
       case 'TRUNC':
         return 'DINT';
@@ -850,14 +1192,9 @@ class CodeGen {
         const args = this.callArgs(e);
         return this.unifyAll([args[0]!, args[2]!]);
       }
-      case 'SEL': {
-        const args = this.callArgs(e);
-        return this.unifyAll(args.slice(1));
-      }
-      case 'MUX': {
-        const args = this.callArgs(e);
-        return this.unifyAll(args.slice(1));
-      }
+      case 'SEL':
+      case 'MUX':
+        return this.unifyAll(this.callArgs(e).slice(1));
       default:
         if (e.name in FUNCTIONS) return this.unifyAll(this.callArgs(e));
         return undefined;
@@ -901,28 +1238,14 @@ class CodeGen {
   }
 
   private constant(t: DataType, v: Value): Operand {
-    switch (t) {
-      case 'BOOL':
-        return constOf.bool(!!v);
-      case 'INT':
-        return constOf.int(v as number);
-      case 'DINT':
-        return constOf.dint(v as number);
-      case 'REAL':
-        return constOf.real(v as number);
-      case 'WORD':
-        return constOf.word(v as number);
-      case 'TIME':
-        return constOf.time(v as number);
-    }
+    return { k: 'const', t, v: normalize(t, v) } as Operand;
   }
 
   /** Literal im gewünschten Typ (mit Bereichsprüfung). */
   private literal(e: Extract<Expr, { k: 'lit' }>, want?: DataType): { v: Value; t: DataType } {
     let t: DataType;
     if (e.t === 'ANY_INT') {
-      if (want && (want === 'INT' || want === 'DINT' || want === 'REAL' || want === 'WORD'))
-        t = want;
+      if (want && acceptsIntLiteral(want)) t = want;
       else t = (e.v as number) >= -32768 && (e.v as number) <= 32767 ? 'INT' : 'DINT';
     } else if (e.t === 'ANY_REAL') {
       t = 'REAL';
@@ -933,13 +1256,13 @@ class CodeGen {
       const [lo, hi] = integerRange(t);
       const n = e.v as number;
       if (!Number.isInteger(n) || n < lo || n > hi) {
-        this.fail(`Wert ${n} liegt außerhalb von ${t} (${lo} … ${hi})`, e.span);
+        this.fail(`Wert ${n} liegt außerhalb von ${typeName(t)} (${lo} … ${hi})`, e.span);
       }
     }
     return { v: normalize(t, e.v), t };
   }
 
-  /** Erzeugt Code und liefert den Wert in genau Typ t (implizite Erweiterung erlaubt). */
+  /** Erzeugt Code und liefert den Wert in genau Typ t (implizite Konvertierung erlaubt). */
   private genAs(e: Expr, t: DataType): Operand {
     const v = this.gen(e, t);
     if (v.t === t) return v.o;
@@ -962,11 +1285,12 @@ class CodeGen {
       }
       case 'ref': {
         const r = this.resolve(e);
-        if (r.k === 'fb')
+        if (r.k === 'instance') {
           this.fail(
-            `Instanz ${e.name} kann nicht als Wert verwendet werden – meinst du ${e.name}.Q?`,
+            `Instanz ${refText(e)} kann nicht als Wert verwendet werden – meinst du ${refText(e)}.Q?`,
             e.span,
           );
+        }
         return { o: r.op, t: r.t };
       }
       case 'unary':
@@ -997,14 +1321,14 @@ class CodeGen {
     const nat = this.infer(e.e) ?? this.invalid(e.e);
     if (e.op === 'NOT') {
       const t = nat === 'ANY_INT' ? 'WORD' : concrete(nat);
-      if (t !== 'BOOL' && t !== 'WORD')
+      if (t !== 'BOOL' && !isBitStringType(t))
         this.fail(`NOT ist auf ${typeName(nat)} nicht anwendbar`, e.span);
       const a = this.genAs(e.e, t);
       const o = this.result(t, dst);
       this.b.emit({ op: 'un', fn: 'not', t, dst: o, a });
       return { o, t };
     }
-    const t = this.workType(nat, hint, ['INT', 'DINT', 'REAL', 'TIME']);
+    const t = arithmeticOf(this.workType(nat, hint, ['INT', 'DINT', 'REAL', 'TIME']));
     if (!isArithmeticType(t))
       this.fail(`Vorzeichen „-“ ist auf ${typeName(nat)} nicht anwendbar`, e.span);
     const a = this.genAs(e.e, t);
@@ -1030,6 +1354,27 @@ class CodeGen {
       return { o, t: 'TIME' };
     }
 
+    if (op === 'AND' || op === 'OR' || op === 'XOR') {
+      const u = unify(ta, tb, 'bits');
+      if (!u)
+        this.fail(
+          `Operator ${op} ist nicht auf ${typeName(ta)} und ${typeName(tb)} anwendbar`,
+          e.span,
+        );
+      const t = u === 'ANY_INT' ? 'WORD' : concrete(u);
+      if (t !== 'BOOL' && !isBitStringType(t)) {
+        this.fail(
+          `${op} ist nur auf Bool und Bitfolgen (Byte, Word, DWord) anwendbar, nicht auf ${typeName(u)}`,
+          e.span,
+        );
+      }
+      const a = this.genAs(e.a, t);
+      const b = this.genAs(e.b, t);
+      const o = this.result(t, dst);
+      this.b.emit({ op: 'bin', fn: op.toLowerCase() as 'and', t, dst: o, a, b });
+      return { o, t };
+    }
+
     const u = unify(ta, tb);
     if (!u)
       this.fail(
@@ -1040,7 +1385,7 @@ class CodeGen {
     if (['=', '<>', '<', '<=', '>', '>='].includes(op)) {
       const t = concrete(u);
       if (t === 'BOOL' && op !== '=' && op !== '<>')
-        this.fail(`Operator ${op} ist auf BOOL nicht anwendbar`, e.span);
+        this.fail(`Operator ${op} ist auf Bool nicht anwendbar`, e.span);
       const a = this.genAs(e.a, t);
       const b = this.genAs(e.b, t);
       const o = this.result('BOOL', dst);
@@ -1048,24 +1393,13 @@ class CodeGen {
       return { o, t: 'BOOL' };
     }
 
-    if (op === 'AND' || op === 'OR' || op === 'XOR') {
-      const t = u === 'ANY_INT' ? 'WORD' : concrete(u);
-      if (t !== 'BOOL' && t !== 'WORD')
-        this.fail(`${op} ist nur auf BOOL und WORD anwendbar, nicht auf ${typeName(u)}`, e.span);
-      const a = this.genAs(e.a, t);
-      const b = this.genAs(e.b, t);
-      const o = this.result(t, dst);
-      this.b.emit({ op: 'bin', fn: op.toLowerCase() as 'and', t, dst: o, a, b });
-      return { o, t };
-    }
-
-    const t = this.workType(u, hint, ['INT', 'DINT', 'REAL']);
+    const t = arithmeticOf(this.workType(u, hint, ['INT', 'DINT', 'REAL']));
     if (!isArithmeticType(t))
       this.fail(`Operator ${op} ist nicht auf ${typeName(u)} anwendbar`, e.span);
     if (op === 'MOD' && t !== 'INT' && t !== 'DINT')
-      this.fail('MOD ist nur auf INT und DINT anwendbar', e.span);
+      this.fail('MOD ist nur auf Int und DInt anwendbar', e.span);
     if (t === 'TIME' && (op === '*' || op === '/' || op === 'MOD')) {
-      this.fail(`TIME ${op} TIME ist nicht sinnvoll – multipliziere mit einer Zahl`, e.span);
+      this.fail(`Time ${op} Time ist nicht sinnvoll – multipliziere mit einer Zahl`, e.span);
     }
     const a = this.genAs(e.a, t);
     const b = this.genAs(e.b, t);
@@ -1105,49 +1439,41 @@ class CodeGen {
       }
       return e.args.map((a) => a.e);
     }
-    return this.namedArgs(e, spec.params, !!spec.variadic, e.args);
-  }
-
-  private namedArgs(
-    e: Extract<Expr, { k: 'call' }>,
-    params: string[],
-    variadic: boolean,
-    args: Arg[],
-  ): Expr[] {
-    const byName = new Map<string, Arg>();
-    for (const a of args) {
-      if (byName.has(a.name!)) this.fail(`Parameter ${a.name} ist doppelt angegeben`, a.span);
-      byName.set(a.name!, a);
-    }
-    const out: Expr[] = [];
-    // variadische Funktionen: IN1, IN2, … bzw. IN0, IN1, … fortlaufend
-    const names = [...params];
-    if (variadic) {
-      const prefix = params[params.length - 1]!.replace(/\d+$/, '');
-      let n = Number(params[params.length - 1]!.match(/\d+$/)![0]) + 1;
+    const byName = new Map(named.map((a) => [a.name!, a]));
+    if (byName.size !== named.length) this.fail('Ein Parameter ist doppelt angegeben', e.span);
+    const names = [...spec.params];
+    if (spec.variadic) {
+      // IN1, IN2, … bzw. IN0, IN1, … fortlaufend
+      const lastParam = spec.params[spec.params.length - 1]!;
+      const prefix = lastParam.replace(/\d+$/, '');
+      let n = Number(lastParam.match(/\d+$/)![0]) + 1;
       while (byName.has(`${prefix}${n}`)) names.push(`${prefix}${n++}`);
     }
+    const out: Expr[] = [];
     for (const n of names) {
       const a = byName.get(n);
       if (!a) this.fail(`${e.name}: Parameter ${n} fehlt`, e.span);
       out.push(a.e);
       byName.delete(n);
     }
-    if (e.name === 'MUX' && byName.has('ELSE')) byName.delete('ELSE');
+    if (e.name === 'MUX') byName.delete('INELSE');
     for (const a of byName.values()) {
-      this.fail(`${e.name} hat keinen Parameter ${a.name} (erwartet: ${names.join(', ')})`, a.span);
+      this.fail(
+        `${e.name} hat keinen Parameter ${a.name} (erwartet: ${names.join(', ')}${e.name === 'MUX' ? ', INELSE' : ''})`,
+        a.span,
+      );
     }
     return out;
   }
 
   private call(e: Extract<Expr, { k: 'call' }>, hint?: DataType, dst?: Operand): Val {
     if (!isBuiltinFunction(e.name)) {
-      const local = this.locals.get(e.name.toLowerCase());
-      if (local?.k === 'fb')
+      if (e.name === 'IN_RANGE' || e.name === 'OUT_RANGE') {
         this.fail(
-          `FB-Aufruf ${e.name}(…) ist eine Anweisung und liefert keinen Wert – lies danach ${e.name}.Q`,
+          `${e.name} gibt es nur in FUP/KOP – in SCL mit Vergleichen formulieren, z. B. (#x >= 10) AND (#x <= 20)`,
           e.span,
         );
+      }
       this.fail(`Unbekannte Funktion ${e.name}`, e.span);
     }
     const args = this.callArgs(e);
@@ -1156,20 +1482,22 @@ class CodeGen {
       const from = conv[1] as DataType;
       const to = conv[2] as DataType;
       const v = this.gen(args[0]!, from);
-      if (v.t !== from) this.fail(`${e.name} erwartet ${from}, erhalten ${v.t}`, args[0]!.span);
+      if (v.t !== from)
+        this.fail(`${e.name} erwartet ${typeName(from)}, erhalten ${typeName(v.t)}`, args[0]!.span);
       const o = this.result(to, dst);
       this.b.emit({ op: 'conv', dst: o, src: v.o, mode: 'round' });
       return { o, t: to };
     }
 
-    const numeric: DataType[] = ['INT', 'DINT', 'REAL', 'TIME', 'WORD'];
+    const numeric: DataType[] = ['INT', 'DINT', 'REAL', 'TIME'];
     const common = (es: Expr[], allowed: DataType[], what: string): DataType => {
       const u = this.unifyAll(es);
       if (!u) {
         for (const x of es) this.gen(x); // meldet Fehler in Argumenten
         this.fail(`${e.name}: Argumente haben unverträgliche Typen`, e.span);
       }
-      const t = this.workType(u, hint, allowed);
+      let t = this.workType(u, hint, allowed);
+      if (!allowed.includes(t) && allowed.includes(arithmeticOf(t))) t = arithmeticOf(t);
       if (!allowed.includes(t))
         this.fail(`${e.name} ist nicht auf ${typeName(u)} anwendbar (${what})`, e.span);
       return t;
@@ -1182,7 +1510,7 @@ class CodeGen {
 
     switch (e.name) {
       case 'ABS': {
-        const t = common(args, ['INT', 'DINT', 'REAL', 'TIME'], 'Zahl erwartet');
+        const t = common(args, numeric, 'Zahl erwartet');
         const a = this.genAs(args[0]!, t);
         const o = this.result(t, dst);
         this.b.emit({ op: 'un', fn: 'abs', t, dst: o, a });
@@ -1199,26 +1527,24 @@ class CodeGen {
           args.map((a) => this.genAs(a, t)),
         );
       }
-      case 'IN_RANGE':
-      case 'OUT_RANGE': {
-        const t = common(args, numeric, 'Zahl erwartet');
-        return emitFn(
-          e.name.toLowerCase() as CallFn,
-          t,
-          'BOOL',
-          args.map((a) => this.genAs(a, t)),
-        );
-      }
       case 'SEL': {
         const g = this.genAs(args[0]!, 'BOOL');
-        const t = common(args.slice(1), ['BOOL', ...numeric], 'gleicher Typ für IN0 und IN1');
+        const t = common(
+          args.slice(1),
+          ['BOOL', 'BYTE', 'WORD', 'DWORD', ...numeric],
+          'gleicher Typ für IN0 und IN1',
+        );
         return emitFn('sel', t, t, [g, this.genAs(args[1]!, t), this.genAs(args[2]!, t)]);
       }
       case 'MUX': {
         const k = this.genAs(args[0]!, 'INT');
-        const elseArg = e.args.find((a) => a.name === 'ELSE')?.e;
+        const elseArg = e.args.find((a) => a.name === 'INELSE')?.e;
         const valueArgs = elseArg ? [...args.slice(1), elseArg] : args.slice(1);
-        const t = common(valueArgs, ['BOOL', ...numeric], 'gleicher Typ für alle Eingänge');
+        const t = common(
+          valueArgs,
+          ['BOOL', 'BYTE', 'WORD', 'DWORD', ...numeric],
+          'gleicher Typ für alle Eingänge',
+        );
         const ins = args.slice(1).map((a) => this.genAs(a, t));
         const alt = elseArg ? this.genAs(elseArg, t) : undefined;
         const o = this.result(t, dst);
@@ -1227,7 +1553,7 @@ class CodeGen {
       }
       case 'NORM_X': {
         const u = this.unifyAll(args);
-        const t = u ? (isLiteralType(u) ? concrete(u) : u) : undefined;
+        const t = u ? arithmeticOf(concrete(u)) : undefined;
         if (!t || !isArithmeticType(t))
           this.fail('NORM_X erwartet Zahlen für MIN, VALUE und MAX', e.span);
         return emitFn(
@@ -1242,18 +1568,32 @@ class CodeGen {
         const u = this.unifyAll([args[0]!, args[2]!]);
         if (!u) this.fail('SCALE_X: MIN und MAX haben unverträgliche Typen', e.span);
         let t: DataType;
-        if (isLiteralType(u)) t = hint && isArithmeticType(hint) && hint !== 'TIME' ? hint : 'REAL';
-        else t = u;
-        if (!isArithmeticType(t)) this.fail(`SCALE_X ist nicht auf ${t} anwendbar`, e.span);
+        if (isLiteralType(u)) {
+          t =
+            hint && isArithmeticType(arithmeticOf(hint)) && hint !== 'TIME'
+              ? arithmeticOf(hint)
+              : 'REAL';
+        } else {
+          t = arithmeticOf(u);
+        }
+        if (!isArithmeticType(t))
+          this.fail(`SCALE_X ist nicht auf ${typeName(t)} anwendbar`, e.span);
         return emitFn('scale_x', t, t, [this.genAs(args[0]!, t), value, this.genAs(args[2]!, t)]);
       }
       case 'SHL':
       case 'SHR': {
-        const a = this.genAs(args[0]!, 'WORD');
+        const nat = this.infer(args[0]!) ?? this.invalid(args[0]!);
+        const t = nat === 'ANY_INT' ? 'WORD' : concrete(nat);
+        if (!isBitStringType(t))
+          this.fail(
+            `${e.name} erwartet eine Bitfolge (Byte, Word, DWord), erhalten ${typeName(nat)}`,
+            args[0]!.span,
+          );
+        const a = this.genAs(args[0]!, t);
         const n = this.genAs(args[1]!, 'INT');
-        const o = this.result('WORD', dst);
-        this.b.emit({ op: 'bin', fn: e.name.toLowerCase() as 'shl', t: 'WORD', dst: o, a, b: n });
-        return { o, t: 'WORD' };
+        const o = this.result(t, dst);
+        this.b.emit({ op: 'bin', fn: e.name.toLowerCase() as 'shl', t, dst: o, a, b: n });
+        return { o, t };
       }
       case 'ROUND':
       case 'TRUNC': {
@@ -1293,7 +1633,7 @@ function isIntish(t: LiteralType): boolean {
   return t === 'INT' || t === 'DINT' || t === 'ANY_INT';
 }
 
-function refText(r: Ref): string {
+export function refText(r: Ref): string {
   const base = r.scope === 'local' ? `#${r.name}` : r.scope === 'tag' ? `"${r.name}"` : r.name;
-  return r.member ? `${base}.${r.member}` : base;
+  return [base, ...r.path].join('.');
 }

@@ -1,5 +1,20 @@
 # Changelog
 
+## S7-Treue (2026-10-28, zwischen M2 und M3)
+
+Auf Wunsch: SCL und FUP sollen echtes S7 sein (TIA-Bausteineditor-Stil, Referenz S7-1500).
+
+- Projektmodell wie TIA: PLC-Variablentabelle, OB1 „Main“ mit Schnittstelle (nur Temp/Constant),
+  Global-DBs, Instanz-DBs (`IEC_TIMER`, `IEC_COUNTER`, `TON_TIME`, `CTU_INT`, `R_TRIG` …)
+- SCL: Aufrufe `"DB".TON(…)` / `"DB"(…)`, Pfadzugriffe `"Daten".T1.Q`, `REGION`, `MUX … INELSE`,
+  TIA-Typen für Absolutadressen (`%IW` = Word), neue Typen Byte und DWord, Literale `B#`, `W#`, `DW#`,
+  implizite Konvertierungen nach S7-1500-Tabelle, Umlaute in Namen
+- SR/RS, IN_RANGE/OUT_RANGE in SCL entfernt (gibt es in TIA nur in FUP/KOP)
+- Externe Quellen: Import (`sourceToProject`), Export (`projectToSource`), direkte Übersetzung
+  (`compileSource`)
+- Meldungen mit Ort (Codeteil, Schnittstellenzeile, Variablentabelle) und TIA-Typnamen
+- 297 Tests
+
 ## M2 – SCL-Compiler (2026-10-28)
 
 - `@zyklus/scl-compiler`:

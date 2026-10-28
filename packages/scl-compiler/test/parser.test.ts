@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { countStatements, parse, type Expr, type Stmt } from '../src';
+import {
+  countStatements,
+  looksLikeSource,
+  parseBody,
+  parseExpression,
+  parseSource,
+  type Expr,
+  type Stmt,
+} from '../src';
 
 /** Ausdruck als vollständig geklammerter Text */
 function show(e: Expr): string {
@@ -7,7 +15,7 @@ function show(e: Expr): string {
     case 'lit':
       return String(e.v);
     case 'ref':
-      return e.name + (e.member ? `.${e.member}` : '');
+      return [e.name, ...e.path].join('.');
     case 'unary':
       return `(${e.op} ${show(e.e)})`;
     case 'binary':
@@ -18,10 +26,9 @@ function show(e: Expr): string {
 }
 
 function expr(src: string): string {
-  const r = parse(`#x := ${src};`);
+  const r = parseExpression(src);
   expect(r.diagnostics).toEqual([]);
-  const s = r.unit.body[0] as Extract<Stmt, { k: 'assign' }>;
-  return show(s.e);
+  return show(r.expr!);
 }
 
 describe('Ausdrücke – Präzedenz nach IEC 61131-3', () => {
@@ -49,16 +56,20 @@ describe('Ausdrücke – Präzedenz nach IEC 61131-3', () => {
     expect(expr('limit(MN := 0, IN := a, MX := 100)')).toBe('LIMIT(MN:=0, IN:=a, MX:=100)');
   });
 
-  it('Elementzugriff', () => {
-    expect(expr('#T1.Q AND "Daten".Wert')).toBe('(T1.Q AND Daten.Wert)');
+  it('Elementzugriffe mit Pfad', () => {
+    expect(expr('#a.b AND "Daten".T1.Q')).toBe('(a.b AND Daten.T1.Q)');
+  });
+
+  it('Ausdruck mit Rest wird abgewiesen', () => {
+    expect(parseExpression('1 2').diagnostics[0]!.message).toMatch(/Unerwartet/);
   });
 });
 
-describe('Anweisungen', () => {
+describe('Anweisungsteil', () => {
   const body = (src: string) => {
-    const r = parse(src);
+    const r = parseBody(src);
     expect(r.diagnostics).toEqual([]);
-    return r.unit.body;
+    return r.body;
   };
 
   it('IF / ELSIF / ELSE', () => {
@@ -75,7 +86,6 @@ describe('Anweisungen', () => {
       ELSE
         x := 0;
       END_CASE;`);
-    expect(s).toMatchObject({ k: 'case' });
     const c = s as Extract<Stmt, { k: 'case' }>;
     expect(c.items.map((i) => i.labels.map((l) => [l.lo, l.hi]))).toEqual([
       [[0, undefined]],
@@ -92,20 +102,26 @@ describe('Anweisungen', () => {
     expect(c.else).toHaveLength(1);
   });
 
-  it('FOR / WHILE / REPEAT / EXIT / CONTINUE / RETURN', () => {
+  it('FOR / WHILE / REPEAT / EXIT / CONTINUE / RETURN / REGION', () => {
     const s = body(`
       FOR #i := 1 TO 10 BY 2 DO EXIT; END_FOR;
       WHILE a DO CONTINUE; END_WHILE;
       REPEAT x := x + 1; UNTIL x > 5 END_REPEAT;
+      REGION Ansteuerung – Förderband (Teil 1)
+        x := 1;
+      END_REGION
       RETURN;`);
-    expect(s.map((x) => x.k)).toEqual(['for', 'while', 'repeat', 'return']);
+    expect(s.map((x) => x.k)).toEqual(['for', 'while', 'repeat', 'region', 'return']);
+    expect(s[3]).toMatchObject({ name: 'Ansteuerung – Förderband (Teil 1)' });
   });
 
-  it('FB-Aufruf mit Ein- und Ausgängen', () => {
-    const [s] = body('#T1(IN := "Start", PT := T#2s, Q => #fertig, ET => #zeit);');
-    expect(s).toMatchObject({
+  it('Aufrufe von Instanzen', () => {
+    const [a, b] = body(`
+      "IEC_Timer_0_DB".TON(IN := "Start", PT := T#2s, Q => #fertig, ET => #zeit);
+      "R_TRIG_DB"(CLK := "Taster");`);
+    expect(a).toMatchObject({
       k: 'fbcall',
-      inst: { scope: 'local', name: 'T1' },
+      inst: { scope: 'tag', name: 'IEC_Timer_0_DB', path: ['TON'] },
       args: [
         { name: 'IN' },
         { name: 'PT' },
@@ -113,43 +129,26 @@ describe('Anweisungen', () => {
         { name: 'ET' },
       ],
     });
+    expect(b).toMatchObject({ k: 'fbcall', inst: { name: 'R_TRIG_DB', path: [] } });
   });
 
-  it('Deklarationen', () => {
-    const r = parse(`
-      VAR
-        a, b : INT := 5;
-        t1 : TON;
-      END_VAR
-      VAR_TEMP i : DINT; END_VAR
-      VAR CONSTANT MAXIMUM : INT := 100; END_VAR
-      a := b;`);
-    expect(r.diagnostics).toEqual([]);
-    expect(r.unit.decls.map((d) => [d.section, d.name, d.typeName])).toEqual([
-      ['VAR', 'a', 'INT'],
-      ['VAR', 'b', 'INT'],
-      ['VAR', 't1', 'TON'],
-      ['VAR_TEMP', 'i', 'DINT'],
-      ['CONST', 'MAXIMUM', 'INT'],
-    ]);
-  });
-
-  it('Anweisungen zählen (nicht Zeilen)', () => {
-    const r = parse(`
+  it('Anweisungen zählen (nicht Zeilen, REGION nicht)', () => {
+    const r = parseBody(`
       IF a THEN
         x := 1; y := 2;
       ELSE
         z := 3;
       END_IF;
-      #T1(IN := a, PT := T#1s); ;;
+      REGION r
+        "T".TON(IN := a, PT := T#1s); ;;
+      END_REGION
       FOR #i := 1 TO 3 DO x := x + 1; END_FOR;`);
-    // IF(1) + 3 Zuweisungen + FB-Aufruf + FOR(1) + 1 Zuweisung; leere Anweisungen zählen nicht
-    expect(countStatements(r.unit.body)).toBe(7);
+    expect(countStatements(r.body)).toBe(7);
   });
 });
 
 describe('Syntaxfehler', () => {
-  const errs = (src: string) => parse(src).diagnostics;
+  const errs = (src: string) => parseBody(src).diagnostics;
 
   it('Position (Zeile/Spalte) und verständlicher Text', () => {
     const [d] = errs('x := 1;\ny := 2\nz := 3;');
@@ -166,10 +165,9 @@ describe('Syntaxfehler', () => {
     ['x := 2 ** 3;', /Potenzieren/],
     ['FOR #i = 1 TO 3 DO END_FOR;', /„:=“ erwartet nach der Laufvariable/],
     ['CASE x OF a := 1; END_CASE;', /CASE-Marke erwartet/],
-    ['#T1(TRUE, T#1s);', /benannte Parameter/],
-    ['x := 1; VAR a : INT; END_VAR', /Deklarationen müssen vor/],
-    ['VAR a INT; END_VAR', /„:“ erwartet/],
-    ['VAR CONSTANT A : INT; END_VAR', /Konstante braucht einen Wert/],
+    ['"T".TON(TRUE, T#1s);', /benannte Parameter/],
+    ['VAR a : INT; END_VAR', /in der Bausteinschnittstelle deklariert/],
+    ['REGION x\n a := 1;', /END_REGION erwartet/],
     ['x := a[1];', /Arrays/],
     ['END_IF;', /Unerwartetes Schlüsselwort END_IF/],
   ])('%s', (src, re) => {
@@ -192,5 +190,81 @@ describe('Syntaxfehler', () => {
     const d = errs('x := "offen;');
     expect(d).toHaveLength(1);
     expect(d[0]!.message).toMatch(/Anführungszeichen/);
+  });
+});
+
+describe('Externe Quelle (TIA-Format)', () => {
+  const SRC = `
+DATA_BLOCK "IEC_Timer_0_DB"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+IEC_TIMER
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Daten"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      Anzahl : Int := 5;   // Zähler
+      Aktiv { ExternalAccessible := 'False'} : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      tmp : Int;
+   END_VAR
+   VAR CONSTANT
+      GRENZE : Int := 10;
+   END_VAR
+
+BEGIN
+	"IEC_Timer_0_DB".TON(IN := "Start", PT := T#2S);
+	"Motor" := "IEC_Timer_0_DB".Q;
+END_ORGANIZATION_BLOCK
+`;
+
+  it('erkennt Quellen', () => {
+    expect(looksLikeSource(SRC)).toBe(true);
+    expect(looksLikeSource('"Motor" := TRUE;')).toBe(false);
+  });
+
+  it('liest Bausteine, Schnittstellen und Anweisungsteile', () => {
+    const r = parseSource(SRC);
+    expect(r.diagnostics).toEqual([]);
+    expect(r.blocks.map((b) => [b.kind, b.name, b.instanceOf])).toEqual([
+      ['DB', 'IEC_Timer_0_DB', 'IEC_TIMER'],
+      ['DB', 'Daten', undefined],
+      ['OB', 'Main', undefined],
+    ]);
+    const [, daten, main] = r.blocks;
+    expect(daten!.decls.map((d) => [d.section, d.name, d.typeName, d.initText])).toEqual([
+      ['Static', 'Anzahl', 'Int', '5'],
+      ['Static', 'Aktiv', 'Bool', undefined],
+    ]);
+    expect(main!.title).toBe('Main Program Sweep (Cycle)');
+    expect(main!.decls.map((d) => [d.section, d.name])).toEqual([
+      ['Temp', 'tmp'],
+      ['Constant', 'GRENZE'],
+    ]);
+    expect(main!.body).toHaveLength(2);
+    expect(main!.bodyText.trim()).toMatch(/^"IEC_Timer_0_DB"\.TON/);
+  });
+
+  it('meldet Fehler in der Quelle mit Position', () => {
+    const r = parseSource('ORGANIZATION_BLOCK "Main"\nBEGIN\n  x := ;\nEND_ORGANIZATION_BLOCK');
+    expect(r.diagnostics[0]).toMatchObject({ start: { line: 3 } });
+    expect(parseSource('FOO "x"').diagnostics[0]!.message).toMatch(/Bausteinanfang erwartet/);
   });
 });

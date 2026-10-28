@@ -36,10 +36,14 @@ export class ByteArea {
     switch (t) {
       case 'BOOL':
         return (this.bytes[byte]! & (1 << bit)) !== 0;
+      case 'BYTE':
+        return this.bytes[byte]!;
       case 'INT':
         return this.view.getInt16(byte, false);
       case 'WORD':
         return this.view.getUint16(byte, false);
+      case 'DWORD':
+        return this.view.getUint32(byte, false);
       case 'DINT':
       case 'TIME':
         return this.view.getInt32(byte, false);
@@ -56,11 +60,17 @@ export class ByteArea {
         if (v) this.bytes[byte]! |= 1 << bit;
         else this.bytes[byte]! &= ~(1 << bit);
         return;
+      case 'BYTE':
+        this.bytes[byte] = v as number;
+        return;
       case 'INT':
         this.view.setInt16(byte, v as number, false);
         return;
       case 'WORD':
         this.view.setUint16(byte, v as number, false);
+        return;
+      case 'DWORD':
+        this.view.setUint32(byte, v as number, false);
         return;
       case 'DINT':
       case 'TIME':

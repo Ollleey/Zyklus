@@ -1,5 +1,5 @@
 import type { Instr } from '../ir';
-import type { DataType } from '../types';
+import { isBitwiseType, type DataType } from '../types';
 
 /**
  * Energie-Gewichte je ausgeführtem IR-Befehl. Zentral hier, damit sie sich balancieren lassen.
@@ -16,7 +16,7 @@ export const ENERGY = {
 
 function byType(t: DataType): number {
   if (t === 'REAL') return ENERGY.real;
-  if (t === 'BOOL' || t === 'WORD') return ENERGY.bit;
+  if (isBitwiseType(t)) return ENERGY.bit;
   return ENERGY.integer;
 }
 

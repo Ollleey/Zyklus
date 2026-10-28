@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Simulation } from '@zyklus/sim-core';
-import { compile, cpuFor } from './harness';
+import { DB, IDB, compile, cpuFor } from './harness';
 
 describe('Bitlogik und Selbsthaltung', () => {
   it('Förderband Start/Stopp mit Selbsthaltung (Stopp als Öffner)', () => {
@@ -33,25 +33,34 @@ describe('Bitlogik und Selbsthaltung', () => {
     }
   });
 
-  it('absolute Adressen', () => {
-    const cpu = cpuFor('%Q1.3 := %I2.0 AND %M5.1; %MW100 := %IW10 + 1;');
+  it('absolute Adressen mit TIA-Typen (%IW = Word, implizit nach Int)', () => {
+    const cpu = cpuFor('%Q1.3 := %I2.0 AND %M5.1; %MW100 := %IW10 + 1; %MB7 := %IB3;');
     cpu.setInput('%I2.0', true);
     cpu.setInput('%M5.1', true);
     cpu.setInput('%IW10', 41);
+    cpu.setInput('%IB3', 200);
     cpu.scan(0);
     expect(cpu.read('%Q1.3')).toBe(true);
     expect(cpu.read('%MW100')).toBe(42);
+    expect(cpu.read('%MB7')).toBe(200);
+  });
+
+  it('REGION gliedert, ohne Code zu erzeugen', () => {
+    const r = compile('REGION Band ansteuern\n  "Motor" := "Start";\nEND_REGION');
+    expect(r.ok).toBe(true);
+    expect(r.program!.code).toHaveLength(1);
+    expect(r.statementCount).toBe(1);
   });
 });
 
 describe('Variablen und Typen', () => {
-  it('statische Variablen behalten den Wert, TEMP nicht', () => {
-    const cpu = cpuFor(`
-      VAR zaehler : INT := 10; END_VAR
-      VAR_TEMP tmp : INT; END_VAR
-      #tmp := #tmp + 1;
-      #zaehler := #zaehler + #tmp;
-      "Zahl" := #zaehler;`);
+  it('Daten im Global-DB bleiben erhalten, Temp nicht', () => {
+    const cpu = cpuFor(
+      `#tmp := #tmp + 1;
+       "Daten".zaehler := "Daten".zaehler + #tmp;
+       "Zahl" := "Daten".zaehler;`,
+      { blocks: [DB('Daten', [['zaehler', 'Int', '10']])], temp: [['tmp', 'Int']] },
+    );
     cpu.scan(0);
     cpu.scan(1);
     cpu.scan(2);
@@ -59,67 +68,74 @@ describe('Variablen und Typen', () => {
   });
 
   it('Konstanten werden eingesetzt', () => {
-    const cpu = cpuFor(`
-      VAR CONSTANT GRENZE : INT := 100; FAKTOR : REAL := 2.5; END_VAR
-      "Lampe" := "Zahl" > GRENZE;
-      "Wert" := FAKTOR * 2;`);
+    const cpu = cpuFor('"Lampe" := "Zahl" > GRENZE; "Wert" := FAKTOR * 2;', {
+      constants: [
+        ['GRENZE', 'Int', '100'],
+        ['FAKTOR', 'Real', '2.5'],
+      ],
+    });
     cpu.setInput('%MW10', 101);
     cpu.scan(0);
     expect(cpu.read('%Q0.1')).toBe(true);
     expect(cpu.read('%MD24', 'REAL')).toBe(5);
   });
 
-  it('implizite Erweiterung INT → DINT → REAL', () => {
-    const cpu = cpuFor(`
-      VAR i : INT := 7; d : DINT; END_VAR
-      #d := #i;
-      "Gross" := #d * 100000;
-      "Wert" := #i / 2;       // INT-Division, dann nach REAL
-      `);
+  it('implizite Erweiterung Int → DInt → Real', () => {
+    const cpu = cpuFor(
+      `#d := #i;
+       "Gross" := #d * 100000;
+       "Wert" := #i / 2;       // Int-Division, dann nach Real`,
+      {
+        temp: [
+          ['i', 'Int', '7'],
+          ['d', 'DInt'],
+        ],
+      },
+    );
     cpu.scan(0);
     expect(cpu.read('%MD20')).toBe(700000);
     expect(cpu.read('%MD24', 'REAL')).toBe(3);
   });
 
   it('gemischte Ausdrücke rechnen im größeren Typ', () => {
-    const cpu = cpuFor(`
-      VAR i : INT := 7; END_VAR
-      "Wert" := #i / 2.0;
-      "Gross" := #i + DINT#100000;`);
+    const cpu = cpuFor('"Wert" := #i / 2.0; "Gross" := #i + DINT#100000;', {
+      temp: [['i', 'Int', '7']],
+    });
     cpu.scan(0);
     expect(cpu.read('%MD24', 'REAL')).toBe(3.5);
     expect(cpu.read('%MD20')).toBe(100007);
   });
 
-  it('INT-Überlauf wie echt', () => {
-    const cpu = cpuFor('VAR i : INT := 32767; END_VAR #i := #i + 1; "Zahl" := #i;');
+  it('Int-Überlauf wie echt', () => {
+    const cpu = cpuFor('#i := #i + 1; "Zahl" := #i;', { temp: [['i', 'Int', '32767']] });
     cpu.scan(0);
     expect(cpu.read('%MW10')).toBe(-32768);
   });
 
-  it('Literale passen sich dem Ziel an (DINT, REAL)', () => {
+  it('Literale passen sich dem Ziel an (DInt, Real)', () => {
     const cpu = cpuFor('"Gross" := 40000 + 1; "Wert" := 1 + 2;');
     cpu.scan(0);
     expect(cpu.read('%MD20')).toBe(40001);
     expect(cpu.read('%MD24', 'REAL')).toBe(3);
   });
 
-  it('Global-DB', () => {
-    const cpu = cpuFor('"Daten".Anzahl := "Daten".Anzahl + 1; "Zahl" := "Daten".Anzahl;', {
-      globalDb: { name: 'Daten', vars: [{ name: 'Anzahl', t: 'INT', init: 5 }] },
-    });
+  it('Word ↔ Int implizit (Bitmuster)', () => {
+    const cpu = cpuFor('"Muster" := "Zahl"; "Sollwert" := "Muster";');
+    cpu.setInput('%MW10', -1);
     cpu.scan(0);
-    cpu.scan(1);
-    expect(cpu.read('%MW10')).toBe(7);
+    expect(cpu.read('%MW30', 'WORD')).toBe(0xffff);
+    expect(cpu.read('%QW64')).toBe(-1);
   });
 
-  it('WORD-Logik und Schieben', () => {
+  it('Wortlogik und Schieben', () => {
     const cpu = cpuFor(`
       "Muster" := SHL(IN := 16#00F0, N := 4) OR 16#0001;
-      %MW50 := WORD_TO_INT(SHR(WORD#16#8000, 15) XOR NOT 16#FFFE);  // %MW ist INT`);
+      %MW50 := SHR(WORD#16#8000, 15) XOR NOT 16#FFFE;
+      %MB60 := SHL(IN := B#16#81, N := 1);`);
     cpu.scan(0);
     expect(cpu.read('%MW30', 'WORD')).toBe(0x0f01);
-    expect(cpu.read('%MW50', 'INT')).toBe(0);
+    expect(cpu.read('%MW50', 'WORD')).toBe(0);
+    expect(cpu.read('%MB60', 'BYTE')).toBe(0x02);
   });
 });
 
@@ -180,17 +196,18 @@ describe('Kontrollstrukturen', () => {
     expect(cpu.read('%QW64')).toBe(2);
   });
 
-  it('Schrittkette mit CASE', () => {
-    const cpu = cpuFor(`
-      VAR schritt : INT; END_VAR
-      CASE #schritt OF
-        0: IF "Start" THEN #schritt := 1; END_IF;
+  it('Schrittkette mit CASE, Schritt im Global-DB', () => {
+    const cpu = cpuFor(
+      `CASE "Kette".Schritt OF
+        0: IF "Start" THEN "Kette".Schritt := 1; END_IF;
         1: "Motor" := TRUE;
-           IF "Sensor" THEN #schritt := 2; END_IF;
+           IF "Sensor" THEN "Kette".Schritt := 2; END_IF;
         2: "Motor" := FALSE;
-           #schritt := 0;
+           "Kette".Schritt := 0;
       END_CASE;
-      "Zahl" := #schritt;`);
+      "Zahl" := "Kette".Schritt;`,
+      { blocks: [DB('Kette', [['Schritt', 'Int']])] },
+    );
     const step = (t: number, inputs: Record<string, boolean> = {}) => {
       cpu.setInput('%I0.0', !!inputs.start);
       cpu.setInput('%I0.2', !!inputs.sensor);
@@ -205,32 +222,44 @@ describe('Kontrollstrukturen', () => {
   });
 
   it('FOR mit und ohne BY, auch rückwärts', () => {
-    const cpu = cpuFor(`
-      VAR_TEMP i : INT; s : INT; END_VAR
-      FOR #i := 1 TO 10 DO #s := #s + #i; END_FOR;
+    const cpu = cpuFor(
+      `FOR #i := 1 TO 10 DO #s := #s + #i; END_FOR;
       "Zahl" := #s;
       #s := 0;
       FOR #i := 10 TO 1 BY -3 DO #s := #s * 10 + #i; END_FOR;  // 10, 7, 4, 1
-      "Sollwert" := #s;`);
+      "Sollwert" := #s;`,
+      {
+        temp: [
+          ['i', 'Int'],
+          ['s', 'Int'],
+        ],
+      },
+    );
     cpu.scan(0);
     expect(cpu.read('%MW10')).toBe(55);
     expect(cpu.read('%QW64')).toBe(((10 * 10 + 7) * 10 + 4) * 10 + 1);
   });
 
   it('FOR-Endwert wird nur einmal ausgewertet', () => {
-    const cpu = cpuFor(`
-      VAR_TEMP i : INT; n : INT; s : INT; END_VAR
-      #n := 3;
+    const cpu = cpuFor(
+      `#n := 3;
       FOR #i := 1 TO #n DO #n := 10; #s := #s + 1; END_FOR;
-      "Zahl" := #s;`);
+      "Zahl" := #s;`,
+      {
+        temp: [
+          ['i', 'Int'],
+          ['n', 'Int'],
+          ['s', 'Int'],
+        ],
+      },
+    );
     cpu.scan(0);
     expect(cpu.read('%MW10')).toBe(3);
   });
 
   it('WHILE, REPEAT, EXIT, CONTINUE', () => {
-    const cpu = cpuFor(`
-      VAR_TEMP i : INT; s : INT; END_VAR
-      WHILE TRUE DO
+    const cpu = cpuFor(
+      `WHILE TRUE DO
         #i := #i + 1;
         IF #i MOD 2 = 0 THEN CONTINUE; END_IF;
         IF #i > 9 THEN EXIT; END_IF;
@@ -239,22 +268,36 @@ describe('Kontrollstrukturen', () => {
       "Zahl" := #s;
       #i := 0;
       REPEAT #i := #i + 5; UNTIL #i >= 12 END_REPEAT;
-      "Sollwert" := #i;`);
+      "Sollwert" := #i;`,
+      {
+        temp: [
+          ['i', 'Int'],
+          ['s', 'Int'],
+        ],
+      },
+    );
     cpu.scan(0);
     expect(cpu.read('%MW10')).toBe(25);
     expect(cpu.read('%QW64')).toBe(15);
   });
 
   it('EXIT verlässt nur die innere Schleife', () => {
-    const cpu = cpuFor(`
-      VAR_TEMP i : INT; j : INT; s : INT; END_VAR
-      FOR #i := 1 TO 3 DO
+    const cpu = cpuFor(
+      `FOR #i := 1 TO 3 DO
         FOR #j := 1 TO 100 DO
           IF #j > 2 THEN EXIT; END_IF;
           #s := #s + 1;
         END_FOR;
       END_FOR;
-      "Zahl" := #s;`);
+      "Zahl" := #s;`,
+      {
+        temp: [
+          ['i', 'Int'],
+          ['j', 'Int'],
+          ['s', 'Int'],
+        ],
+      },
+    );
     cpu.scan(0);
     expect(cpu.read('%MW10')).toBe(6);
   });
@@ -268,8 +311,6 @@ describe('Kontrollstrukturen', () => {
   });
 
   it('Endlosschleife → Zykluszeitüberschreitung → STOP', () => {
-    const r = compile('"Motor" := TRUE; WHILE "Start" DO ; END_WHILE;');
-    expect(r.ok).toBe(true);
     const cpu = cpuFor('"Motor" := TRUE; WHILE "Start" DO ; END_WHILE;');
     const sim = new Simulation([cpu]);
     sim.run(3);
@@ -281,13 +322,14 @@ describe('Kontrollstrukturen', () => {
   });
 });
 
-describe('FB-Aufrufe', () => {
-  it('TON mit Ausgangszuweisung und Elementzugriff', () => {
-    const cpu = cpuFor(`
-      VAR t1 : TON; fertig : BOOL; END_VAR
-      #t1(IN := "Start", PT := T#100ms, Q => #fertig, ET => "Dauer");
-      "Motor" := #fertig;
-      "Lampe" := #t1.Q;`);
+describe('Systembausteine mit Instanz-DB', () => {
+  it('IEC_TIMER: "DB".TON(…) mit Ausgangszuweisung und Elementzugriff', () => {
+    const cpu = cpuFor(
+      `"T1_DB".TON(IN := "Start", PT := T#100ms, Q => "Daten".fertig, ET => "Dauer");
+       "Motor" := "Daten".fertig;
+       "Lampe" := "T1_DB".Q;`,
+      { blocks: [IDB('T1_DB', 'IEC_TIMER'), DB('Daten', [['fertig', 'Bool']])] },
+    );
     cpu.setInput('%I0.0', true);
     cpu.scan(0);
     cpu.scan(60);
@@ -298,12 +340,25 @@ describe('FB-Aufrufe', () => {
     expect(cpu.read('%Q0.1')).toBe(true);
   });
 
-  it('Entprellen mit TON und TOF (Aliasse TON_TIME / TOF_TIME)', () => {
-    const cpu = cpuFor(`
-      VAR ein : TON_TIME; aus : TOF_TIME; END_VAR
-      ein(IN := "Sensor", PT := T#20ms);
-      aus(IN := ein.Q, PT := T#20ms);
-      "Lampe" := aus.Q;`);
+  it('Elementzugriff vor dem Aufruf kennt bereits die Anweisung', () => {
+    const cpu = cpuFor(
+      `"Lampe" := "T_DB".Q;
+       "T_DB".TOF(IN := "Start", PT := T#10ms);`,
+      { blocks: [IDB('T_DB', 'IEC_TIMER')] },
+    );
+    cpu.setInput('%I0.0', true);
+    cpu.scan(0);
+    cpu.scan(1);
+    expect(cpu.read('%Q0.1')).toBe(true);
+  });
+
+  it('Entprellen mit typisierten Instanz-DBs TON_TIME / TOF_TIME', () => {
+    const cpu = cpuFor(
+      `"Ein"(IN := "Sensor", PT := T#20ms);
+       "Aus"(IN := "Ein".Q, PT := T#20ms);
+       "Lampe" := "Aus".Q;`,
+      { blocks: [IDB('Ein', 'TON_TIME'), IDB('Aus', 'TOF_TIME')] },
+    );
     const sim = new Simulation([cpu], {
       // Prellen 0..15 ms, dann stabil bis 100 ms
       beforeScans: (t) => cpu.setInput('%I0.2', t < 15 ? t % 3 === 0 : t < 100),
@@ -312,21 +367,22 @@ describe('FB-Aufrufe', () => {
     expect(cpu.read('%Q0.1')).toBe(false);
     sim.run(10);
     expect(cpu.read('%Q0.1')).toBe(true);
-    sim.run(70); // t = 110: aus.Q läuft noch nach
+    sim.run(70);
     expect(cpu.read('%Q0.1')).toBe(true);
     sim.run(20);
     expect(cpu.read('%Q0.1')).toBe(false);
   });
 
-  it('CTU / CTD / CTUD', () => {
-    const cpu = cpuFor(`
-      VAR z : CTU_INT; r : CTD; ud : CTUD; END_VAR
-      z(CU := "Sensor", R := "Stopp", PV := 3);
-      r(CD := "Sensor", LD := "Start", PV := 2);
-      ud(CU := "Sensor", CD := FALSE, PV := 5, QU => "Lampe");
-      "Motor" := z.Q;
-      "Zahl" := z.CV;
-      "Sollwert" := r.CV;`);
+  it('Zähler: CTU_INT, IEC_COUNTER.CTD, CTUD_INT', () => {
+    const cpu = cpuFor(
+      `"Z"(CU := "Sensor", R := "Stopp", PV := 3);
+       "Ab".CTD(CD := "Sensor", LD := "Start", PV := 2);
+       "UD"(CU := "Sensor", CD := FALSE, PV := 5, QU => "Lampe");
+       "Motor" := "Z".Q;
+       "Zahl" := "Z".CV;
+       "Sollwert" := "Ab".CV;`,
+      { blocks: [IDB('Z', 'CTU_INT'), IDB('Ab', 'IEC_COUNTER'), IDB('UD', 'CTUD_INT')] },
+    );
     const pulse = (t: number) => {
       cpu.setInput('%I0.2', true);
       cpu.scan(t);
@@ -342,19 +398,21 @@ describe('FB-Aufrufe', () => {
     expect(cpu.read('%MW10')).toBe(3);
     expect(cpu.read('%Q0.0')).toBe(true);
     expect(cpu.read('%QW64')).toBe(-1);
-    expect(cpu.readInstance('ud', 'CV')).toBe(3);
+    expect(cpu.readInstance('UD', 'CV')).toBe(3);
+    expect(cpu.readInstance('Ab', 'QD')).toBe(true);
     cpu.setInput('%I0.1', true);
     cpu.scan(7);
     expect(cpu.read('%MW10')).toBe(0);
   });
 
   it('R_TRIG / F_TRIG', () => {
-    const cpu = cpuFor(`
-      VAR hoch : R_TRIG; runter : F_TRIG; n : INT; END_VAR
-      hoch(CLK := "Start");
-      runter(CLK := "Start");
-      IF hoch.Q OR runter.Q THEN #n := #n + 1; END_IF;
-      "Zahl" := #n;`);
+    const cpu = cpuFor(
+      `"Hoch"(CLK := "Start");
+       "Runter"(CLK := "Start");
+       IF "Hoch".Q OR "Runter".Q THEN "Daten".n := "Daten".n + 1; END_IF;
+       "Zahl" := "Daten".n;`,
+      { blocks: [IDB('Hoch', 'R_TRIG'), IDB('Runter', 'F_TRIG'), DB('Daten', [['n', 'Int']])] },
+    );
     [false, true, true, false, true, false].forEach((v, t) => {
       cpu.setInput('%I0.0', v);
       cpu.scan(t);
@@ -362,25 +420,12 @@ describe('FB-Aufrufe', () => {
     expect(cpu.read('%MW10')).toBe(4);
   });
 
-  it('SR (Rücksetzen dominant) und RS (Setzen dominant)', () => {
-    const cpu = cpuFor(`
-      VAR sr1 : SR; rs1 : RS; END_VAR
-      sr1(S1 := "Start", R := "Stopp");
-      rs1(S := "Start", R1 := "Stopp");
-      "Motor" := sr1.Q1;
-      "Lampe" := rs1.Q1;`);
-    cpu.setInput('%I0.0', true);
-    cpu.setInput('%I0.1', true);
-    cpu.scan(0);
-    expect(cpu.read('%Q0.0')).toBe(false);
-    expect(cpu.read('%Q0.1')).toBe(true);
-  });
-
-  it('TONR mit Reset', () => {
-    const cpu = cpuFor(`
-      VAR t : TONR; END_VAR
-      t(IN := "Start", R := "Stopp", PT := T#50ms);
-      "Motor" := t.Q;`);
+  it('IEC_TIMER.TONR mit Reset', () => {
+    const cpu = cpuFor(
+      `"T".TONR(IN := "Start", R := "Stopp", PT := T#50ms);
+       "Motor" := "T".Q;`,
+      { blocks: [IDB('T', 'IEC_TIMER')] },
+    );
     cpu.setInput('%I0.0', true);
     cpu.scan(0);
     cpu.scan(30);
@@ -394,10 +439,29 @@ describe('FB-Aufrufe', () => {
     cpu.scan(71);
     expect(cpu.read('%Q0.0')).toBe(false);
   });
+
+  it('Instanz als Variable im Global-DB ("Daten".T1(…) und "Daten".T2.TON(…))', () => {
+    const cpu = cpuFor(
+      `"Daten".T1(IN := "Start", PT := T#5ms);
+       "Daten".T2.TON(IN := "Daten".T1.Q, PT := T#5ms);
+       "Lampe" := "Daten".T2.Q;`,
+      {
+        blocks: [
+          DB('Daten', [
+            ['T1', 'TON_TIME'],
+            ['T2', 'IEC_TIMER'],
+          ]),
+        ],
+      },
+    );
+    cpu.setInput('%I0.0', true);
+    for (let t = 0; t <= 10; t++) cpu.scan(t);
+    expect(cpu.read('%Q0.1')).toBe(true);
+  });
 });
 
 describe('Funktionen', () => {
-  it('Analogwert: NORM_X / SCALE_X auf REAL und INT', () => {
+  it('Analogwert: NORM_X / SCALE_X auf Real und Int', () => {
     const cpu = cpuFor(`
       "Wert" := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Rohwert", MAX := 27648), MAX := 100.0);
       "Sollwert" := SCALE_X(MIN := 0, VALUE := "Wert" / 100.0, MAX := 27648);`);
@@ -405,6 +469,13 @@ describe('Funktionen', () => {
     cpu.scan(0);
     expect(cpu.read('%MD24', 'REAL')).toBeCloseTo(25, 5);
     expect(cpu.read('%QW64')).toBe(6912);
+  });
+
+  it('NORM_X direkt auf %IW (Word wird als Int gerechnet)', () => {
+    const cpu = cpuFor('"Wert" := NORM_X(MIN := 0, VALUE := %IW64, MAX := 27648);');
+    cpu.setInput('%IW64', 13824);
+    cpu.scan(0);
+    expect(cpu.read('%MD24', 'REAL')).toBe(0.5);
   });
 
   it('LIMIT, MIN, MAX (positional und benannt), ABS', () => {
@@ -420,27 +491,18 @@ describe('Funktionen', () => {
     expect(cpu.read('%MD24', 'REAL')).toBe(2);
   });
 
-  it('SEL und MUX (mit ELSE)', () => {
+  it('SEL und MUX (mit INELSE)', () => {
     const cpu = cpuFor(`
       "Sollwert" := SEL(G := "Start", IN0 := 10, IN1 := 20);
-      %MW0 := MUX(K := "Zahl", IN0 := 100, IN1 := 200, IN2 := 300, ELSE := -1);`);
+      "Gross" := MUX(K := "Zahl", IN0 := 100, IN1 := 200, IN2 := 300, INELSE := -1);`);
     cpu.setInput('%I0.0', true);
     cpu.setInput('%MW10', 2);
     cpu.scan(0);
     expect(cpu.read('%QW64')).toBe(20);
-    expect(cpu.read('%MW0')).toBe(300);
+    expect(cpu.read('%MD20')).toBe(300);
     cpu.setInput('%MW10', 3);
     cpu.scan(1);
-    expect(cpu.read('%MW0')).toBe(-1);
-  });
-
-  it('IN_RANGE / OUT_RANGE', () => {
-    const cpu = cpuFor(
-      '"Motor" := IN_RANGE(MIN := 10, VAL := "Zahl", MAX := 20); "Lampe" := OUT_RANGE(10, "Zahl", 20);',
-    );
-    cpu.setInput('%MW10', 20);
-    cpu.scan(0);
-    expect([cpu.read('%Q0.0'), cpu.read('%Q0.1')]).toEqual([true, false]);
+    expect(cpu.read('%MD20')).toBe(-1);
   });
 
   it('Konvertierungen, ROUND, TRUNC', () => {
@@ -448,18 +510,18 @@ describe('Funktionen', () => {
       "Wert" := INT_TO_REAL("Zahl") / 4.0;
       %MW0 := REAL_TO_INT("Wert");
       "Gross" := ROUND(2.5) + TRUNC(-2.7);
-      %MW2 := WORD_TO_INT(16#FFFF);
+      "Sollwert" := WORD_TO_INT(16#FFFF);
       "Dauer" := DINT_TO_TIME("Gross" * 1000);`);
     cpu.setInput('%MW10', 10);
     cpu.scan(0);
     expect(cpu.read('%MD24', 'REAL')).toBe(2.5);
     expect(cpu.read('%MW0')).toBe(2);
     expect(cpu.read('%MD20')).toBe(0);
-    expect(cpu.read('%MW2')).toBe(-1);
+    expect(cpu.read('%QW64')).toBe(-1);
     expect(cpu.read('%MD40', 'TIME')).toBe(0);
   });
 
-  it('TIME-Arithmetik', () => {
+  it('Time-Arithmetik', () => {
     const cpu = cpuFor('"Dauer" := T#1s + T#250ms * 2 - "Dauer" / 2;');
     cpu.setInput('%MD40', 1000, 'TIME');
     cpu.scan(0);
@@ -469,10 +531,8 @@ describe('Funktionen', () => {
 
 describe('Codequalität', () => {
   it('Ergebnis wird direkt ins Ziel geschrieben (keine überflüssigen MOVEs)', () => {
-    const r = compile('"Motor" := "Start" AND "Stopp";');
-    expect(r.program!.code).toHaveLength(1);
-    const r2 = compile('"Zahl" := "Zahl" + 1;');
-    expect(r2.program!.code).toHaveLength(1);
+    expect(compile('"Motor" := "Start" AND "Stopp";').program!.code).toHaveLength(1);
+    expect(compile('"Zahl" := "Zahl" + 1;').program!.code).toHaveLength(1);
   });
 
   it('Temporäre Hilfsvariablen werden wiederverwendet', () => {

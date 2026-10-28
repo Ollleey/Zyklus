@@ -96,6 +96,51 @@ describe('Wortlogik und Schieben', () => {
     expect(bin('shr', 'WORD', 0x8001, 1, 'INT')).toBe(0x4000);
     expect(bin('shr', 'WORD', 0x8000, 15, 'INT')).toBe(1);
   });
+  it('BYTE und DWORD: Logik, NOT und Schieben in eigener Breite', () => {
+    const cpu = makeCpu((b) => {
+      b.emit({ op: 'un', fn: 'not', t: 'BYTE', dst: io('%MB0', 'BYTE'), a: io('%MB1', 'BYTE') });
+      b.emit({
+        op: 'bin',
+        fn: 'shl',
+        t: 'BYTE',
+        dst: io('%MB2', 'BYTE'),
+        a: io('%MB1', 'BYTE'),
+        b: c.int(4),
+      });
+      b.emit({
+        op: 'bin',
+        fn: 'shl',
+        t: 'DWORD',
+        dst: io('%MD4', 'DWORD'),
+        a: io('%MD8', 'DWORD'),
+        b: c.int(31),
+      });
+      b.emit({
+        op: 'bin',
+        fn: 'shr',
+        t: 'DWORD',
+        dst: io('%MD12', 'DWORD'),
+        a: io('%MD4', 'DWORD'),
+        b: c.int(1),
+      });
+      b.emit({
+        op: 'un',
+        fn: 'not',
+        t: 'DWORD',
+        dst: io('%MD16', 'DWORD'),
+        a: io('%MD12', 'DWORD'),
+      });
+    });
+    cpu.setInput('%MB1', 0x3c, 'BYTE');
+    cpu.setInput('%MD8', 3, 'DWORD');
+    cpu.scan(0);
+    expect(cpu.read('%MB0', 'BYTE')).toBe(0xc3);
+    expect(cpu.read('%MB2', 'BYTE')).toBe(0xc0);
+    expect(cpu.read('%MD4', 'DWORD')).toBe(0x80000000);
+    expect(cpu.read('%MD12', 'DWORD')).toBe(0x40000000);
+    expect(cpu.read('%MD16', 'DWORD')).toBe(0xbfffffff);
+  });
+
   it('Schiebeweite ≥ 16 → 0, ≤ 0 → unverändert', () => {
     expect(bin('shl', 'WORD', 0xffff, 16, 'INT')).toBe(0);
     expect(bin('shr', 'WORD', 0xffff, 40, 'INT')).toBe(0);
