@@ -1,5 +1,24 @@
 # Changelog
 
+## S1 – Sandkasten: Anlagenmodell und Physik-Core (2026-10-29)
+
+- Neues Paket `packages/plant-sim` ohne UI: Datenmodell einer frei gebauten Anlage (Bauteile mit
+  Lage, Drehung, Parametern und Kennzeichnung), Werkstofftabelle (Stahl, Aluminium, Messing, Holz,
+  Kunststoff, Glas) mit Dichte, Reduktionsfaktor, Dielektrizitätszahl und Reflexionsgrad, Farben
+  und drei Werkstückgrößen
+- Bauteilkatalog mit automatischer Kennzeichnung (B1, M1, S1, Y1, H1, 1A1 …) und den elektrischen
+  Anschlüssen je Bauteil
+- Mechanik mit festem 2-ms-Schritt: Förderband (Motor, Wendeschütz oder Umrichter mit Sollwert),
+  Rollenbahn, Kurve, Rutsche, Magazin (Liste oder Zufallsmix nach Seed, Hand- oder Taktbetrieb),
+  Auffangbehälter mit Zählung nach Werkstoff und Farbe, Weiche, Drehtisch, Hubtisch, Anschlag,
+  Tank mit Pumpe, Ventil und Verbrauch; Zylinder mit 3/2-, 5/2- und bistabilem 5/2-Ventil;
+  Schwerkraft, Stau ohne Überlappung, höhere Bandkanten als Wand
+- Bedienelemente: Taster (Schließer/Öffner), Schalter, verrastender Not-Halt, Wahlschalter
+  Hand/Auto, Poti
+- `SandboxPlant` hängt die Anlage als gewöhnliches Anlagenmodell an `LevelRun`; sim-core bekommt
+  dafür eine erweiterbare Modellliste (`registerPlantModel`), die Kampagne bleibt unverändert
+- 548 Tests
+
 ## D6.1 – E/A-Baugruppen im Gehäuse der CPU (2026-10-29)
 
 - E/A-Baugruppen, Koppelmodul und E/A-Feld der Kompakt-CPU im selben anthrazitfarbenen Gehäuse wie

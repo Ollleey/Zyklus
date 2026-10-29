@@ -89,7 +89,7 @@ export class LevelRun {
       }
       this.traces.set(d.id, []);
     }
-    this.plant = createPlant(level, opts.test);
+    this.plant = createPlant(level, opts.test, seed);
     for (const k of Object.keys(this.plant?.state() ?? {})) this.traces.set(`plant.${k}`, []);
     this.durationMs = opts.test?.durationMs ?? Infinity;
     this.sim = new Simulation([...this.cpus.values()], {

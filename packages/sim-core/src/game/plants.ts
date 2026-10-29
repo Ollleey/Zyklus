@@ -330,7 +330,9 @@ class Drive implements Plant {
   }
 }
 
-const MODELS: Record<string, (p: Params, level: Level) => Plant> = {
+export type PlantFactory = (p: Params, level: Level, seed: number) => Plant;
+
+const MODELS: Record<string, PlantFactory> = {
   tank: (p) => new Tank(p),
   tanks: (p) => new TwoTanks(p),
   drill: (p) => new Drill(p),
@@ -339,9 +341,14 @@ const MODELS: Record<string, (p: Params, level: Level) => Plant> = {
   drive: (p, l) => new Drive(p, l),
 };
 
+/** Weitere Anlagenmodelle anmelden (z. B. die frei gebaute Anlage aus `@zyklus/plant-sim`). */
+export function registerPlantModel(type: string, make: PlantFactory): void {
+  MODELS[type] = make;
+}
+
 /** Anlagenmodell zu einem Level (Testparameter überschreiben Levelparameter), sonst undefined. */
-export function createPlant(level: Level, test?: TestCase): Plant | undefined {
+export function createPlant(level: Level, test?: TestCase, seed = 1): Plant | undefined {
   const type = level.plant?.type;
   const make = type ? MODELS[type] : undefined;
-  return make?.({ ...(level.plant?.params ?? {}), ...(test?.plant ?? {}) }, level);
+  return make?.({ ...(level.plant?.params ?? {}), ...(test?.plant ?? {}) }, level, seed);
 }
