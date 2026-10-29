@@ -216,6 +216,18 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
       }
     }
   });
+  const n = p.code.length;
+  if (p.mainEnd !== undefined && !(p.mainEnd >= 0 && p.mainEnd <= n))
+    errors.push('mainEnd ungültig');
+  for (const t of p.tasks ?? []) {
+    if (!(t.start >= 0 && t.start <= t.end && t.end <= n))
+      errors.push(`Alarm-OB ${t.name}: Codebereich ungültig`);
+    if (t.kind === 'cyclic' && !(t.intervalMs! >= 1))
+      errors.push(`Weckalarm ${t.name}: Takt fehlt`);
+    if (t.kind === 'process' && (!t.input || !probes.I.fits('BOOL', t.input.byte))) {
+      errors.push(`Prozessalarm ${t.name}: Eingang ungültig`);
+    }
+  }
   return errors;
 }
 

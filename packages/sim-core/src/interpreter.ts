@@ -25,6 +25,9 @@ export interface ExecContext {
   now: number;
   /** maximale Anzahl ausgeführter Befehle in diesem Durchlauf */
   budget: number;
+  /** Codebereich [start, end); Standard ist OB1 */
+  start?: number;
+  end?: number;
 }
 
 export type ExecResult =
@@ -39,7 +42,9 @@ export function precomputeEnergy(program: IrProgram): number[] {
 export function execute(ctx: ExecContext): ExecResult {
   const { program, slots, instances, areas } = ctx;
   const code = program.code;
-  let pc = 0;
+  // Codebereich des auszuführenden OB (Standard: OB1)
+  const end = ctx.end ?? program.mainEnd ?? code.length;
+  let pc = ctx.start ?? 0;
   let ops = 0;
   let energy = 0;
 
@@ -66,7 +71,7 @@ export function execute(ctx: ExecContext): ExecResult {
     else throw new Error('Operand nicht beschreibbar');
   };
 
-  while (pc < code.length) {
+  while (pc < end) {
     if (ops >= ctx.budget) return { ok: false, ops, energy, reason: 'CYCLE_OVERRUN' };
     const ins = code[pc]!;
     ops++;

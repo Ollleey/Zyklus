@@ -63,6 +63,11 @@ export class ProgramBuilder {
     return instr;
   }
 
+  /** Verwirft alle Befehle ab `pc` (Variablen und Instanzen bleiben). */
+  truncate(pc: number): void {
+    this.code.length = pc;
+  }
+
   /** Index des nächsten Befehls – als Sprungziel verwendbar. */
   get pc(): number {
     return this.code.length;

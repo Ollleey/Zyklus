@@ -1,5 +1,43 @@
 # Changelog
 
+## M7 – Alarme, eigene Bausteine, mehrere CPUs, Level 10–15, Werkstatt (2026-10-29)
+
+- Engine:
+  - Alarm-OBs: Weckalarm (OB30…38, Takt und Phase) und Prozessalarm (OB40…47, Flanke an einem
+    Eingangsbit) als eigene Codebereiche im IR; frisches PAE, sofort wirksame Ausgänge, gleiches
+    Befehlsbudget wie ein Zyklus
+  - Baugruppen DI 8 HF (alarmfähig) und KOP (Koppelmodul, je 2 Wörter in beide Richtungen ab
+    %QW100/%IW100); Trennwand im Schaltschrank (kein Modul darauf, keine Leitung hindurch, Baugruppen
+    rechts davon brauchen eine eigene CPU)
+  - Anlagenmodelle Bohrstation, Sortierstrecke und Wärmestrecke PT1 mit Totzeit; Anlagen können
+    Digitaleingänge liefern (Endlagen, Lichtschranken); Kriterium Tastverhältnis (`duty`)
+- SCL-Compiler:
+  - mehrere OBs mit Ereignis, Prüfung von Nummernbereich, Takt und Eingang; eigene Temp-Variablen je OB
+  - eigene FB und FC: Ein-/Ausgänge, Durchgangsparameter (auf die Variable abgebildet), statische
+    Daten, Multiinstanzen von Systembausteinen und eigenen FBs, Instanz-DBs eigener FBs, Zugriff
+    von außen (`"Motor_DB".Laeuft`), RETURN; Rekursion wird erkannt. Bausteine werden an der
+    Aufrufstelle eingesetzt, Meldungen kommen einmal am Baustein, die Programmgröße zählt den Rumpf
+    einmal
+  - Ereignisse überstehen Export und Import der `.scl`-Quelle (Kommentarzeile im Bausteinkopf)
+- Lösungen: CPU-Fähigkeiten werden geprüft (Weck-/Prozessalarm, Alarmeingang auf DI 8 HF)
+- Level 10–15: Bohrstation als Schrittkette, Sortierweiche mit Bit-Warteschlange, PWM über
+  Zeitglieder, Pumpenhaus und Leitwarte mit zwei CPUs, Abfüllen mit Prozessalarm, PI-Regler als FB
+  im Weckalarm – jeweils mit Referenzlösung, Richtwerten und Tests typischer Fehllösungen
+- App:
+  - Bausteinauswahl je CPU (FB, FC, Weckalarm-OB, Prozessalarm-OB anlegen, umbenennen, löschen),
+    Ereigniseinstellungen, Schnittstelle je Bausteinart, eigene FBs als Instanz- und Multiinstanztyp
+  - Trennwand, Koppelmodule mit Buskabel und Alarmkennzeichnung im Schaltschrank
+  - Anlagenansichten für Bohrstation, Sortierband, Ofen, Heizband, Pumpenhaus, Abfüllung
+  - Handbuch mit Seiten zu Bedienung, Baugruppen-Datenblättern, Laufzeitregeln, SCL, FUP und
+    Boxreferenz (aus `docs/` und den Katalogen erzeugt)
+  - Sandkasten: alle Baugruppen, Testgeräte, nur Handbetrieb
+  - Bonusspiel Klemmen-Patience (nach 3 erledigten Aufträgen): Reihenklemmen nach Aderfarbe und
+    Querschnitt auf Sammelschienen sortieren, Spiel je Seed, Rückgängig
+  - `.scl`-Export je CPU
+- Nicht umgesetzt aus dem Plan: Sound, eigenes Onboarding (das Handbuch erklärt die Bedienung);
+  Aufruf eigener FB/FC aus FUP
+- 472 Tests
+
 ## M6 – Metriken, Histogramme, Speichern (2026-10-29)
 
 - Richtwerte (`par`) je Level aus den Metriken der Referenzlösungen; ein Test hält beides synchron

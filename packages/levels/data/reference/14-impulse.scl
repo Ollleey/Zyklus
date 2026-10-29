@@ -1,0 +1,47 @@
+DATA_BLOCK "Fuellung"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      Impulse : Int;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "StartFlanke"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	"StartFlanke"(CLK := "Start");
+	IF "StartFlanke".Q THEN
+	    "Fuellung".Impulse := 0;
+	    "Ventil" := TRUE;
+	END_IF;
+	IF "Fuellung".Impulse >= 120 THEN
+	    "Ventil" := FALSE;
+	END_IF;
+END_ORGANIZATION_BLOCK
+
+ORGANIZATION_BLOCK "Impuls"
+TITLE = Hardware interrupt
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+// Ereignis: Prozessalarm, steigende Flanke an "Durchfluss"
+
+BEGIN
+	"Fuellung".Impulse := "Fuellung".Impulse + 1;
+END_ORGANIZATION_BLOCK

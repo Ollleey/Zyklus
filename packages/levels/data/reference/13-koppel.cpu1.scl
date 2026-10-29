@@ -1,0 +1,14 @@
+ORGANIZATION_BLOCK "Main"
+TITLE = Leitwarte
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Bedienung zum Pumpenhaus senden
+	%Q100.0 := "Ein";
+	%Q100.1 := "Quittieren";
+
+	// Rückmeldungen anzeigen
+	"Betrieb" := %I100.0;
+	"Stoerung" := %I100.1;
+END_ORGANIZATION_BLOCK

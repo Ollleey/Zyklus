@@ -1,0 +1,165 @@
+{
+  "id": "12-pwm",
+  "order": 12,
+  "title": {
+    "de": "Heizband im Takt"
+  },
+  "customer": {
+    "de": "Kunststofftechnik Lindauer"
+  },
+  "mail": {
+    "from": {
+      "de": "Moritz Lindauer <m.lindauer@kt-lindauer.example>"
+    },
+    "subject": {
+      "de": "Heizband stufenlos – aber nur mit Schaltausgang"
+    },
+    "body": {
+      "de": "Hallo,\n\ndas Heizband an der Extruderdüse hängt an einem Halbleiterrelais, das nur ein/aus kann. Die Leistung wollen wir trotzdem am Poti einstellen: 0 bis 100 %.\n\nDie Idee: im Sekundentakt einschalten und je nach Sollwert früher oder später wieder aus. Ein Analogausgang ist leider nicht drin.\n\nBeste Grüße\nMoritz Lindauer"
+    }
+  },
+  "datasheet": {
+    "de": "# Düsenheizung DH-3\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Freigabe (Schalter) |\n| B1 | AI | Leistungs-Poti 0…100 % → 0…27648 |\n| E1 | DO | Halbleiterrelais Heizband |\n\n## Funktion (Pulsweitenmodulation)\n\n- Periode **1 s**.\n- In jeder Periode ist E1 so lange ein, wie es dem Sollwert entspricht: 30 % → 300 ms ein, 700 ms aus.\n- Ohne Freigabe bleibt E1 aus.\n\n## Prüfung\n\nIn jedem Sekundenfenster muss der Einschaltanteil auf **3 Prozentpunkte** genau stimmen. Das Fenster direkt nach einer Sollwertänderung wird nicht bewertet.\n\n## Hinweis\n\nEin Zeitglied, das sich selbst neu startet (`IN := NOT Q`), liefert mit `ET` eine laufende Zeit innerhalb der Periode. `TIME_TO_DINT` wandelt sie in Millisekunden."
+  },
+  "board": {
+    "width": 8,
+    "ductCapacity": 4
+  },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "ai2"],
+  "toleranceMs": 0,
+  "plant": {
+    "type": "pwm",
+    "params": {
+      "heater": "E1",
+      "setpoint": "B1"
+    }
+  },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Freigabe",
+      "name": {
+        "de": "Freigabe (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "switch"
+    },
+    {
+      "id": "B1",
+      "tag": "Leistung",
+      "name": {
+        "de": "Leistungs-Poti (B1)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "%",
+        "min": 0,
+        "max": 100,
+        "noise": 20
+      }
+    },
+    {
+      "id": "E1",
+      "tag": "Heizband",
+      "name": {
+        "de": "Heizband (E1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "actuator"
+    }
+  ],
+  "tests": [
+    {
+      "id": "stufen",
+      "name": {
+        "de": "Sollwertstufen"
+      },
+      "durationMs": 24000,
+      "seeds": [1, 2],
+      "stimuli": {
+        "S1": [[0, true]],
+        "B1": [
+          [0, 25],
+          [5999, 25],
+          [6000, 70],
+          [11999, 70],
+          [12000, 0],
+          [14999, 0],
+          [15000, 100],
+          [17999, 100],
+          [18000, 45],
+          [23999, 45]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "duty",
+          "name": {
+            "de": "Tastverhältnis = Sollwert (± 3 %)"
+          },
+          "signal": "E1",
+          "periodMs": 1000,
+          "duty": [
+            [0, 25],
+            [6000, 70],
+            [12000, 0],
+            [15000, 100],
+            [18000, 45]
+          ],
+          "tolerance": 3,
+          "from": 1000,
+          "to": 24000
+        }
+      ]
+    },
+    {
+      "id": "freigabe",
+      "name": {
+        "de": "Freigabe aus und ein"
+      },
+      "durationMs": 16000,
+      "seeds": [3],
+      "stimuli": {
+        "S1": [
+          [0, true],
+          [3000, false],
+          [7000, true]
+        ],
+        "B1": [
+          [0, 40],
+          [8999, 40],
+          [9000, 85],
+          [15999, 85]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "duty",
+          "name": {
+            "de": "Tastverhältnis = Sollwert (± 3 %)"
+          },
+          "signal": "E1",
+          "periodMs": 1000,
+          "duty": [
+            [0, 40],
+            [3000, 0],
+            [7000, 40],
+            [9000, 85]
+          ],
+          "tolerance": 3,
+          "from": 1000,
+          "to": 16000
+        }
+      ]
+    }
+  ],
+  "par": {
+    "cost": 11,
+    "energy": 40533,
+    "size": 3
+  }
+}

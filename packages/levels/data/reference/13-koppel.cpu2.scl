@@ -1,0 +1,31 @@
+DATA_BLOCK "Pumpe_Daten"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      Stoerung : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Pumpenhaus
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Motorschutz ist ein Öffner: 0 = ausgelöst
+	IF NOT "Motorschutz" THEN
+	    "Pumpe_Daten".Stoerung := TRUE;
+	ELSIF %I100.1 THEN
+	    "Pumpe_Daten".Stoerung := FALSE;
+	END_IF;
+
+	"Pumpe" := %I100.0 AND NOT "Pumpe_Daten".Stoerung;
+
+	// Rückmeldung zur Leitwarte
+	%Q100.0 := "Pumpe";
+	%Q100.1 := "Pumpe_Daten".Stoerung;
+END_ORGANIZATION_BLOCK

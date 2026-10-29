@@ -1,0 +1,68 @@
+FUNCTION_BLOCK "PI"
+TITLE = PI-Regler mit Begrenzung
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT
+      Soll : Real;
+      Ist : Real;
+   END_VAR
+   VAR_OUTPUT
+      Y : Real;   // Stellwert 0…100 %
+   END_VAR
+   VAR
+      Integral : Real;
+   END_VAR
+   VAR_TEMP
+      e : Real;
+      u : Real;
+   END_VAR
+   VAR CONSTANT
+      Kp : Real := 1.5;   // %/°C
+      Ti : Real := 5.0;   // s
+      Ta : Real := 0.1;   // Abtastzeit s
+   END_VAR
+
+BEGIN
+	#e := #Soll - #Ist;
+	#u := #Kp * (#e + #Integral);
+	// Anti-Windup: nicht weiter integrieren, wenn der Stellwert anschlägt
+	IF (#u < 100.0 OR #e < 0.0) AND (#u > 0.0 OR #e > 0.0) THEN
+	    #Integral := #Integral + #e * #Ta / #Ti;
+	END_IF;
+	#Y := LIMIT(MN := 0.0, IN := #u, MX := 100.0);
+END_FUNCTION_BLOCK
+
+DATA_BLOCK "PI_DB"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+"PI"
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Die Regelung läuft im Weckalarm
+END_ORGANIZATION_BLOCK
+
+ORGANIZATION_BLOCK "Regelung"
+TITLE = Cyclic interrupt
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+// Ereignis: Weckalarm, Takt 100 ms, Phase 0 ms
+   VAR_TEMP
+      y : Real;
+   END_VAR
+
+BEGIN
+	"PI_DB"(Soll := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Sollwert", MAX := 27648), MAX := 200.0),
+	        Ist := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Temperatur", MAX := 27648), MAX := 200.0),
+	        Y => #y);
+	"Heizung" := SCALE_X(MIN := 0, VALUE := #y / 100.0, MAX := 27648);
+END_ORGANIZATION_BLOCK

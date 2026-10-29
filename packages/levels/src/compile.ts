@@ -32,6 +32,45 @@ export interface SolutionCompileResult {
   size: number;
 }
 
+/**
+ * Passt das Programm zur Hardware? Weck- und Prozessalarme brauchen eine CPU, die sie
+ * unterstützt; Prozessalarme außerdem einen alarmfähigen Eingang (DI 8 HF) an dieser CPU.
+ */
+function hardwareProblems(
+  solution: Solution,
+  analysis: BoardAnalysis,
+  cpuId: string,
+  program: IrProgram | undefined,
+): string[] {
+  const out: string[] = [];
+  const cpuType = moduleType(solution.modules.find((m) => m.id === cpuId)!.type);
+  const alarmInputs = new Set<string>();
+  for (const m of solution.modules) {
+    if (analysis.cpuOf.get(m.id) !== cpuId || !moduleType(m.type).alarms) continue;
+    for (let ch = 0; ch < moduleType(m.type).channels; ch++) {
+      const a = analysis.channelAddress.get(`${m.id}:${ch}`);
+      if (a) alarmInputs.add(a);
+    }
+  }
+  for (const task of program?.tasks ?? []) {
+    if (task.kind === 'cyclic' && !cpuType.cpu!.cyclicInterrupt) {
+      out.push(`${cpuType.name.de} kennt keine Weckalarme (OB „${task.name}“)`);
+    }
+    if (task.kind === 'process') {
+      if (!cpuType.cpu!.processInterrupt) {
+        out.push(`${cpuType.name.de} kennt keine Prozessalarme (OB „${task.name}“)`);
+      }
+      const addr = `%I${task.input!.byte}.${task.input!.bit}`;
+      if (!alarmInputs.has(addr)) {
+        out.push(
+          `Prozessalarm „${task.name}“: ${addr} liegt nicht auf einem alarmfähigen Eingang (DI 8 HF) dieser CPU`,
+        );
+      }
+    }
+  }
+  return out;
+}
+
 /** Übersetzt alle CPU-Projekte einer Lösung (SCL oder FUP) und prüft die Speichergrenzen. */
 export function compileSolution(level: Level, solution: Solution): SolutionCompileResult {
   const analysis = analyzeBoard(level, solution);
@@ -55,7 +94,17 @@ export function compileSolution(level: Level, solution: Solution): SolutionCompi
         location: { block: 'Main', part: 'project' },
       });
     }
-    const ok = r.ok && used <= limit;
+    const hw = hardwareProblems(solution, analysis, m.id, r.program);
+    for (const message of hw) {
+      diagnostics.unshift({
+        severity: 'error',
+        message,
+        start: { line: 1, col: 1 },
+        end: { line: 1, col: 1 },
+        location: { part: 'project' },
+      });
+    }
+    const ok = r.ok && used <= limit && hw.length === 0;
     cpus.set(m.id, {
       ok,
       program: r.program,

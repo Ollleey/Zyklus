@@ -21,6 +21,27 @@ Steuerung abweicht, ist das markiert (**Spielregel**).
   Zykluszeit bestimmt nur das Abtastraster.
 - Folge: Ein Eingangsimpuls, der vollständig zwischen zwei Zyklusstarts liegt, wird **nicht gesehen**.
 
+### Alarm-OBs
+
+- Ein Projekt kann neben OB1 **Weckalarm-OBs** (OB30…38, fester Takt `intervalMs`, Phase
+  `phaseMs`) und **Prozessalarm-OBs** (OB40…47, steigende oder fallende Flanke an einem
+  Eingangsbit) enthalten. Im IR liegen sie als Codebereiche `tasks` hinter `mainEnd`.
+- Reihenfolge innerhalb eines Ticks: erst Prozessalarme (Flanke an der Eingangsklemme gegenüber dem
+  vorigen Tick; beim allerersten Abtasten nie), dann fällige Weckalarme, dann OB1.
+- **Spielregel:** Ein Alarm-OB aktualisiert vorher das PAE und schreibt danach das PAA an die
+  Ausgangsklemmen – er sieht frische Eingänge und wirkt sofort. Sein Befehlsbudget ist dasselbe wie
+  für einen Zyklus; Überschreitung → STOP.
+- Weckalarme brauchen eine CPU mit Weckalarm, Prozessalarme eine CPU mit Prozessalarm und einen
+  Eingang auf einer alarmfähigen Baugruppe (**DI 8 HF**). Geprüft wird beim Übersetzen der Lösung.
+
+### Mehrere CPUs
+
+- Koppelmodule (**KOP**) werden in Steckplatzreihenfolge paarweise verbunden. Am Ende jedes Ticks
+  kopiert die Simulation die Sendewörter %QW100/%QW102 jeder CPU in die Empfangswörter
+  %IW100/%IW102 der Partner-CPU. Diese liest sie mit ihrem nächsten PAE.
+- Eine **Trennwand** (`board.wall`) teilt den Schrank: kein Modul darauf, keine Leitung hindurch,
+  Baugruppen rechts der Wand gehören nicht zu einer CPU links davon.
+
 ## 2. Zykluszeitüberwachung und STOP
 
 - Jede CPU hat ein Budget `maxOpsPerCycle` (ausgeführte IR-Befehle, ungewichtet).
@@ -177,7 +198,12 @@ CTU setzt zusätzlich QU, CTD zusätzlich QD (so heißen die Ausgänge im IEC_CO
 - **Relaisausgänge:** Kontakt folgt dem Befehl erst nach Ansprechzeit (15 ms) bzw. Abfallzeit (30 ms);
   ein kürzerer Befehl wird verschluckt. Gemessen wird immer der Kontakt.
 - **Anlagenmodell:** rechnet nach den CPU-Zyklen eines Ticks mit den Kontaktzuständen weiter;
-  die neuen Messwerte wirken ab dem nächsten Tick.
+  die neuen Messwerte wirken ab dem nächsten Tick. Liefert das Modell einen Wert für einen
+  Digitaleingang (Endlage, Lichtschranke), gilt dieser statt Stimulus oder Handbetrieb.
+- Modelle: Tank, Bohrstation (Spannen, Vorschub, Verweilzeit, Schäden), Sortierstrecke (Pakete mit
+  Höhe, Weiche am Ende der Lichtschranke), Wärmestrecke PT1 mit Totzeit und Störverlusten.
+- Kriterium **Tastverhältnis** (`duty`): Einschaltanteil je Fenster der Periodendauer, das Fenster
+  nach einer Sollwertänderung wird übersprungen.
 
 ## 9. Determinismus
 

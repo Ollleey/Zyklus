@@ -44,6 +44,8 @@ export type BoardIssueCode =
   | 'device-twice'
   | 'duct-full'
   | 'needs-relay'
+  | 'wall'
+  | 'coupler'
   | 'unwired';
 
 export interface BoardIssue {
@@ -73,6 +75,8 @@ export interface BoardAnalysis {
   bindings: Map<string, Binding>;
   /** belegte Leitungen je Spalte des Kabelkanals */
   ductLoad: number[];
+  /** über Koppelmodule verbundene CPU-Paare */
+  links: [string, string][];
   cost: number;
   ok: boolean;
 }
@@ -116,6 +120,11 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       });
       continue;
     }
+    const wall = level.board.wall;
+    if (wall !== undefined && m.x <= wall && wall < m.x + t.width) {
+      err({ code: 'wall', message: `${t.name.de} steht auf der Trennwand`, module: m.id });
+      continue;
+    }
     for (let c = m.x; c < m.x + t.width; c++) {
       if (occupied[c]) {
         err({
@@ -135,8 +144,16 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
   const channelAddress = new Map<string, string>();
   let cpu: string | undefined;
   let counters = { di: 0, do: 0, ai: ANALOG_BASE, ao: ANALOG_BASE };
+  const wall = level.board.wall;
+  let pastWall = false;
+  const couplers: { module: string; cpu: string }[] = [];
   for (const m of sorted) {
     const t = types.get(m.id)!;
+    if (wall !== undefined && !pastWall && m.x > wall) {
+      // Module rechts der Trennwand gehören nicht zur CPU links davon
+      pastWall = true;
+      cpu = undefined;
+    }
     if (t.kind === 'cpu') {
       cpu = m.id;
       counters = { di: 0, do: 0, ai: ANALOG_BASE, ao: ANALOG_BASE };
@@ -151,6 +168,14 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       continue;
     }
     cpuOf.set(m.id, cpu);
+    if (t.kind === 'cp') {
+      if (couplers.some((c) => c.cpu === cpu)) {
+        err({ code: 'coupler', message: 'Je CPU ist nur ein Koppelmodul möglich', module: m.id });
+      } else {
+        couplers.push({ module: m.id, cpu });
+      }
+      continue;
+    }
     // Relaisausgänge belegen wie DO ein Ausgangsbyte
     const k = t.kind === 'rel' ? 'do' : (t.kind as 'di' | 'do' | 'ai' | 'ao');
     for (let ch = 0; ch < t.channels; ch++) {
@@ -173,6 +198,19 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
   }
   if (!sorted.some((m) => types.get(m.id)!.kind === 'cpu')) {
     err({ code: 'no-cpu', message: 'Es ist keine CPU gesteckt' });
+  }
+  // Koppelmodule paarweise in Steckplatzreihenfolge verbinden
+  const links: [string, string][] = [];
+  for (let i = 0; i + 1 < couplers.length; i += 2) {
+    links.push([couplers[i]!.cpu, couplers[i + 1]!.cpu]);
+  }
+  if (couplers.length % 2) {
+    issues.push({
+      code: 'coupler',
+      severity: 'warning',
+      message: 'Ein Koppelmodul hat keinen Partner',
+      module: couplers[couplers.length - 1]!.module,
+    });
   }
 
   // Verdrahtung
@@ -215,6 +253,15 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       err({
         code: 'needs-relay',
         message: `${dev.name.de} ist ein Leistungsverbraucher und braucht einen Relaisausgang`,
+        device: w.device,
+        module: w.module,
+      });
+      continue;
+    }
+    if (wall !== undefined && (dev.side === 'left') !== mod.x < wall) {
+      err({
+        code: 'wall',
+        message: `Die Leitung von ${dev.name.de} kann die Trennwand nicht kreuzen`,
         device: w.device,
         module: w.module,
       });
@@ -280,6 +327,7 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
     channelAddress,
     bindings,
     ductLoad,
+    links,
     cost,
     ok: !issues.some((i) => i.severity === 'error'),
   };

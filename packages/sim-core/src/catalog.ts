@@ -38,7 +38,7 @@ export const CPU_TYPES: Record<'klein' | 'mittel' | 'schnell', CpuType> = {
     width: 3,
     price: 8,
     cyclicInterrupt: true,
-    processInterrupt: false,
+    processInterrupt: true,
   },
   schnell: {
     id: 'schnell',
@@ -49,7 +49,7 @@ export const CPU_TYPES: Record<'klein' | 'mittel' | 'schnell', CpuType> = {
     maxStatements: 80,
     width: 3,
     price: 10,
-    cyclicInterrupt: false,
+    cyclicInterrupt: true,
     processInterrupt: true,
   },
 };

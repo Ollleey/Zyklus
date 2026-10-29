@@ -4,7 +4,7 @@ import { Simulation } from '../simulation';
 import type { Value } from '../types';
 import { analyzeBoard, type BoardAnalysis, type Solution } from './board';
 import type { Device, Edge, Level, TestCase } from './level';
-import { moduleType } from './modules';
+import { COUPLER_BASE, COUPLER_WORDS, moduleType } from './modules';
 import { createPlant, type Plant } from './plants';
 import { AnalogDisturbance, faultAt, inputSignal, interpolate, toRaw, valueAt } from './signals';
 
@@ -86,7 +86,10 @@ export class LevelRun {
     this.durationMs = opts.test?.durationMs ?? Infinity;
     this.sim = new Simulation([...this.cpus.values()], {
       beforeScans: (t) => this.applyInputs(t),
-      afterScans: (t) => this.record(t),
+      afterScans: (t) => {
+        this.record(t);
+        this.exchange();
+      },
     });
   }
 
@@ -120,6 +123,9 @@ export class LevelRun {
 
   /** Elektrischer Wert eines Digitaleingangs zum Zeitpunkt t. */
   inputValue(d: Device, t: number): boolean | number {
+    // Sensoren der Anlage (Endlagen, Lichtschranken) kommen aus dem Modell
+    const fromPlant = this.plant?.inputs()[d.id];
+    if (typeof fromPlant === 'boolean') return d.nc ? !fromPlant : fromPlant;
     if (!this.opts.test) {
       const a = this.manual.get(d.id) ?? false;
       return d.nc && typeof a === 'boolean' ? !a : a;
@@ -207,6 +213,22 @@ export class LevelRun {
     if (this.plant) {
       this.plant.step(t, outputs);
       for (const [k, v] of Object.entries(this.plant.state())) this.push(`plant.${k}`, t, v);
+    }
+  }
+
+  /** Koppelmodule: Sendewörter jeder CPU in die Empfangswörter der Partner-CPU */
+  private exchange(): void {
+    for (const [a, b] of this.analysis.links) {
+      const ca = this.cpus.get(a)!;
+      const cb = this.cpus.get(b)!;
+      for (let w = 0; w < COUPLER_WORDS; w++) {
+        const q = `%QW${COUPLER_BASE + 2 * w}`;
+        const i = `%IW${COUPLER_BASE + 2 * w}`;
+        const va = ca.read(q, 'WORD');
+        cb.setInput(i, ca.mode === 'RUN' ? va : 0, 'WORD');
+        const vb = cb.read(q, 'WORD');
+        ca.setInput(i, cb.mode === 'RUN' ? vb : 0, 'WORD');
+      }
     }
   }
 

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -21,18 +21,42 @@ const BOARDS = JSON.parse(readFileSync(join(DATA, 'boards.json'), 'utf8')) as Re
   { modules: PlacedModule[]; wires: Wire[] }
 >;
 
-/** Lösung aus Aufbau + SCL-Quelle; Variablentabelle kommt aus der Verdrahtung. */
-function solutionFor(level: Level, scl: string, board = BOARDS[level.id]!): Solution {
+const cpusOf = (board: { modules: PlacedModule[] }) =>
+  board.modules.filter((m) => m.type.startsWith('cpu')).map((m) => m.id);
+
+/**
+ * Lösung aus Aufbau + SCL-Quelle(n); Variablentabelle kommt aus der Verdrahtung.
+ * `scl`: eine Quelle für die einzige CPU oder je CPU-Modul eine Quelle.
+ */
+function solutionFor(
+  level: Level,
+  scl: string | Record<string, string>,
+  board = BOARDS[level.id]!,
+): Solution {
   const base: Solution = { version: 1, ...board, projects: {} };
   const analysis = analyzeBoard(level, base);
-  const cpu = board.modules.find((m) => m.type.startsWith('cpu'))!.id;
-  const imported = sourceToProject(scl);
-  if (!imported.project) throw new Error(imported.diagnostics.map(formatDiagnostic).join('\n'));
-  return { ...base, projects: { [cpu]: syncDeviceTags(level, analysis, cpu, imported.project) } };
+  const cpus = cpusOf(board);
+  const sources = typeof scl === 'string' ? { [cpus[0]!]: scl } : scl;
+  const projects: Record<string, PlcProject> = {};
+  for (const cpu of cpus) {
+    const imported = sourceToProject(sources[cpu] ?? ob(''));
+    if (!imported.project) throw new Error(imported.diagnostics.map(formatDiagnostic).join('\n'));
+    projects[cpu] = syncDeviceTags(level, analysis, cpu, imported.project);
+  }
+  return { ...base, projects };
 }
 
+/** Referenz: `<id>.scl` oder bei mehreren CPUs `<id>.<cpu>.scl` */
 function reference(level: Level): Solution {
-  return solutionFor(level, readFileSync(join(DATA, `${level.id}.scl`), 'utf8'));
+  const single = join(DATA, `${level.id}.scl`);
+  if (existsSync(single)) return solutionFor(level, readFileSync(single, 'utf8'));
+  const cpus = cpusOf(BOARDS[level.id]!);
+  return solutionFor(
+    level,
+    Object.fromEntries(
+      cpus.map((c) => [c, readFileSync(join(DATA, `${level.id}.${c}.scl`), 'utf8')]),
+    ),
+  );
 }
 
 /** OB1 mit nur einem Anweisungsteil (für Fehllösungen) */
@@ -52,7 +76,7 @@ function verify(level: Level, solution: Solution) {
 
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
-    expect(LEVELS.map((l) => l.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(LEVELS.map((l) => l.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
   });
 
   it.each(LEVELS.map((l) => [l.id, l] as const))(
@@ -265,5 +289,110 @@ describe('Übersetzen von Lösungen', () => {
     const c = compileSolution(level, solutionFor(level, ob(body)));
     expect(c.ok).toBe(false);
     expect(c.cpus.get('cpu1')!.diagnostics[0]!.message).toMatch(/zu groß für CPU klein: 41 von 40/);
+  });
+});
+
+describe('Fehllösungen der Level 10–15', () => {
+  const run = (
+    id: string,
+    src: string | Record<string, string>,
+    board?: { modules: PlacedModule[]; wires: Wire[] },
+  ) => {
+    const level = levelById(id)!;
+    return verify(level, solutionFor(level, src, board));
+  };
+  const failed = (v: ReturnType<typeof run>) => [
+    ...new Set(v.runs.flatMap((r) => r.criteria.filter((c) => !c.ok).map((c) => c.name.de))),
+  ];
+  const ref = (id: string) => readFileSync(join(DATA, `${id}.scl`), 'utf8');
+
+  it('Level 10: Start ohne Flanke startet bei gehaltenem Taster neu', () => {
+    const src = ref('10-bohrstation').replace('"StartFlanke".Q AND "Oben"', '"Start" AND "Oben"');
+    const v = run('10-bohrstation', src);
+    expect(v.passed).toBe(false);
+    expect(failed(v)).toContain('Festhalten von Start löst keinen neuen Ablauf aus');
+  });
+
+  it('Level 10: ohne Verweilzeit wird die Bohrung unsauber', () => {
+    const src = ref('10-bohrstation').replace('IF "Verweilzeit".Q THEN', 'IF TRUE THEN');
+    expect(failed(run('10-bohrstation', src))).toContain('Keine Bohrung ohne Verweilzeit');
+  });
+
+  it('Level 10: Lösen vor dem Heben beschädigt das Werkstück', () => {
+    const src = ref('10-bohrstation').replace(
+      '"Spannen" := "Kette".Schritt >= 1 AND "Kette".Schritt <= 4;',
+      '"Spannen" := "Kette".Schritt >= 1 AND "Kette".Schritt <= 3;',
+    );
+    expect(failed(run('10-bohrstation', src))).toContain('Kein Schaden an Bohrer oder Werkstück');
+  });
+
+  it('Level 11: Weiche direkt nach der Messung stellen reicht nicht bei dichtem Betrieb', () => {
+    const v = run('11-sortierweiche', ob('IF "Mess_LS" THEN "Weiche" := "Hoehe" > 11059; END_IF;'));
+    expect(v.runs.filter((r) => r.testId === 'dicht').every((r) => !r.passed)).toBe(true);
+  });
+
+  it('Level 12: Schwellwert statt Pulsweite', () => {
+    const v = run('12-pwm', ob('"Heizband" := "Freigabe" AND "Leistung" > 13824;'));
+    expect(failed(v)).toEqual(['Tastverhältnis = Sollwert (± 3 %)']);
+  });
+
+  it('Level 13: Leitungen durch die Trennwand gehen nicht', () => {
+    const level = levelById('13-koppel')!;
+    const board = BOARDS['13-koppel']!;
+    const wires = board.wires.map((w) =>
+      w.device === 'H1' ? { ...w, module: 'rel1', channel: 1 } : w,
+    );
+    const c = compileSolution(level, solutionFor(level, {}, { ...board, wires }));
+    expect(c.analysis.issues.map((i) => i.code)).toContain('wall');
+  });
+
+  it('Level 14: Zählen im OB1 verpasst Impulse', () => {
+    const v = run(
+      '14-impulse',
+      ob(
+        '"Zaehler"(CU := "Durchfluss", R := "Start", PV := 120);\nIF "Start" THEN "Ventil" := TRUE; END_IF;\nIF "Zaehler".Q THEN "Ventil" := FALSE; END_IF;',
+        'DATA_BLOCK "Zaehler"\nNON_RETAIN\nCTU_INT\nBEGIN\nEND_DATA_BLOCK',
+      ),
+    );
+    expect(v.runs.every((r) => !r.passed)).toBe(true);
+  });
+
+  it('Level 14: Prozessalarm braucht einen DI 8 HF', () => {
+    const level = levelById('14-impulse')!;
+    const board = {
+      ...BOARDS['14-impulse']!,
+      modules: BOARDS['14-impulse']!.modules.map((m) =>
+        m.type === 'di8hf' ? { ...m, type: 'di8' } : m,
+      ),
+    };
+    const c = compileSolution(level, solutionFor(level, ref('14-impulse'), board));
+    expect(c.ok).toBe(false);
+    expect(c.cpus.get('cpu1')!.diagnostics[0]!.message).toMatch(
+      /nicht auf einem alarmfähigen Eingang/,
+    );
+  });
+
+  it('Level 15: CPU klein kennt keinen Weckalarm', () => {
+    const level = levelById('15-pi-regler')!;
+    const board = {
+      ...BOARDS['15-pi-regler']!,
+      modules: BOARDS['15-pi-regler']!.modules.map((m) =>
+        m.type === 'cpu-mittel' ? { ...m, type: 'cpu-klein' } : m,
+      ),
+    };
+    const c = compileSolution(level, solutionFor(level, ref('15-pi-regler'), board));
+    expect(c.cpus.get('cpu1')!.diagnostics[0]!.message).toMatch(/kennt keine Weckalarme/);
+  });
+
+  it('Level 15: reiner P-Regler bleibt unter dem Sollwert', () => {
+    const src = ref('15-pi-regler').replace('#u := #Kp * (#e + #Integral);', '#u := #Kp * #e;');
+    const v = run('15-pi-regler', src);
+    expect(v.passed).toBe(false);
+    expect(failed(v).some((n) => n.startsWith('120 °C'))).toBe(true);
+  });
+
+  it('Level 15: zu hohe Verstärkung schwingt', () => {
+    const src = ref('15-pi-regler').replace('Kp : Real := 1.5;', 'Kp : Real := 8.0;');
+    expect(run('15-pi-regler', src).passed).toBe(false);
   });
 });

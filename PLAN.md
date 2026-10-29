@@ -98,6 +98,7 @@ Nach jedem Meilenstein: alle Tests grün, Git-Commit, Eintrag in `CHANGELOG.md`.
 - Handbuch als „PDF-Seiten“ (Moduldatenblätter + Befehlsreferenz), Sandbox-Modus.
 - Bonus-Minispiel: **Klemmen-Patience** – Kabel nach Farbe/Querschnitt auf Klemmleisten sortieren (eigene Regeln).
 - Polish: Sound optional, Tastenkürzel, Onboarding.
+- Stand: umgesetzt bis auf Sound und eigenes Onboarding; Tastenkürzel wie bisher (Esc, Entf).
 
 ## Risiken / bewusste Vereinfachungen
 

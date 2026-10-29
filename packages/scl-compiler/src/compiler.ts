@@ -1,8 +1,11 @@
 import {
   AddressError,
   ByteArea,
+  OB_NUMBERS,
   ProgramBuilder,
+  SECTIONS_BY_KIND,
   TagTable,
+  defaultValue,
   integerRange,
   io,
   isArithmeticType,
@@ -19,6 +22,8 @@ import {
   type InstanceKind,
   type Instr,
   type IrProgram,
+  type IrTask,
+  type ObEvent,
   type Operand,
   type PlcProject,
   type Tag,
@@ -91,6 +96,9 @@ interface Unit {
   errors: ProjectDiagnostic[];
   /** aus FUP erzeugt: FUP-Funktionen erlaubt */
   intrinsics?: boolean;
+  /** OB: Startereignis (Alarm-OB) */
+  event?: ObEvent;
+  number?: number;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -235,6 +243,8 @@ function unitFromBlock(b: Block): Unit {
     origin: 'project',
     errors,
     intrinsics: b.generatedFrom === 'FUP',
+    event: b.kind === 'OB' ? b.event : undefined,
+    number: b.number,
   };
 }
 
@@ -317,7 +327,19 @@ type Sym =
       v: Value;
       decl: Decl & { row?: number };
       used: boolean;
-    };
+    }
+  /** Multiinstanz eines Systembausteins im FB (Static vom Typ TON_TIME, IEC_TIMER …) */
+  | { k: 'inst'; name: string; entry: InstEntry; decl: Decl & { row?: number }; used: boolean }
+  /** Multiinstanz eines eigenen FB */
+  | { k: 'uinst'; name: string; inst: UserInst; decl: Decl & { row?: number }; used: boolean };
+
+/** Instanz eines eigenen FB (Instanz-DB oder Multiinstanz) */
+interface UserInst {
+  fb: Unit;
+  display: string;
+  /** Eingänge, Ausgänge, statische Daten – einmal je Instanz angelegt */
+  vars?: Map<string, Sym>;
+}
 
 interface InstEntry {
   key: string;
@@ -336,7 +358,8 @@ interface DbEntry {
 
 type Resolved =
   | { k: 'value'; op: Operand; t: DataType; writable: boolean; input?: boolean; isConst?: boolean }
-  | { k: 'instance'; entry: InstEntry };
+  | { k: 'instance'; entry: InstEntry }
+  | { k: 'uinst'; inst: UserInst };
 
 interface Val {
   o: Operand;
@@ -353,14 +376,28 @@ class CodeGen {
   statementCount = 0;
   private readonly b = new ProgramBuilder();
   private tags = new TagTable();
-  private readonly locals = new Map<string, Sym>();
+  private locals = new Map<string, Sym>();
   private readonly dbs = new Map<string, DbEntry>();
   private readonly idbs = new Map<string, InstEntry>();
+  /** eigene FB/FC nach Namen */
+  private readonly units = new Map<string, Unit>();
+  /** Instanz-DBs eigener FBs */
+  private readonly uinsts = new Map<string, UserInst>();
+  /** aktuell expandierte FB/FC (Rekursionsschutz) */
+  private readonly callStack: string[] = [];
+  private readonly called = new Set<string>();
+  /** >0: Meldungen unterdrücken (Bausteinrumpf wurde schon einzeln geprüft) */
+  private mute = 0;
+  private loopDepth = 0;
+  private expansions = 0;
+  /** Namenspräfix für Temp-Variablen des aktuellen OB */
+  private prefix = '';
+  private blockKind: Unit['kind'] = 'OB';
   private readonly areas: Record<Area, ByteArea>;
   private readonly temps = new Map<DataType, Operand[]>();
   private tempUse = new Map<DataType, number>();
   private readonly loops: Loop[] = [];
-  private readonly returns: Extract<Instr, { op: 'jmp' }>[] = [];
+  private returns: Extract<Instr, { op: 'jmp' }>[] = [];
   private readonly slotTypes: DataType[] = [];
   private where: Location = { part: 'project' };
   private origin: Unit['origin'] = 'project';
@@ -397,41 +434,72 @@ class CodeGen {
     }
 
     for (const u of units) {
+      if (u.kind === 'FB' || u.kind === 'FC') this.units.set(u.name.toLowerCase(), u);
+    }
+    for (const u of units) {
       this.origin = u.origin;
       if (u.kind === 'DB') this.globalDb(u);
       if (u.kind === 'IDB') this.instanceDb(u);
     }
 
-    const obs = units.filter((u) => u.kind === 'OB');
-    for (const u of units) {
-      if (u.kind === 'FB' || u.kind === 'FC') {
-        this.where = { block: u.name, part: 'project' };
-        this.guard(() =>
-          this.fail('Eigene FB/FC werden in einer späteren Version unterstützt', NO_SPAN),
-        );
-      }
+    // Eigene FB/FC einmal für sich prüfen (Meldungen, Programmgröße); der erzeugte Code wird
+    // verworfen – an jeder Aufrufstelle wird der Baustein eingesetzt.
+    for (const u of this.units.values()) {
+      if (u.errors.some((e) => e.severity === 'error' && e.location.part === 'code')) continue;
+      this.statementCount += countStatements(u.body);
+      const pc = this.b.pc;
+      this.where = { block: u.name, part: 'code' };
+      const dummy = u.kind === 'FB' ? { fb: u, display: `~${u.name}` } : undefined;
+      this.guard(() => this.callUser(u, dummy, [], NO_SPAN, true));
+      this.b.truncate(pc);
     }
-    if (obs.length === 0) {
+
+    const obs = units.filter((u) => u.kind === 'OB');
+    const main = obs.find((u) => !u.event);
+    if (!main) {
       this.where = { part: 'project' };
       this.guard(() => this.fail('Kein Organisationsbaustein „Main“ (OB1) vorhanden', NO_SPAN));
     }
-    for (const ob of obs) {
-      if (ob !== obs[0]) {
-        this.where = { block: ob.name, part: 'project' };
-        this.guard(() =>
-          this.fail(
-            'Weitere OBs (Weck-/Prozessalarm) werden in einer späteren Version unterstützt',
-            NO_SPAN,
-          ),
-        );
-        continue;
+    const tasks: IrTask[] = [];
+    let mainEnd = 0;
+    for (const ob of main ? [main, ...obs.filter((o) => o !== main)] : obs) {
+      this.where = { block: ob.name, part: 'project' };
+      let task: IrTask | undefined;
+      if (ob !== main) {
+        let t: IrTask | undefined;
+        this.guard(() => {
+          t = this.eventTask(ob);
+        });
+        if (!t) continue;
+        task = t;
       }
       if (ob.errors.some((e) => e.severity === 'error' && e.location.part === 'code')) continue;
       this.origin = ob.origin;
       this.intrinsics = !!ob.intrinsics;
+      const start = this.b.pc;
+      this.prefix = ob === main ? '' : `${ob.name}.`;
       this.codeBlock(ob);
+      if (ob === main) mainEnd = this.b.pc;
+      if (task) tasks.push({ ...task, start, end: this.b.pc });
+    }
+    for (const u of this.units.values()) {
+      if (!this.called.has(u.name.toLowerCase())) {
+        this.push('warning', `Baustein „${u.name}“ wird nirgends aufgerufen`, NO_SPAN, {
+          block: u.name,
+          part: 'project',
+        });
+      }
     }
 
+    const seen = new Set<string>();
+    const unique = this.diagnostics.filter((d) => {
+      const key = JSON.stringify([d.severity, d.message, d.location, d.start, d.end]);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    this.diagnostics.length = 0;
+    this.diagnostics.push(...unique);
     this.diagnostics.sort(
       (a, b) =>
         (a.location.block ?? '').localeCompare(b.location.block ?? '') ||
@@ -439,6 +507,10 @@ class CodeGen {
         a.start.col - b.start.col,
     );
     const program = this.b.build();
+    if (tasks.length) {
+      program.mainEnd = mainEnd;
+      program.tasks = tasks;
+    }
     if (!this.diagnostics.some((d) => d.severity === 'error')) {
       const errors = validateProgram(program, { areaSizes: this.opts.areaSizes ?? DEFAULT_AREAS });
       if (errors.length) throw new Error(`Interner Compilerfehler:\n${errors.join('\n')}`);
@@ -458,6 +530,7 @@ class CodeGen {
     span: Span,
     where = this.where,
   ): void {
+    if (this.mute) return;
     this.diagnostics.push({ severity, message, start: span.start, end: span.end, location: where });
   }
 
@@ -535,10 +608,18 @@ class CodeGen {
   private instanceDb(u: Unit): void {
     this.where = { block: u.name, part: 'project' };
     this.guard(() => {
+      const user = this.units.get(unquote(u.instanceOf ?? '').toLowerCase());
+      if (user?.kind === 'FC') {
+        this.fail(`„${user.name}“ ist eine Funktion (FC) und hat keinen Instanz-DB`, NO_SPAN);
+      }
+      if (user) {
+        this.uinsts.set(u.name.toLowerCase(), { fb: user, display: u.name });
+        return;
+      }
       const it = instanceType(u.instanceOf ?? '');
       if (!it) {
         this.fail(
-          `Instanz-DB „${u.name}“: unbekannter Typ „${u.instanceOf}“ (erwartet z. B. IEC_TIMER, IEC_COUNTER, TON_TIME, R_TRIG)`,
+          `Instanz-DB „${u.name}“: unbekannter Typ „${u.instanceOf}“ (erwartet ein eigener FB oder z. B. IEC_TIMER, IEC_COUNTER, TON_TIME, R_TRIG)`,
           NO_SPAN,
         );
       }
@@ -572,6 +653,9 @@ class CodeGen {
   // ---------- Codebausteine ----------
 
   private codeBlock(u: Unit): void {
+    this.locals = new Map();
+    this.returns = [];
+    this.blockKind = u.kind;
     for (const d of u.decls) {
       this.where = this.declWhere(u.name, d);
       this.guard(() => this.declareLocal(u, d));
@@ -614,8 +698,379 @@ class CodeGen {
       this.locals.set(key, { k: 'const', name: d.name, t, v: init!, decl: d, used: false });
       return;
     }
-    const op = this.newSlot(d.name, t, init, true);
+    const op = this.newSlot(this.prefix + d.name, t, init, true);
     this.locals.set(key, { k: 'var', name: d.name, t, op, decl: d, used: false });
+  }
+
+  // ---------- Alarm-OBs ----------
+
+  private eventTask(ob: Unit): IrTask {
+    const ev = ob.event;
+    if (!ev) {
+      this.fail(
+        `Nur OB1 „Main“ läuft ohne Ereignis – weise „${ob.name}“ einen Weck- oder Prozessalarm zu`,
+        NO_SPAN,
+      );
+    }
+    const [lo, hi] = OB_NUMBERS[ev.kind];
+    const label = ev.kind === 'cyclic' ? 'Weckalarm' : 'Prozessalarm';
+    if (ob.number !== undefined && (ob.number < lo || ob.number > hi)) {
+      this.fail(`${label}-OBs haben die Nummern ${lo} … ${hi} (ist ${ob.number})`, NO_SPAN);
+    }
+    if (ev.kind === 'cyclic') {
+      if (!Number.isInteger(ev.intervalMs) || ev.intervalMs < 1 || ev.intervalMs > 60000) {
+        this.fail('Weckalarm: Takt muss 1 … 60000 ms betragen', NO_SPAN);
+      }
+      const phase = ev.phaseMs ?? 0;
+      if (!Number.isInteger(phase) || phase < 0 || phase >= ev.intervalMs) {
+        this.fail('Weckalarm: Phasenverschiebung muss zwischen 0 und Takt − 1 ms liegen', NO_SPAN);
+      }
+      return {
+        kind: 'cyclic',
+        name: ob.name,
+        start: 0,
+        end: 0,
+        intervalMs: ev.intervalMs,
+        phaseMs: phase,
+      };
+    }
+    const text = unquote(ev.input.trim());
+    let op: Operand | undefined;
+    try {
+      op = text.startsWith('%') ? io(text, 'BOOL') : this.tags.resolve(text);
+    } catch {
+      op = undefined;
+    }
+    if (
+      !op ||
+      op.k !== 'io' ||
+      op.area !== 'I' ||
+      op.t !== 'BOOL' ||
+      !this.areas.I.fits('BOOL', op.byte)
+    ) {
+      this.fail(`Prozessalarm: „${ev.input}“ ist kein Eingangsbit (z. B. %I0.0)`, NO_SPAN);
+    }
+    return {
+      kind: 'process',
+      name: ob.name,
+      start: 0,
+      end: 0,
+      input: { byte: op.byte, bit: op.bit },
+      edge: ev.edge,
+    };
+  }
+
+  // ---------- Eigene FB/FC (werden an der Aufrufstelle eingesetzt) ----------
+
+  /** Aufgerufener eigener Baustein: FC, Instanz-DB eines FB oder Multiinstanz. */
+  private userCallee(r: Ref): { unit: Unit; inst?: UserInst } | undefined {
+    if (r.scope === 'addr') return undefined;
+    if (r.scope !== 'tag') {
+      const s = this.locals.get(r.name.toLowerCase());
+      if (s) {
+        if (s.k !== 'uinst') return undefined;
+        if (r.path.length) this.fail(`Multiinstanz wird direkt aufgerufen: #${s.name}(…)`, r.span);
+        s.used = true;
+        return { unit: s.inst.fb, inst: s.inst };
+      }
+      if (r.scope === 'local') return undefined;
+    }
+    if (r.path.length) return undefined;
+    const key = r.name.toLowerCase();
+    const ui = this.uinsts.get(key);
+    if (ui) return { unit: ui.fb, inst: ui };
+    const unit = this.units.get(key);
+    if (unit?.kind === 'FC') return { unit };
+    if (unit?.kind === 'FB') {
+      this.fail(
+        `FB „${unit.name}“ braucht eine Instanz – lege einen Instanz-DB an und rufe ihn auf, z. B. "${unit.name}_DB"(…);`,
+        r.span,
+      );
+    }
+    return undefined;
+  }
+
+  /** Legt eine Variable eines eigenen Bausteins an (Elementartyp, Konstante oder Multiinstanz). */
+  private makeSym(u: Unit, d: Decl & { row?: number }, slotName: string, temp: boolean): Sym {
+    const sys = instanceType(d.typeName);
+    const user = this.units.get(unquote(d.typeName).toLowerCase());
+    if (sys || user) {
+      if (d.section !== 'Static') {
+        this.fail(
+          `Instanzen (${d.typeName}) sind nur als statische Variable möglich (Multiinstanz)`,
+          d.typeSpan,
+        );
+      }
+      if (d.init) this.fail('Instanzen haben keinen Startwert', d.init.span);
+      if (sys) {
+        return {
+          k: 'inst',
+          name: d.name,
+          entry: {
+            key: slotName.toLowerCase(),
+            display: slotName,
+            typeName: d.typeName,
+            type: sys,
+          },
+          decl: d,
+          used: false,
+        };
+      }
+      if (user!.kind !== 'FB') {
+        this.fail(`„${user!.name}“ ist eine Funktion (FC) und hat keine Instanz`, d.typeSpan);
+      }
+      if (user === u)
+        this.fail('Ein FB kann sich nicht selbst als Multiinstanz enthalten', d.typeSpan);
+      return {
+        k: 'uinst',
+        name: d.name,
+        inst: { fb: user!, display: slotName },
+        decl: d,
+        used: false,
+      };
+    }
+    const t = this.elementary(d);
+    const init = d.init ? this.constantValue(d.init, t) : undefined;
+    if (d.section === 'Constant') {
+      if (init === undefined) this.fail(`Konstante ${d.name} braucht einen Wert`, d.span);
+      return { k: 'const', name: d.name, t, v: init, decl: d, used: false };
+    }
+    return {
+      k: 'var',
+      name: d.name,
+      t,
+      op: this.newSlot(slotName, t, init, temp),
+      decl: d,
+      used: false,
+    };
+  }
+
+  private declareAll(
+    u: Unit,
+    decls: (Decl & { row?: number })[],
+    into: Map<string, Sym>,
+    slotName: (d: Decl) => string,
+    temp: boolean,
+  ): void {
+    const saved = { locals: this.locals, origin: this.origin, where: this.where };
+    // Startwerte dürfen Konstanten des Bausteins verwenden
+    this.locals = into;
+    this.origin = u.origin;
+    try {
+      for (const d of decls) {
+        this.where = this.declWhere(u.name, d);
+        this.guard(() => {
+          const key = d.name.toLowerCase();
+          if (into.has(key)) this.fail(`#${d.name} ist bereits deklariert`, d.span);
+          into.set(key, this.makeSym(u, d, slotName(d), temp));
+        });
+      }
+    } finally {
+      Object.assign(this, saved);
+    }
+  }
+
+  /** Eingänge, Ausgänge und statische Daten einer FB-Instanz (einmal je Instanz). */
+  private instanceScope(ui: UserInst): Map<string, Sym> {
+    if (ui.vars) return ui.vars;
+    const vars = new Map<string, Sym>();
+    ui.vars = vars;
+    const order: IfaceSection[] = ['Constant', 'Input', 'Output', 'Static'];
+    const decls = order.flatMap((s) => ui.fb.decls.filter((d) => d.section === s));
+    this.declareAll(ui.fb, decls, vars, (d) => `${ui.display}.${d.name}`, false);
+    return vars;
+  }
+
+  /** Zugriff von außen auf eine FB-Instanz: "Motor_DB".Laufzeit, "Motor_DB".T1.Q */
+  private userPath(ui: UserInst, path: string[], r: Ref): Resolved {
+    const vars = this.instanceScope(ui);
+    const s = vars.get(path[0]!.toLowerCase());
+    if (!s || s.k === 'const') {
+      const names = [...vars.values()].filter((v) => v.k !== 'const').map((v) => v.name);
+      this.fail(
+        `${ui.display} hat kein Element ${path[0]}${names.length ? ` (verfügbar: ${names.join(', ')})` : ''}`,
+        r.span,
+      );
+    }
+    s.used = true;
+    if (s.k === 'var') {
+      if (path.length > 1) this.fail(`${refText(r)}: zu viele Elemente`, r.span);
+      // Ausgänge schreibt nur der FB selbst
+      return { k: 'value', op: s.op, t: s.t, writable: s.decl.section !== 'Output' };
+    }
+    if (s.k === 'inst') {
+      if (path.length === 1) return { k: 'instance', entry: s.entry };
+      if (path.length > 2) this.fail(`${refText(r)}: zu viele Elemente`, r.span);
+      return this.member(s.entry, path[1]!, r);
+    }
+    return path.length === 1
+      ? { k: 'uinst', inst: s.inst }
+      : this.userPath(s.inst, path.slice(1), r);
+  }
+
+  /**
+   * Aufruf eines eigenen FB/FC: Eingänge kopieren, Rumpf einsetzen, Ausgänge kopieren.
+   * Durchgangsparameter (InOut) werden direkt auf den Aktualparameter abgebildet.
+   * `dry`: Prüflauf ohne Aufrufstelle (Meldungen, Code wird verworfen).
+   */
+  private callUser(
+    callee: Unit,
+    inst: UserInst | undefined,
+    args: FbArg[],
+    span: Span,
+    dry = false,
+  ): void {
+    const key = callee.name.toLowerCase();
+    if (this.callStack.includes(key)) {
+      // auch innerhalb eines stummen Einsetzens melden: Rekursion zeigt sich erst hier
+      const mute = this.mute;
+      this.mute = 0;
+      this.push('error', `Rekursiver Aufruf von „${callee.name}“ ist nicht möglich`, span);
+      this.mute = mute;
+      return;
+    }
+    if (!dry) this.called.add(key);
+    const where = this.where;
+
+    // Gültigkeitsbereich des Bausteins
+    const scope = new Map<string, Sym>(inst ? this.instanceScope(inst) : []);
+    const allowed = SECTIONS_BY_KIND[callee.kind as 'FB' | 'FC'];
+    if (dry) {
+      for (const d of callee.decls) {
+        if (allowed.includes(d.section)) continue;
+        this.where = this.declWhere(callee.name, d);
+        this.push(
+          'error',
+          `${callee.kind === 'FC' ? 'Eine FC' : 'Ein FB'} hat keinen Bereich ${d.section}${d.section === 'Static' ? ' – statische Daten brauchen einen FB' : ''}`,
+          d.span,
+        );
+      }
+    }
+    const local: IfaceSection[] =
+      callee.kind === 'FC' ? ['Constant', 'Input', 'Output', 'Temp'] : ['Temp'];
+    if (dry) local.push('InOut');
+    const n = this.expansions++;
+    this.declareAll(
+      callee,
+      local.flatMap((s) => callee.decls.filter((d) => d.section === s)),
+      scope,
+      (d) => `${callee.name}#${n}.${d.name}`,
+      true,
+    );
+    this.where = where;
+
+    // Parameter binden (im Kontext des Aufrufers)
+    const params = callee.decls.filter(
+      (d) => d.section === 'Input' || d.section === 'Output' || d.section === 'InOut',
+    );
+    const byName = new Map(params.map((d) => [d.name.toUpperCase(), d]));
+    const given = new Map<string, FbArg>();
+    for (const a of args) {
+      if (given.has(a.name)) this.fail(`Parameter ${a.name} ist doppelt angegeben`, a.span);
+      given.set(a.name, a);
+      const d = byName.get(a.name);
+      if (!d) {
+        this.fail(
+          `„${callee.name}“ hat keinen Parameter ${a.name}${params.length ? ` (Parameter: ${params.map((p) => p.name).join(', ')})` : ''}`,
+          a.span,
+        );
+      }
+      if (d.section === 'Output' && !a.out) {
+        this.fail(`${d.name} ist ein Ausgang – verschalte ihn mit ${d.name} => …`, a.span);
+      }
+      if (d.section !== 'Output' && !a.e) {
+        this.fail(`${d.name} ist ein Eingang – versorge ihn mit ${d.name} := …`, a.span);
+      }
+    }
+    for (const d of params) {
+      if (dry || d.section === 'Output') continue;
+      const a = given.get(d.name.toUpperCase());
+      if (d.section === 'InOut') {
+        if (!a) this.fail(`Durchgangsparameter ${d.name} von „${callee.name}“ fehlt`, span);
+        if (a.e!.k !== 'ref')
+          this.fail(`Durchgangsparameter ${d.name} braucht eine Variable`, a.span);
+        const v = this.writable(a.e as Ref);
+        const t = this.elementary(d);
+        if (v.t !== t) {
+          this.fail(
+            `Durchgangsparameter ${d.name}: ${typeName(v.t)} passt nicht zu ${typeName(t)} – die Typen müssen gleich sein`,
+            a.e!.span,
+          );
+        }
+        scope.set(d.name.toLowerCase(), {
+          k: 'var',
+          name: d.name,
+          t,
+          op: v.o,
+          decl: d,
+          used: true,
+        });
+        continue;
+      }
+      const s = scope.get(d.name.toLowerCase());
+      if (!a) {
+        if (callee.kind === 'FC') this.fail(`Eingang ${d.name} von „${callee.name}“ fehlt`, span);
+        continue; // FB: Eingang behält den Wert vom letzten Aufruf
+      }
+      if (s?.k === 'var') this.assignTo({ o: s.op, t: s.t }, a.e!);
+    }
+
+    // Rumpf einsetzen
+    const saved = {
+      locals: this.locals,
+      returns: this.returns,
+      where: this.where,
+      origin: this.origin,
+      intrinsics: this.intrinsics,
+      blockKind: this.blockKind,
+    };
+    const loops = this.loops.splice(0);
+    this.locals = scope;
+    this.returns = [];
+    this.where = { block: callee.name, part: 'code' };
+    this.origin = callee.origin;
+    this.intrinsics = !!callee.intrinsics;
+    this.blockKind = callee.kind;
+    this.callStack.push(key);
+    if (!dry) this.mute++;
+    try {
+      // Temp-Variablen starten bei jedem Aufruf neu; außerhalb von Schleifen erledigt das
+      // schon die CPU zu Zyklusbeginn, weil jede Aufrufstelle eigene Temp-Variablen hat.
+      if (this.loopDepth > 0) {
+        for (const s of scope.values()) {
+          if (s.k !== 'var' || s.decl.section !== 'Temp') continue;
+          const v = s.decl.init ? this.constantValue(s.decl.init, s.t) : defaultValue(s.t);
+          this.b.emit({ op: 'mov', dst: s.op, src: this.constant(s.t, v) });
+        }
+      }
+      this.collectMethods(callee.body);
+      this.stmts(callee.body);
+      for (const r of this.returns) r.to = this.b.pc;
+      if (dry) {
+        for (const s of scope.values()) {
+          if (s.used || !['Temp', 'Static', 'Constant'].includes(s.decl.section)) continue;
+          this.push(
+            'warning',
+            `Variable #${s.name} wird nicht verwendet`,
+            s.decl.span,
+            this.declWhere(callee.name, s.decl),
+          );
+        }
+      }
+    } finally {
+      Object.assign(this, saved);
+      this.loops.push(...loops);
+      this.callStack.pop();
+      if (!dry) this.mute--;
+    }
+
+    // Ausgänge
+    for (const a of args) {
+      if (!a.out) continue;
+      const s = scope.get(a.name.toLowerCase());
+      if (s?.k !== 'var') continue;
+      this.store({ o: s.op, t: s.t }, this.writable(a.out), a.span);
+    }
   }
 
   /** Wert eines konstanten Ausdrucks (nur Literale bzw. lokale Konstanten). */
@@ -669,7 +1124,12 @@ class CodeGen {
 
   /** Instanzeintrag zu einer Referenz ohne Fehlermeldung (für die Vorabanalyse). */
   private lookupInstance(r: Ref): InstEntry | undefined {
-    if (r.scope === 'addr' || r.scope === 'local') return undefined;
+    if (r.scope === 'addr') return undefined;
+    if (r.scope !== 'tag' && r.path.length === 0) {
+      const s = this.locals.get(r.name.toLowerCase());
+      if (s?.k === 'inst') return s.entry;
+    }
+    if (r.scope === 'local') return undefined;
     const idb = this.idbs.get(r.name.toLowerCase());
     if (idb && r.path.length === 0) return idb;
     const db = this.dbs.get(r.name.toLowerCase());
@@ -752,7 +1212,9 @@ class CodeGen {
 
   private loopBody(loop: Loop, body: Stmt[]): void {
     this.loops.push(loop);
+    this.loopDepth++;
     this.stmts(body);
+    this.loopDepth--;
     this.loops.pop();
   }
 
@@ -762,7 +1224,10 @@ class CodeGen {
   }
 
   private assign(target: Ref, e: Expr): void {
-    const dst = this.writable(target);
+    this.assignTo(this.writable(target), e);
+  }
+
+  private assignTo(dst: Val, e: Expr): void {
     if (this.intrinsics && e.k === 'call' && e.name === '__CONV') {
       // FUP-Box CONV: beliebige Konvertierung vom Typ des Eingangs in den Typ des Ziels
       if (e.args.length !== 1) this.fail('CONV braucht genau einen Eingang', e.span);
@@ -805,8 +1270,7 @@ class CodeGen {
 
   private writable(r: Ref): Val {
     const res = this.resolve(r);
-    if (res.k === 'instance')
-      this.fail(`Instanz ${refText(r)} kann nicht zugewiesen werden`, r.span);
+    if (res.k !== 'value') this.fail(`Instanz ${refText(r)} kann nicht zugewiesen werden`, r.span);
     if (res.isConst) this.fail(`${r.name} ist eine Konstante`, r.span);
     if (!res.writable) this.fail(`${refText(r)} kann nur gelesen werden`, r.span);
     if (res.input) {
@@ -936,11 +1400,16 @@ class CodeGen {
         span,
       );
     }
-    if (instRef.scope === 'local') {
+    if (instRef.scope === 'local' && this.blockKind !== 'FB') {
       this.fail(
         'Multiinstanzen (#Instanz(…)) gibt es nur in Funktionsbausteinen – lege im OB einen Instanz-DB an',
         instRef.span,
       );
+    }
+    const user = this.userCallee(instRef);
+    if (user) {
+      this.callUser(user.unit, user.inst, args, span);
+      return;
     }
 
     let entry: InstEntry;
@@ -1066,7 +1535,8 @@ class CodeGen {
         const known =
           this.tags.get(r.name) ||
           this.dbs.has(r.name.toLowerCase()) ||
-          this.idbs.has(r.name.toLowerCase());
+          this.idbs.has(r.name.toLowerCase()) ||
+          this.uinsts.has(r.name.toLowerCase());
         if (known) return this.global(r);
         this.fail(
           `„${r.name}“ ist weder lokal deklariert noch eine PLC-Variable oder ein Datenbaustein`,
@@ -1078,6 +1548,14 @@ class CodeGen {
 
   private fromSym(s: Sym, r: Ref, quiet: boolean): Resolved {
     if (!quiet) s.used = true;
+    if (s.k === 'inst') {
+      if (r.path.length === 0) return { k: 'instance', entry: s.entry };
+      if (r.path.length > 1) this.fail(`${refText(r)}: zu viele Elemente`, r.span);
+      return this.member(s.entry, r.path[0]!, r);
+    }
+    if (s.k === 'uinst') {
+      return r.path.length ? this.userPath(s.inst, r.path, r) : { k: 'uinst', inst: s.inst };
+    }
     if (r.path.length) this.fail(`#${s.name} hat keine Elemente`, r.span);
     if (s.k === 'const') {
       return { k: 'value', op: this.constant(s.t, s.v), t: s.t, writable: false, isConst: true };
@@ -1088,6 +1566,8 @@ class CodeGen {
   /** "Tag", "DB".Variable, "DB".Instanz.Element, "IDB".Element */
   private global(r: Ref): Resolved {
     const key = r.name.toLowerCase();
+    const ui = this.uinsts.get(key);
+    if (ui) return r.path.length ? this.userPath(ui, r.path, r) : { k: 'uinst', inst: ui };
     const idb = this.idbs.get(key);
     if (idb) {
       if (r.path.length === 0) return { k: 'instance', entry: idb };
@@ -1315,9 +1795,11 @@ class CodeGen {
       }
       case 'ref': {
         const r = this.resolve(e);
-        if (r.k === 'instance') {
+        if (r.k !== 'value') {
           this.fail(
-            `Instanz ${refText(e)} kann nicht als Wert verwendet werden – meinst du ${refText(e)}.Q?`,
+            r.k === 'instance'
+              ? `Instanz ${refText(e)} kann nicht als Wert verwendet werden – meinst du ${refText(e)}.Q?`
+              : `Instanz ${refText(e)} kann nicht als Wert verwendet werden – wähle einen Ausgang, z. B. ${refText(e)}.${firstOutput(r.inst.fb) ?? 'Q'}`,
             e.span,
           );
         }
@@ -1571,6 +2053,15 @@ class CodeGen {
       if (v) return v;
     }
     if (!isBuiltinFunction(e.name)) {
+      const unit = this.units.get(e.name.toLowerCase());
+      if (unit) {
+        this.fail(
+          unit.kind === 'FC'
+            ? `Funktionen mit Rückgabewert werden nicht unterstützt – rufe „${unit.name}“ als Anweisung auf und verschalte einen Ausgang mit =>`
+            : `„${unit.name}“ ist ein FB – rufe seinen Instanz-DB als Anweisung auf, z. B. "${unit.name}_DB"(…);`,
+          e.span,
+        );
+      }
       if (e.name === 'IN_RANGE' || e.name === 'OUT_RANGE') {
         this.fail(
           `${e.name} gibt es nur in FUP/KOP – in SCL mit Vergleichen formulieren, z. B. (#x >= 10) AND (#x <= 20)`,
@@ -1730,6 +2221,14 @@ const ARITH: Partial<Record<BinaryOp, 'add' | 'sub' | 'mul' | 'div' | 'mod'>> = 
 /** Für Fehlermeldungen: untypisierte Literale als „Konstante“ benennen. */
 function literalOrigin(e: Expr | undefined, t: DataType): LiteralType {
   return e?.k === 'lit' && isLiteralType(e.t) ? e.t : t;
+}
+
+function unquote(s: string): string {
+  return s.replace(/^"(.*)"$/, '$1');
+}
+
+function firstOutput(u: Unit): string | undefined {
+  return u.decls.find((d) => d.section === 'Output')?.name;
 }
 
 function isIntish(t: LiteralType): boolean {

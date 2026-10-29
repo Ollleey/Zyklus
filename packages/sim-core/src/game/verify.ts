@@ -123,6 +123,22 @@ export function evaluateCheck(
       if (edges.length > c.max) return fail(`${edges.length} Schaltvorgänge (erlaubt ${c.max})`);
       break;
     }
+    case 'duty': {
+      const p = c.periodMs;
+      const changes = c.duty.map(([t]) => t).filter((t) => t > 0);
+      for (let w = from; w + p <= to; w += p) {
+        // ein Fenster nach jeder Sollwertänderung einschwingen lassen
+        if (changes.some((tc) => tc > w - p && tc < w + p)) continue;
+        const want = Number(valueAt(c.duty, w, 0));
+        let on = 0;
+        for (let t = w; t < w + p; t++) if (at(c.signal, t) === true) on++;
+        const got = (on / p) * 100;
+        if (Math.abs(got - want) > c.tolerance) {
+          return fail(`Fenster ab ${sec(w)}: ${Math.round(got * 10) / 10} % statt ${want} %`);
+        }
+      }
+      break;
+    }
     case 'track':
       for (let t = from; t < to; t++) {
         const d = num(c.signal, t) - num(c.reference, t);

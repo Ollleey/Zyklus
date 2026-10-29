@@ -1,0 +1,75 @@
+DATA_BLOCK "Kette"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      Schritt : Int;   // 0 Grundstellung … 5 Lösen
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "StartFlanke"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Verweilzeit"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+TON_TIME
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	"StartFlanke"(CLK := "Start");
+	"Verweilzeit"(IN := "Kette".Schritt = 3, PT := T#300ms);
+
+	// Weiterschaltbedingungen
+	CASE "Kette".Schritt OF
+	    0:
+	        IF "StartFlanke".Q AND "Oben" THEN
+	            "Kette".Schritt := 1;
+	        END_IF;
+	    1:
+	        IF "Gespannt" THEN
+	            "Kette".Schritt := 2;
+	        END_IF;
+	    2:
+	        IF "Unten" THEN
+	            "Kette".Schritt := 3;
+	        END_IF;
+	    3:
+	        IF "Verweilzeit".Q THEN
+	            "Kette".Schritt := 4;
+	        END_IF;
+	    4:
+	        IF "Oben" THEN
+	            "Kette".Schritt := 5;
+	        END_IF;
+	    5:
+	        IF NOT "Gespannt" THEN
+	            "Kette".Schritt := 0;
+	        END_IF;
+	END_CASE;
+
+	// Ausgänge aus dem Schritt
+	"Spannen" := "Kette".Schritt >= 1 AND "Kette".Schritt <= 4;
+	"Bohrmotor" := "Kette".Schritt >= 2 AND "Kette".Schritt <= 4;
+	"Senken" := "Kette".Schritt = 2;
+	"Heben" := "Kette".Schritt = 4;
+END_ORGANIZATION_BLOCK

@@ -33,19 +33,21 @@ interface Props {
   progress?: LevelProgress;
   onBack: () => void;
   onProgress: (p: Record<string, LevelProgress>) => void;
+  /** Sandkasten: nur Handbetrieb, keine Prüfung */
+  sandbox?: boolean;
 }
 
-export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
+export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Props) {
   const [solution, setSolution] = useState<Solution>(() => loadSolution(level.id));
   const [brief, setBrief] = useState<'mail' | 'datasheet' | null>(() =>
-    solution.modules.length ? null : 'mail',
+    solution.modules.length ? null : sandbox ? 'datasheet' : 'mail',
   );
   const [result, setResult] = useState<Verification | null>(null);
 
   useEffect(() => saveSolution(level.id, solution), [level.id, solution]);
 
   const compiled = useMemo(() => compileSolution(level, solution), [level, solution]);
-  const sim = useSimulation(level, solution, compiled);
+  const sim = useSimulation(level, solution, compiled, sandbox ? 'manual' : 'test');
   const run = sim.run;
 
   const values = useMemo(() => {
@@ -80,10 +82,15 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
     URL.revokeObjectURL(a.href);
   };
 
+  /** Externe Quelle je CPU (bei mehreren CPUs eine Datei je CPU) */
   const exportScl = () => {
-    const cpu = solution.modules.find((m) => moduleType(m.type).kind === 'cpu');
-    const project = cpu && solution.projects[cpu.id];
-    if (project) download(`${level.id}.scl`, projectToSource(project), 'text/plain');
+    const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
+    for (const cpu of cpus) {
+      const project = solution.projects[cpu.id];
+      if (!project) continue;
+      const name = cpus.length > 1 ? `${level.id}.${cpu.id}.scl` : `${level.id}.scl`;
+      download(name, projectToSource(project), 'text/plain');
+    }
   };
 
   const fileInput = useRef<HTMLInputElement>(null);
@@ -104,7 +111,7 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
           ← {t('level.back')}
         </button>
         <div className="topbar-title">
-          <span className="level-no">#{level.order}</span> {tr(level.title)}
+          {!sandbox && <span className="level-no">#{level.order}</span>} {tr(level.title)}
           <span className="customer">{tr(level.customer)}</span>
         </div>
         <div className="topbar-actions">
@@ -175,6 +182,7 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
           </div>
           <button
             className="btn btn-primary"
+            hidden={sandbox}
             onClick={verify}
             disabled={!compiled.ok}
             title={compiled.ok ? '' : t('sim.notReady')}
@@ -208,6 +216,7 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
           <div className="simbar">
             <h3 className="pane-title">{t('sim.title')}</h3>
             <select
+              hidden={sandbox}
               value={sim.mode === 'manual' ? 'manual' : `${sim.testIdx}`}
               onChange={(e) => {
                 if (e.target.value === 'manual') sim.setMode('manual');
@@ -292,6 +301,7 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
                 const dev = level.devices.find((x) => x.id === d);
                 return typeof v === 'number' ? v : (dev?.analog?.min ?? 0);
               }}
+              testParams={test?.plant}
               onAnalog={(d, v) => {
                 sim.setManual(d, v);
                 if (!sim.running) sim.play();

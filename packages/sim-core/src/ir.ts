@@ -97,8 +97,28 @@ export interface InstanceDecl {
   kind: InstanceKind;
 }
 
+/**
+ * Alarm-OB: eigener Codebereich [start, end) in `IrProgram.code`.
+ * - cyclic (OB35): alle `intervalMs` ab `phaseMs`
+ * - process (OB40): bei Flanke an einem Eingangsbit der Peripherie
+ */
+export interface IrTask {
+  kind: 'cyclic' | 'process';
+  name: string;
+  start: number;
+  end: number;
+  intervalMs?: number;
+  phaseMs?: number;
+  input?: { byte: number; bit: number };
+  edge?: 'rising' | 'falling';
+}
+
 export interface IrProgram {
   slots: SlotDecl[];
   instances: InstanceDecl[];
+  /** Code aller OBs hintereinander; OB1 belegt [0, mainEnd) */
   code: Instr[];
+  /** Ende von OB1 (Standard: code.length) */
+  mainEnd?: number;
+  tasks?: IrTask[];
 }

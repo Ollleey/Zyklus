@@ -78,9 +78,11 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
     return occ;
   }, [solution.modules, width]);
 
+  const wall = level.board.wall;
   const fits = (type: string, x: number, ignore?: string) => {
     const w = MODULE_TYPES[type]!.width;
     if (x < 0 || x + w > width) return false;
+    if (wall !== undefined && x <= wall && wall < x + w) return false;
     for (let c = x; c < x + w; c++) if (occupied[c] && occupied[c] !== ignore) return false;
     return true;
   };
@@ -227,6 +229,48 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
           );
         })}
 
+        {/* Trennwand: kein Modul, keine Leitung */}
+        {wall !== undefined && (
+          <g className="wall">
+            <rect
+              x={boardLeft + wall * CW + 6}
+              y={DUCT_Y - 16}
+              width={CW - 12}
+              height={MOD_Y + MOD_H - DUCT_Y + 16}
+              className="wall-body"
+            />
+            <text
+              x={boardLeft + wall * CW + CW / 2}
+              y={MOD_Y + MOD_H / 2}
+              className="wall-label"
+              transform={`rotate(-90 ${boardLeft + wall * CW + CW / 2} ${MOD_Y + MOD_H / 2})`}
+            >
+              {t('cabinet.wall')}
+            </text>
+          </g>
+        )}
+
+        {/* Buskabel zwischen gekoppelten Koppelmodulen */}
+        {analysis.links.map(([a, b]) => {
+          const ka = solution.modules.find(
+            (m) => MODULE_TYPES[m.type]?.kind === 'cp' && analysis.cpuOf.get(m.id) === a,
+          );
+          const kb = solution.modules.find(
+            (m) => MODULE_TYPES[m.type]?.kind === 'cp' && analysis.cpuOf.get(m.id) === b,
+          );
+          if (!ka || !kb) return null;
+          const xa = boardLeft + ka.x * CW + CW / 2;
+          const xb = boardLeft + kb.x * CW + CW / 2;
+          const y = MOD_Y + MOD_H + 10;
+          return (
+            <path
+              key={`bus${a}${b}`}
+              d={`M${xa},${MOD_Y + MOD_H - 30} V${y} H${xb} V${MOD_Y + MOD_H - 30}`}
+              className="bus-link"
+            />
+          );
+        })}
+
         {/* Baugruppen */}
         {solution.modules.map((m) => {
           const mt = MODULE_TYPES[m.type];
@@ -286,6 +330,27 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
                     STOP
                   </text>
                 </>
+              )}
+              {mt.kind === 'cp' && (
+                <>
+                  <text x={x + w / 2} y={MOD_Y + 80} className="module-detail">
+                    ⇄ QW100
+                  </text>
+                  <text x={x + w / 2} y={MOD_Y + 96} className="module-detail">
+                    IW100
+                  </text>
+                  <circle
+                    cx={x + w / 2}
+                    cy={MOD_Y + 120}
+                    r={5}
+                    className={`led ${analysis.links.some((l) => l.includes(analysis.cpuOf.get(m.id) ?? '')) ? 'led-run' : ''}`}
+                  />
+                </>
+              )}
+              {mt.alarms && (
+                <text x={x + w / 2} y={MOD_Y + MOD_H - 14} className="module-detail">
+                  ⚡ Alarm
+                </text>
               )}
               {kind &&
                 Array.from({ length: mt.channels }, (_, ch) => {

@@ -76,6 +76,21 @@ export type Check =
     }
   | { kind: 'exclusive'; name: Text; signals: string[]; from?: number; to?: number }
   | { kind: 'maxChanges'; name: Text; signal: string; max: number; from?: number; to?: number }
+  /**
+   * Tastverhältnis eines Pulsausgangs: in jedem Fenster der Länge `periodMs` muss der Ausgang
+   * `duty` % der Zeit eingeschaltet sein (± `tolerance` Prozentpunkte). Fenster, in denen sich
+   * der Sollwert gerade geändert hat, werden übersprungen (Einschwingen).
+   */
+  | {
+      kind: 'duty';
+      name: Text;
+      signal: string;
+      periodMs: number;
+      duty: Edge[];
+      tolerance: number;
+      from: number;
+      to?: number;
+    }
   | {
       kind: 'track';
       name: Text;
@@ -113,7 +128,8 @@ export interface Level {
   mail: { from: Text; subject: Text; body: Text };
   /** Datenblatt in einfachem Markdown */
   datasheet: Text;
-  board: { width: number; ductCapacity: number };
+  /** `wall`: Spalte mit Trennwand – Leitungen können sie nicht kreuzen, je Seite eine CPU */
+  board: { width: number; ductCapacity: number; wall?: number };
   allowedModules: string[];
   devices: Device[];
   /** Anlagenvisualisierung */
@@ -217,6 +233,9 @@ export function validateLevel(json: unknown): Level {
             : [c.signal];
       for (const s of signals)
         if (!knownSignal(s)) p.push(`Test ${tc.id}: unbekanntes Signal ${s}`);
+      if (c.kind === 'duty' && !(c.periodMs > 0 && c.duty?.length)) {
+        p.push(`Test ${tc.id}: Kriterium ${c.name.de} braucht periodMs und duty`);
+      }
     }
     if (!tc.expect && !tc.checks) p.push(`Test ${tc.id}: weder expect noch checks`);
   }

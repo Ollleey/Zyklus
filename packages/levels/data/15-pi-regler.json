@@ -1,0 +1,208 @@
+{
+  "id": "15-pi-regler",
+  "order": 15,
+  "title": {
+    "de": "Temperaturregelung für den Härteofen"
+  },
+  "customer": {
+    "de": "Härterei Brandtner"
+  },
+  "mail": {
+    "from": {
+      "de": "Felix Brandtner <f.brandtner@haerterei-brandtner.example>"
+    },
+    "subject": {
+      "de": "Ofen erreicht die Temperatur nie"
+    },
+    "body": {
+      "de": "Servus,\n\nunser Anlassofen bleibt immer ein paar Grad unter dem Sollwert. Dreht man die Verstärkung hoch, fängt er an zu schwingen. Ein Kollege meinte, uns fehle der I-Anteil.\n\nKannst du uns einen PI-Regler bauen? Der Ofen reagiert träge und mit Verzögerung, Details im Datenblatt.\n\nFelix Brandtner"
+    }
+  },
+  "datasheet": {
+    "de": "# Anlassofen AO-200\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Ofentemperatur 0…200 °C → 0…27648, verrauscht |\n| B2 | AI | Sollwertsteller 0…200 °C |\n| E1 | AO | Heizleistung 0…100 % → 0…27648 |\n\n## Strecke\n\nPT1 mit Totzeit: 100 % Heizleistung ergeben im Endzustand 20 °C + 180 °C. Zeitkonstante **6 s**, Totzeit **1,5 s**. Ohne Heizung kühlt der Ofen auf 20 °C ab. Beim Öffnen der Tür gehen bis zu 25 °C verloren.\n\n## Anforderung\n\n- Nach dem Einschwingen **± 2 °C** um den Sollwert.\n- Höchstens 8 °C Überschwingen.\n\n## Hinweis (PI-Regler)\n\n`y = Kp · (e + 1/Ti · ∫e dt)` mit e = Soll − Ist. Werte zum Anfangen: Kp = 1,5 %/°C, Ti = 5 s. Gleichmäßig abtasten: ein **Weckalarm-OB** (z. B. OB30, alle 100 ms) ruft den Regler auf; ein eigener **FB** „PI“ hält das Integral in seinen statischen Daten. Den Stellwert auf 0…100 % begrenzen und dann nicht weiter integrieren (Anti-Windup)."
+  },
+  "board": {
+    "width": 8,
+    "ductCapacity": 4
+  },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "ao2"],
+  "toleranceMs": 0,
+  "plant": {
+    "type": "thermal",
+    "params": {
+      "sensor": "B1",
+      "setpoint": "B2",
+      "heater": "E1",
+      "tau": 6000,
+      "gain": 180,
+      "ambient": 20,
+      "temp0": 20,
+      "deadMs": 1500,
+      "loss": []
+    }
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Temperatur",
+      "name": {
+        "de": "Ofentemperatur (B1)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "°C",
+        "min": 0,
+        "max": 200,
+        "noise": 25
+      }
+    },
+    {
+      "id": "B2",
+      "tag": "Sollwert",
+      "name": {
+        "de": "Sollwertsteller (B2)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "°C",
+        "min": 0,
+        "max": 200
+      }
+    },
+    {
+      "id": "E1",
+      "tag": "Heizung",
+      "name": {
+        "de": "Heizleistung (E1)"
+      },
+      "kind": "AO",
+      "side": "right",
+      "role": "actuator",
+      "analog": {
+        "unit": "%",
+        "min": 0,
+        "max": 100
+      }
+    }
+  ],
+  "tests": [
+    {
+      "id": "anfahren",
+      "name": {
+        "de": "Anfahren auf 120 °C"
+      },
+      "durationMs": 40000,
+      "seeds": [1, 2],
+      "stimuli": {
+        "B2": [
+          [0, 120],
+          [39999, 120]
+        ]
+      },
+      "plant": {
+        "loss": []
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Kein Überschwingen über Sollwert + 8 °C"
+          },
+          "signal": "plant.temp",
+          "min": 0,
+          "max": 128,
+          "from": 0,
+          "to": 40000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "120 °C ± 2 °C zwischen 25 s und 40 s"
+          },
+          "signal": "plant.temp",
+          "min": 118,
+          "max": 122,
+          "from": 25000,
+          "to": 40000
+        }
+      ]
+    },
+    {
+      "id": "stufe",
+      "name": {
+        "de": "Sollwertstufe und Tür auf"
+      },
+      "durationMs": 90000,
+      "seeds": [3],
+      "stimuli": {
+        "B2": [
+          [0, 80],
+          [29999, 80],
+          [30000, 150],
+          [89999, 150]
+        ]
+      },
+      "plant": {
+        "loss": [
+          [60000, 25],
+          [70000, 0]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Kein Überschwingen über Sollwert + 8 °C"
+          },
+          "signal": "plant.temp",
+          "min": 0,
+          "max": 158,
+          "from": 0,
+          "to": 90000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "80 °C ± 2 °C zwischen 20 s und 30 s"
+          },
+          "signal": "plant.temp",
+          "min": 78,
+          "max": 82,
+          "from": 20000,
+          "to": 30000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "150 °C ± 2 °C zwischen 52 s und 60 s"
+          },
+          "signal": "plant.temp",
+          "min": 148,
+          "max": 152,
+          "from": 52000,
+          "to": 60000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "150 °C ± 2 °C zwischen 80 s und 90 s"
+          },
+          "signal": "plant.temp",
+          "min": 148,
+          "max": 152,
+          "from": 80000,
+          "to": 90000
+        }
+      ]
+    }
+  ],
+  "par": {
+    "cost": 14,
+    "energy": 40983,
+    "size": 7
+  }
+}

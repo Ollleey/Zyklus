@@ -12,6 +12,31 @@ interface Props {
   /** Handbetrieb: physikalischer Wert eines Analoggebers */
   analogValue: (device: string) => number;
   onAnalog: (device: string, v: number) => void;
+  /** Parameter des laufenden Testfalls (z. B. Paketfolge) */
+  testParams?: Record<string, unknown>;
+}
+
+/** Anzahl steigender Flanken in [from, to] */
+function risingEdges(edges: Edge[] | undefined, from: number, to: number): number {
+  if (!edges) return 0;
+  let n = 0;
+  for (let i = 0; i < edges.length; i++) {
+    const [t0, v] = edges[i]!;
+    if (t0 > to) break;
+    if (t0 >= from && v === true && (i === 0 || edges[i - 1]![1] !== true)) n++;
+  }
+  return n;
+}
+
+/** Zeitpunkt der letzten steigenden Flanke bis `now` */
+function lastRise(edges: Edge[] | undefined, now: number): number | undefined {
+  let t: number | undefined;
+  for (let i = 0; i < (edges?.length ?? 0); i++) {
+    const [t0, v] = edges![i]!;
+    if (t0 > now) break;
+    if (v === true && (i === 0 || edges![i - 1]![1] !== true)) t = t0;
+  }
+  return t;
 }
 
 /** Zeit (ms), die ein Signal bis `now` auf TRUE war. */
@@ -54,6 +79,7 @@ export function PlantView({
   onActuate,
   analogValue,
   onAnalog,
+  testParams,
 }: Props) {
   const press = (id: string) => {
     pressedAt.set(id, performance.now());
@@ -65,7 +91,15 @@ export function PlantView({
   };
   const type = level.plant?.type;
   const param = (k: string) => level.plant?.params?.[k] as string | undefined;
-  const inputs = level.devices.filter((d) => d.kind === 'DI');
+  // Sensoren, die das Anlagenmodell liefert, sind im Handbetrieb nicht bedienbar
+  const plantKeys: Record<string, string[]> = {
+    tank: ['sensor'],
+    drill: ['up', 'down', 'clamped'],
+    sorter: ['measure', 'height', 'gate'],
+    thermal: ['sensor'],
+  };
+  const fromPlant = new Set((plantKeys[type ?? ''] ?? []).map((k) => param(k)));
+  const inputs = level.devices.filter((d) => d.kind === 'DI' && !fromPlant.has(d.id));
   const analogs = level.devices.filter((d) => d.kind === 'AI');
   const on = (id: string | undefined) => (id ? values.get(id) === true : false);
   const rawTo = (id: string | undefined, raw: boolean | number | undefined) => {
@@ -120,6 +154,78 @@ export function PlantView({
             unit={level.devices.find((d) => d.id === param('display'))?.analog?.unit ?? ''}
           />
         )}
+        {type === 'panel' && (
+          <Panel
+            outputs={level.devices
+              .filter((d) => d.kind === 'DO' || d.kind === 'AO')
+              .map((d) => ({
+                id: d.id,
+                analog: d.kind === 'AO',
+                value: d.kind === 'AO' ? rawTo(d.id, values.get(d.id)) : on(d.id),
+              }))}
+          />
+        )}
+        {type === 'drill' && (
+          <Drill
+            pos={num(traces?.get('plant.pos'), 0)}
+            clamp={num(traces?.get('plant.clamp'), 0)}
+            holes={num(traces?.get('plant.holes'), 0)}
+            bad={num(traces?.get('plant.bad'), 0)}
+            damage={num(traces?.get('plant.damage'), 0) > 0}
+            motor={on(param('motor'))}
+          />
+        )}
+        {type === 'sorter' && (
+          <Sorter
+            now={now}
+            packages={
+              ((testParams?.packages ?? level.plant?.params?.packages) as [number, number][]) ?? []
+            }
+            travel={Number(level.plant?.params?.travelMs ?? 900)}
+            length={Number(level.plant?.params?.lengthMs ?? 250)}
+            diverter={on(param('diverter'))}
+            sorted={num(traces?.get('plant.sorted'), 0)}
+            wrong={num(traces?.get('plant.wrong'), 0)}
+          />
+        )}
+        {type === 'thermal' && (
+          <Thermal
+            temp={num(traces?.get('plant.temp'), 20)}
+            heat={num(traces?.get('plant.heat'), 0)}
+            setpoint={rawTo(param('setpoint'), values.get(param('setpoint') ?? ''))}
+          />
+        )}
+        {type === 'pwm' && (
+          <Pwm
+            on={on(param('heater'))}
+            duty={
+              (onTime(traces?.get(param('heater') ?? ''), now) -
+                onTime(traces?.get(param('heater') ?? ''), Math.max(0, now - 1000))) /
+              Math.min(1000, Math.max(1, now))
+            }
+            setpoint={rawTo(param('setpoint'), values.get(param('setpoint') ?? ''))}
+          />
+        )}
+        {type === 'pumphouse' && (
+          <PumpHouse
+            pump={on(param('pump'))}
+            run={on(param('run'))}
+            fault={on(param('fault'))}
+            tripped={values.get(param('protection') ?? '') === false}
+          />
+        )}
+        {type === 'filler' && (
+          <Filler
+            valve={on(param('valve'))}
+            count={(() => {
+              const start = lastRise(traces?.get(param('valve') ?? ''), now);
+              return start === undefined
+                ? 0
+                : risingEdges(traces?.get(param('pulses') ?? ''), start, now);
+            })()}
+            target={Number(level.plant?.params?.target ?? 120)}
+          />
+        )}
       </svg>
       <div className="panel-buttons">
         {inputs.map((d) => {
@@ -150,7 +256,7 @@ export function PlantView({
         })}
         {manual &&
           analogs
-            .filter((d) => !level.plant || level.plant.type !== 'tank' || d.id !== param('sensor'))
+            .filter((d) => !fromPlant.has(d.id))
             .map((d) => (
               <label key={d.id} className="slider">
                 <span>
@@ -379,6 +485,285 @@ function Press({ pos, on }: { pos: number; on: boolean }) {
       <rect x={155} y={124} width={90} height={14} className="anvil" />
       <text x={200} y={146} className={`plant-label ${on ? 'plant-on' : ''}`}>
         Y1 {on ? 'fährt' : 'oben'}
+      </text>
+    </g>
+  );
+}
+
+/** Sandkasten: alle Ausgänge als Leuchtmelder bzw. Zeigerinstrument */
+function Panel({
+  outputs,
+}: {
+  outputs: { id: string; analog: boolean; value: boolean | number }[];
+}) {
+  const step = 380 / Math.max(1, outputs.length);
+  return (
+    <g>
+      {outputs.map((o, i) => {
+        const cx = 10 + step * (i + 0.5);
+        if (!o.analog) {
+          return (
+            <g key={o.id}>
+              <circle cx={cx} cy={60} r={18} className={`bulb ${o.value ? 'bulb-on' : ''}`} />
+              <text x={cx} y={104} className="plant-label">
+                {o.id}
+              </text>
+            </g>
+          );
+        }
+        const v = Math.max(0, Math.min(100, Number(o.value)));
+        const a = Math.PI * (1 - v / 100);
+        return (
+          <g key={o.id}>
+            <path d={`M${cx - 30},80 a30,30 0 0 1 60,0`} className="gauge" />
+            <line
+              x1={cx}
+              y1={80}
+              x2={cx + 26 * Math.cos(a)}
+              y2={80 - 26 * Math.sin(a)}
+              className="flap"
+            />
+            <text x={cx} y={104} className="plant-label">
+              {o.id} {v.toFixed(0)} %
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/** Bohrständer: Spannbacke, Pinole mit Bohrer, Werkstück; Tiefe 0…100 */
+function Drill(p: {
+  pos: number;
+  clamp: number;
+  holes: number;
+  bad: number;
+  damage: boolean;
+  motor: boolean;
+}) {
+  const y = 24 + (p.pos / 100) * 56;
+  return (
+    <g>
+      <rect x={60} y={8} width={14} height={132} className="frame" />
+      <rect x={60} y={8} width={110} height={12} className="frame" />
+      <rect x={128} y={20} width={24} height={y - 12} className="rod" />
+      <rect
+        x={122}
+        y={y + 6}
+        width={36}
+        height={18}
+        rx={3}
+        className={`motor ${p.motor ? 'motor-on' : ''}`}
+      />
+      <path
+        d={`M136,${y + 24} h8 l-4,${26} z`}
+        className={`bit ${p.motor ? 'bit-on' : ''} ${p.damage ? 'bit-broken' : ''}`}
+      />
+      <rect x={100} y={104} width={80} height={24} className="workpiece" />
+      <rect x={70 + p.clamp * 24} y={102} width={8} height={28} className="jaw" />
+      <rect x={60} y={128} width={160} height={10} className="anvil" />
+      <text x={290} y={40} className="plant-label">
+        Bohrungen {p.holes}
+      </text>
+      <text x={290} y={60} className={`plant-label ${p.bad ? 'plant-warn' : ''}`}>
+        unsauber {p.bad}
+      </text>
+      {p.damage && (
+        <text x={290} y={90} className="plant-label plant-alarm">
+          SCHADEN
+        </text>
+      )}
+      <text x={290} y={120} className="plant-label">
+        Tiefe {p.pos.toFixed(0)} %
+      </text>
+    </g>
+  );
+}
+
+/** Sortierband: Pakete laufen von der Messstelle zur Weiche */
+function Sorter(p: {
+  now: number;
+  packages: [number, number][];
+  travel: number;
+  length: number;
+  diverter: boolean;
+  sorted: number;
+  wrong: number;
+}) {
+  const x0 = 60;
+  const xGate = 280;
+  const pxPerMs = (xGate - x0) / p.travel;
+  return (
+    <g>
+      <rect x={20} y={96} width={300} height={14} rx={7} className="belt" />
+      <line x1={x0} y1={30} x2={x0} y2={94} className="beam" />
+      <line x1={xGate} y1={30} x2={xGate} y2={94} className="beam" />
+      <text x={x0} y={24} className="plant-label">
+        B1
+      </text>
+      <text x={xGate} y={24} className="plant-label">
+        B3
+      </text>
+      {p.packages.map(([t0, h], i) => {
+        const x = x0 + (p.now - t0) * pxPerMs;
+        if (x < 10 || x > 340) return null;
+        const hh = Math.max(10, (h / 200) * 56);
+        const w = p.length * pxPerMs;
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={96 - hh}
+            width={w}
+            height={hh}
+            rx={3}
+            className={`crate ${h > 120 ? 'crate-high' : ''}`}
+          />
+        );
+      })}
+      <line
+        x1={330}
+        y1={103}
+        x2={p.diverter ? 380 : 390}
+        y2={p.diverter ? 70 : 103}
+        className="flap"
+      />
+      <text x={360} y={136} className="plant-label">
+        ✓ {p.sorted} · ✗ {p.wrong}
+      </text>
+    </g>
+  );
+}
+
+function Thermal({ temp, heat, setpoint }: { temp: number; heat: number; setpoint: number }) {
+  const scale = (c: number) => 124 - Math.max(0, Math.min(1, c / 200)) * 104;
+  return (
+    <g>
+      <rect x={60} y={20} width={20} height={104} rx={10} className="thermo" />
+      <rect
+        x={64}
+        y={scale(temp)}
+        width={12}
+        height={124 - scale(temp)}
+        rx={6}
+        className="thermo-fill"
+      />
+      <line x1={52} x2={88} y1={scale(setpoint)} y2={scale(setpoint)} className="mark" />
+      <text x={70} y={142} className="plant-label">
+        {temp.toFixed(1)} °C
+      </text>
+      <text x={100} y={scale(setpoint) + 4} className="plant-label plant-left">
+        Soll {setpoint.toFixed(0)}
+      </text>
+      <rect x={170} y={30} width={140} height={90} rx={6} className="oven" />
+      {[0, 1, 2, 3].map((i) => (
+        <path
+          key={i}
+          d={`M${190 + i * 30},110 q8,-12 0,-24 q-8,-12 0,-24`}
+          className={`coil ${heat > 0.5 ? 'coil-on' : ''}`}
+          style={{ opacity: 0.35 + (0.65 * heat) / 100 }}
+        />
+      ))}
+      <rect x={170} y={128} width={140} height={8} className="bar-bg" />
+      <rect x={170} y={128} width={(140 * heat) / 100} height={8} className="bar-display" />
+      <text x={350} y={80} className="plant-label">
+        {heat.toFixed(0)} %
+      </text>
+    </g>
+  );
+}
+
+function Pwm({ on, duty, setpoint }: { on: boolean; duty: number; setpoint: number }) {
+  return (
+    <g>
+      <rect
+        x={60}
+        y={60}
+        width={200}
+        height={30}
+        rx={15}
+        className={`band ${on ? 'band-on' : ''}`}
+      />
+      <text x={160} y={50} className="plant-label">
+        Heizband {on ? 'ein' : 'aus'}
+      </text>
+      <rect x={60} y={112} width={200} height={8} className="bar-bg" />
+      <rect x={60} y={112} width={200 * Math.min(1, duty)} height={8} className="bar-display" />
+      <line x1={60 + 2 * setpoint} x2={60 + 2 * setpoint} y1={106} y2={126} className="mark" />
+      <text x={330} y={70} className="plant-label">
+        Soll {setpoint.toFixed(0)} %
+      </text>
+      <text x={330} y={120} className="plant-label">
+        Ist {(duty * 100).toFixed(0)} %
+      </text>
+    </g>
+  );
+}
+
+function PumpHouse(p: { pump: boolean; run: boolean; fault: boolean; tripped: boolean }) {
+  return (
+    <g>
+      <rect x={20} y={20} width={150} height={110} rx={4} className="room" />
+      <text x={95} y={38} className="plant-label">
+        Leitwarte
+      </text>
+      <circle cx={70} cy={80} r={14} className={`bulb ${p.run ? 'bulb-on' : ''}`} />
+      <text x={70} y={110} className="plant-label">
+        Betrieb
+      </text>
+      <circle cx={125} cy={80} r={14} className={`bulb ${p.fault ? 'bulb-alarm' : ''}`} />
+      <text x={125} y={110} className="plant-label">
+        Störung
+      </text>
+      <rect x={186} y={10} width={12} height={130} className="wall-body" />
+      <rect x={214} y={20} width={166} height={110} rx={4} className="room" />
+      <text x={297} y={38} className="plant-label">
+        Pumpenhaus
+      </text>
+      <circle cx={297} cy={78} r={22} className={`motor-round ${p.pump ? 'motor-on' : ''}`} />
+      <text x={297} y={82} className="plant-label">
+        K1
+      </text>
+      <text x={297} y={124} className={`plant-label ${p.tripped ? 'plant-alarm' : ''}`}>
+        {p.tripped ? 'ausgelöst' : 'Motorschutz'}
+      </text>
+      <path d="M192,120 v14" className="bus-link" />
+    </g>
+  );
+}
+
+function Filler({ valve, count, target }: { valve: boolean; count: number; target: number }) {
+  const fill = Math.min(1.08, count / target);
+  return (
+    <g>
+      <rect
+        x={180}
+        y={8}
+        width={40}
+        height={18}
+        rx={3}
+        className={`valve ${valve ? 'valve-on' : ''}`}
+      />
+      {valve && <rect x={196} y={26} width={8} height={30} className="water" />}
+      <path d="M170,60 h60 v74 h-60 z" className="bottle" />
+      <rect
+        x={172}
+        y={132 - 72 * Math.min(1, fill)}
+        width={56}
+        height={72 * Math.min(1, fill)}
+        className="water"
+      />
+      {fill > 1 && (
+        <text x={200} y={54} className="plant-label plant-alarm">
+          ÜBERLAUF
+        </text>
+      )}
+      <text x={300} y={70} className="plant-label">
+        {count} / {target}
+      </text>
+      <text x={300} y={90} className="plant-label">
+        Impulse
       </text>
     </g>
   );

@@ -2,7 +2,9 @@
 
 Puzzlespiel rund um Steuerungsbau: Aufträge lesen, Baugruppen auf die Hutschiene stecken, Feldgeräte
 verdrahten, in SCL oder FUP programmieren, simulieren und gegen Soll-Verläufe prüfen.
-Programmiert wird im Stil des TIA-Portals (S7-1500): OB1, Instanz-DBs, Global-DBs, PLC-Variablentabelle.
+Programmiert wird im Stil des TIA-Portals (S7-1500): OB1, Weck- und Prozessalarm-OBs, eigene FB/FC,
+Instanz-DBs, Global-DBs, PLC-Variablentabelle. 15 Aufträge, Handbuch, Sandkasten und das Bonusspiel
+Klemmen-Patience.
 
 ## Starten
 

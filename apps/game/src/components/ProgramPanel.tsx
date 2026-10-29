@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   MAIN_OB,
+  OB_NUMBERS,
+  SECTIONS_BY_KIND,
   moduleType,
+  type Block,
   type CodeBlock,
   type IfaceSection,
+  type ObEvent,
   type PlcProject,
   type Solution,
 } from '@zyklus/sim-core';
@@ -13,11 +17,11 @@ import { t } from '../i18n';
 import { setCompletionSymbols } from '../monaco-setup';
 import { updateProject } from '../state/edit';
 import { emptyFup, isFupBody } from '@zyklus/fup-model';
-import { DbPanel } from './DbPanel';
+import { DbPanel, INSTANCE_TYPES } from './DbPanel';
 import { FupEditor } from './FupEditor';
 import { SclEditor } from './SclEditor';
 import { TagTable } from './TagTable';
-import { VarTable } from './VarTable';
+import { ELEMENTARY_TYPES, VarTable } from './VarTable';
 
 type Tab = 'main' | 'tags' | 'dbs';
 
@@ -27,14 +31,39 @@ interface Props {
   onChange: (s: Solution) => void;
 }
 
-function mainBlock(p: PlcProject): CodeBlock | undefined {
-  return p.blocks.find((b): b is CodeBlock => b.kind === 'OB' && b.name === MAIN_OB);
+const isCode = (b: Block): b is CodeBlock => b.kind === 'OB' || b.kind === 'FB' || b.kind === 'FC';
+
+/** Anzeige wie im Projektbaum: „Main [OB1]“, „PI [FB1]“ */
+export const blockLabel = (b: CodeBlock) => `${b.name} [${b.kind}${b.number}]`;
+
+type NewBlock = 'FB' | 'FC' | 'cyclic' | 'process';
+
+/** Neuer Codebaustein mit freier Nummer und freiem Namen (wie „Neuen Baustein hinzufügen“). */
+function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
+  const code = blocks.filter(isCode);
+  const taken = new Set(blocks.map((b) => b.name.toLowerCase()));
+  const kind = what === 'FB' || what === 'FC' ? what : 'OB';
+  let number = what === 'cyclic' || what === 'process' ? OB_NUMBERS[what][0] : 1;
+  while (code.some((b) => b.kind === kind && b.number === number)) number++;
+  const base =
+    what === 'cyclic' ? 'Weckalarm' : what === 'process' ? 'Prozessalarm' : `${kind}_${number}`;
+  let name = base;
+  for (let n = 1; taken.has(name.toLowerCase()); n++) name = `${base}_${n}`;
+  const event: ObEvent | undefined =
+    what === 'cyclic'
+      ? { kind: 'cyclic', intervalMs: 100, phaseMs: 0 }
+      : what === 'process'
+        ? { kind: 'process', input: '%I0.0', edge: 'rising' }
+        : undefined;
+  const iface = Object.fromEntries(SECTIONS_BY_KIND[kind].map((s) => [s, []]));
+  return { kind, name, number, lang: 'SCL', iface, source: '', ...(event ? { event } : {}) };
 }
 
 export function ProgramPanel({ solution, compiled, onChange }: Props) {
   const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
   const [cpuId, setCpuId] = useState<string | undefined>(cpus[0]?.id);
   const [tab, setTab] = useState<Tab>('main');
+  const [blockName, setBlockName] = useState<string>(MAIN_OB);
   const [showIface, setShowIface] = useState(false);
   const [jump, setJump] = useState<{ line: number; col: number; nonce: number }>();
   const [fupFocus, setFupFocus] = useState<{ network?: number; box?: string; nonce: number }>();
@@ -46,11 +75,13 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
   const project = cpuId ? solution.projects[cpuId] : undefined;
   const result = cpuId ? compiled.get(cpuId) : undefined;
   const diagnostics = result?.diagnostics ?? [];
+  const codeBlocks = project?.blocks.filter(isCode) ?? [];
+  const block =
+    codeBlocks.find((b) => b.name === blockName) ?? codeBlocks.find((b) => b.name === MAIN_OB);
 
-  // Autovervollständigung mit Variablen und Datenbausteinen der gewählten CPU
+  // Autovervollständigung mit Variablen und Bausteinen der gewählten CPU
   useEffect(() => {
     if (!project) return;
-    const main = mainBlock(project);
     setCompletionSymbols([
       ...project.tags.map((tg) => ({
         label: `"${tg.name}"`,
@@ -58,23 +89,23 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
         insert: `"${tg.name}"`,
       })),
       ...project.blocks
-        .filter((b) => b.kind === 'DB' || b.kind === 'IDB')
+        .filter((b) => b.kind === 'DB' || b.kind === 'IDB' || b.kind === 'FC')
         .map((b) => ({
           label: `"${b.name}"`,
-          detail: b.kind === 'IDB' ? b.of : 'Global-DB',
+          detail: b.kind === 'IDB' ? b.of : b.kind === 'FC' ? 'Funktion' : 'Global-DB',
           insert: `"${b.name}"`,
         })),
-      ...Object.values(main?.iface ?? {})
+      ...Object.values(block?.iface ?? {})
         .flat()
         .map((v) => ({ label: `#${v!.name}`, detail: v!.type, insert: `#${v!.name}` })),
     ]);
-  }, [project]);
+  }, [project, block]);
 
   const errorRows = useMemo(() => {
     const rows = new Map<string, Set<number>>();
     for (const d of diagnostics) {
       if (d.severity !== 'error' || d.location.row === undefined) continue;
-      const key = d.location.part === 'tags' ? 'tags' : `${d.location.section}`;
+      const key = d.location.part === 'tags' ? 'tags' : `${d.location.block}:${d.location.section}`;
       if (!rows.has(key)) rows.set(key, new Set());
       rows.get(key)!.add(d.location.row);
     }
@@ -89,19 +120,56 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
     );
   }
 
-  const main = mainBlock(project);
+  const userFbs = codeBlocks.filter((b) => b.kind === 'FB').map((b) => `"${b.name}"`);
+  const isCodeName = (name?: string) => !!name && codeBlocks.some((b) => b.name === name);
   const change = (f: (p: PlcProject) => PlcProject) => onChange(updateProject(solution, cpuId, f));
-  const changeMain = (f: (b: CodeBlock) => CodeBlock) =>
+  const changeBlock = (f: (b: CodeBlock) => CodeBlock) =>
     change((p) => ({
       ...p,
-      blocks: p.blocks.map((b) => (b === mainBlock(p) ? f(b as CodeBlock) : b)),
+      blocks: p.blocks.map((b) => (isCode(b) && b.name === block?.name ? f(b) : b)),
     }));
   const setSection = (s: IfaceSection, rows: CodeBlock['iface'][IfaceSection]) =>
-    changeMain((b) => ({ ...b, iface: { ...b.iface, [s]: rows } }));
+    changeBlock((b) => ({ ...b, iface: { ...b.iface, [s]: rows } }));
+
+  /** Umbenennen; Instanz-DBs eines FB ziehen mit */
+  const rename = (name: string) => {
+    const old = block!.name;
+    const fb = block!.kind === 'FB';
+    change((p) => ({
+      ...p,
+      blocks: p.blocks.map((b) =>
+        isCode(b) && b.name === old
+          ? { ...b, name }
+          : fb && b.kind === 'IDB' && b.of.replace(/"/g, '') === old
+            ? { ...b, of: name }
+            : b,
+      ),
+    }));
+    setBlockName(name);
+  };
+  const addBlock = (what: NewBlock) => {
+    const b = newBlock(project.blocks, what);
+    change((p) => ({ ...p, blocks: [...p.blocks, b] }));
+    setBlockName(b.name);
+    setTab('main');
+  };
+  const removeBlock = () => {
+    if (!block || block.name === MAIN_OB || !confirm(t('block.delete.confirm'))) return;
+    change((p) => ({
+      ...p,
+      blocks: p.blocks.filter((b) => !(isCode(b) && b.name === block.name)),
+    }));
+    setBlockName(MAIN_OB);
+  };
+  const sections = block ? SECTIONS_BY_KIND[block.kind] : [];
 
   const counts = {
-    main: diagnostics.filter((d) => d.location.part === 'code' || d.location.part === 'interface')
-      .length,
+    main: diagnostics.filter(
+      (d) =>
+        d.location.part === 'code' ||
+        d.location.part === 'interface' ||
+        isCodeName(d.location.block),
+    ).length,
     tags: diagnostics.filter((d) => d.location.part === 'tags').length,
   };
 
@@ -119,7 +187,7 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
           className={`tab ${tab === 'main' ? 'tab-active' : ''}`}
           onClick={() => setTab('main')}
         >
-          {t('program.main')}
+          {t('program.blocks')}
           {counts.main > 0 && <span className="badge">{counts.main}</span>}
         </button>
         <button
@@ -145,18 +213,70 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
         )}
       </div>
 
-      {tab === 'main' && main && (
+      {tab === 'main' && block && (
         <div className="main-block">
+          <div className="block-bar">
+            <select
+              className="block-select"
+              value={block.name}
+              onChange={(e) => setBlockName(e.target.value)}
+              aria-label={t('program.blocks')}
+            >
+              {codeBlocks.map((b) => {
+                const errs = diagnostics.filter(
+                  (d) => d.severity === 'error' && d.location.block === b.name,
+                ).length;
+                return (
+                  <option key={b.name} value={b.name}>
+                    {blockLabel(b)}
+                    {errs ? ` ⚠ ${errs}` : ''}
+                  </option>
+                );
+              })}
+            </select>
+            <select
+              className="block-add"
+              value=""
+              onChange={(e) => e.target.value && addBlock(e.target.value as NewBlock)}
+              aria-label={t('block.add')}
+            >
+              <option value="">+ {t('block.add')}</option>
+              <option value="FB">{t('block.add.fb')}</option>
+              <option value="FC">{t('block.add.fc')}</option>
+              <option value="cyclic">{t('block.add.cyclic')}</option>
+              <option value="process">{t('block.add.process')}</option>
+            </select>
+            {block.name !== MAIN_OB && (
+              <>
+                <input
+                  className="block-name"
+                  value={block.name}
+                  onChange={(e) => rename(e.target.value)}
+                  spellCheck={false}
+                  aria-label={t('table.name')}
+                />
+                <button className="icon-btn" title={t('db.delete')} onClick={removeBlock}>
+                  ✕
+                </button>
+              </>
+            )}
+          </div>
+          {block.event && (
+            <EventEditor
+              event={block.event}
+              onChange={(event) => changeBlock((b) => ({ ...b, event }))}
+            />
+          )}
           <div className="iface iface-bar">
             <div className="lang-switch" role="radiogroup" aria-label="Sprache">
               {(['SCL', 'FUP'] as const).map((l) => (
                 <button
                   key={l}
                   role="radio"
-                  aria-checked={main.lang === l}
-                  className={`lang ${main.lang === l ? 'lang-active' : ''}`}
+                  aria-checked={block.lang === l}
+                  className={`lang ${block.lang === l ? 'lang-active' : ''}`}
                   onClick={() =>
-                    changeMain((b) => ({
+                    changeBlock((b) => ({
                       ...b,
                       lang: l,
                       fup: l === 'FUP' && !isFupBody(b.fup) ? emptyFup() : b.fup,
@@ -170,39 +290,46 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
             <button className="iface-toggle" onClick={() => setShowIface(!showIface)}>
               {showIface ? '▾' : '▸'} {t('program.interface')}{' '}
               <span className="muted">
-                Temp {main.iface.Temp?.length ?? 0} · Constant {main.iface.Constant?.length ?? 0}
+                {sections.map((s) => `${s} ${block.iface[s]?.length ?? 0}`).join(' · ')}
               </span>
             </button>
             {showIface && (
               <div className="iface-sections">
-                {(['Temp', 'Constant'] as const).map((s) => (
+                {sections.map((s) => (
                   <div key={s} className="iface-section">
                     <h4>{s}</h4>
                     <VarTable
-                      rows={main.iface[s] ?? []}
+                      rows={block.iface[s] ?? []}
                       onChange={(rows) => setSection(s, rows)}
-                      errorRows={errorRows.get(s)}
-                      withInit={s === 'Constant'}
+                      errorRows={errorRows.get(`${block.name}:${s}`)}
+                      withInit={s !== 'Temp' && s !== 'InOut'}
+                      types={
+                        s === 'Static'
+                          ? [...ELEMENTARY_TYPES, ...INSTANCE_TYPES, ...userFbs]
+                          : ELEMENTARY_TYPES
+                      }
                     />
                   </div>
                 ))}
               </div>
             )}
           </div>
-          {main.lang === 'FUP' ? (
+          {block.lang === 'FUP' ? (
             <FupEditor
+              key={block.name}
               project={project}
-              block={main}
-              diagnostics={diagnostics.filter((d) => d.location.block === MAIN_OB)}
+              block={block}
+              diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
               onChange={(p) => change(() => p)}
               focus={fupFocus}
             />
           ) : (
             <SclEditor
-              value={main.source}
-              onChange={(source) => changeMain((b) => ({ ...b, source }))}
+              key={block.name}
+              value={block.source}
+              onChange={(source) => changeBlock((b) => ({ ...b, source }))}
               diagnostics={diagnostics.filter(
-                (d) => d.location.part === 'code' && d.location.block === MAIN_OB,
+                (d) => d.location.part === 'code' && d.location.block === block.name,
               )}
               jump={jump}
             />
@@ -220,13 +347,14 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
       )}
       {tab === 'dbs' && (
         <div className="scroll">
-          <DbPanel project={project} onChange={(p) => change(() => p)} />
+          <DbPanel project={project} onChange={(p) => change(() => p)} userFbs={userFbs} />
         </div>
       )}
 
       <Problems
         diagnostics={diagnostics}
         onJump={(d) => {
+          if (isCodeName(d.location.block)) setBlockName(d.location.block!);
           if (d.location.part === 'code' && d.location.network !== undefined) {
             setTab('main');
             setFupFocus({ network: d.location.network, box: d.location.box, nonce: Math.random() });
@@ -238,11 +366,70 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
             setShowIface(true);
           } else if (d.location.part === 'tags') {
             setTab('tags');
-          } else if (d.location.block && d.location.block !== MAIN_OB) {
+          } else if (isCodeName(d.location.block)) {
+            setTab('main');
+          } else if (d.location.block) {
             setTab('dbs');
           }
         }}
       />
+    </div>
+  );
+}
+
+/** Startereignis eines Alarm-OBs (in TIA: Eigenschaften des OB bzw. des Eingangskanals) */
+function EventEditor({ event, onChange }: { event: ObEvent; onChange: (e: ObEvent) => void }) {
+  const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
+  return (
+    <div className="event-bar">
+      {event.kind === 'cyclic' ? (
+        <>
+          <span className="event-kind">{t('block.cyclic')}</span>
+          <label>
+            {t('block.interval')}{' '}
+            <input
+              type="number"
+              min={1}
+              value={event.intervalMs}
+              onChange={(e) => onChange({ ...event, intervalMs: Math.max(1, num(e.target.value)) })}
+            />{' '}
+            ms
+          </label>
+          <label>
+            {t('block.phase')}{' '}
+            <input
+              type="number"
+              min={0}
+              value={event.phaseMs ?? 0}
+              onChange={(e) => onChange({ ...event, phaseMs: num(e.target.value) })}
+            />{' '}
+            ms
+          </label>
+        </>
+      ) : (
+        <>
+          <span className="event-kind">{t('block.process')}</span>
+          <label>
+            {t('block.input')}{' '}
+            <input
+              value={event.input}
+              onChange={(e) => onChange({ ...event, input: e.target.value })}
+              spellCheck={false}
+              placeholder={t('block.input.placeholder')}
+            />
+          </label>
+          <label>
+            {t('block.edge')}{' '}
+            <select
+              value={event.edge}
+              onChange={(e) => onChange({ ...event, edge: e.target.value as 'rising' | 'falling' })}
+            >
+              <option value="rising">{t('block.edge.rising')}</option>
+              <option value="falling">{t('block.edge.falling')}</option>
+            </select>
+          </label>
+        </>
+      )}
     </div>
   );
 }

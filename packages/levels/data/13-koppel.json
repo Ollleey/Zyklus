@@ -1,0 +1,182 @@
+{
+  "id": "13-koppel",
+  "order": 13,
+  "title": {
+    "de": "Pumpenhaus und Leitwarte"
+  },
+  "customer": {
+    "de": "Stadtwerke Rabenfeld"
+  },
+  "mail": {
+    "from": {
+      "de": "Dr. Ines Kowalczyk <i.kowalczyk@sw-rabenfeld.example>"
+    },
+    "subject": {
+      "de": "Zwei Schaltschränke, eine Pumpe"
+    },
+    "body": {
+      "de": "Guten Tag,\n\ndie Bedienung der Abwasserpumpe sitzt in der Leitwarte, die Pumpe selbst im Pumpenhaus nebenan. Zwischen beiden liegt eine Brandschutzwand – Leitungen dürfen da nicht durch. Erlaubt ist nur das Buskabel zwischen zwei Koppelmodulen.\n\nAlso: je Seite eine CPU, und die beiden müssen sich unterhalten. Details im Datenblatt.\n\nMit freundlichen Grüßen\nI. Kowalczyk"
+    }
+  },
+  "datasheet": {
+    "de": "# Pumpwerk Rabenfeld\n\n## Feldgeräte\n\n| Gerät | Seite | Art | Beschreibung |\n|---|---|---|---|\n| S1 | Leitwarte | DI | Pumpe Ein (Schalter) |\n| S2 | Leitwarte | DI | Quittieren (Taster) |\n| H1 | Leitwarte | DO | Leuchte Betrieb |\n| H2 | Leitwarte | DO | Leuchte Störung |\n| B1 | Pumpenhaus | DI | Motorschutz – **Öffner** (1 = in Ordnung) |\n| K1 | Pumpenhaus | DO | Pumpenschütz – **Leistungsausgang** (über REL 4) |\n\n## Schaltschrank\n\nIn Spalte 6 steht eine **Trennwand**: Kein Modul darauf, keine Leitung hindurch. Jede Seite braucht ihre eigene CPU. Ein **Koppelmodul (KOP)** je CPU verbindet die beiden: Was eine CPU in %QW100 und %QW102 schreibt, liest die andere in %IW100 und %IW102 – ab ihrem nächsten Zyklus. Einzelne Bits gehen auch: %Q100.0 kommt als %I100.0 an.\n\n## Funktion\n\n1. Die Pumpe läuft, solange S1 ein ist und keine Störung ansteht.\n2. Löst der Motorschutz aus (B1 = 0), wird eine **Störung gespeichert**: Pumpe aus, H2 an.\n3. S2 löscht die Störung – aber nur, wenn der Motorschutz wieder in Ordnung ist.\n4. H1 zeigt an, dass die Pumpe eingeschaltet ist."
+  },
+  "board": {
+    "width": 11,
+    "ductCapacity": 4,
+    "wall": 5
+  },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "rel4", "kop"],
+  "toleranceMs": 60,
+  "plant": {
+    "type": "pumphouse",
+    "params": {
+      "pump": "K1",
+      "run": "H1",
+      "fault": "H2",
+      "protection": "B1"
+    }
+  },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Ein",
+      "name": {
+        "de": "Pumpe Ein (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "switch"
+    },
+    {
+      "id": "S2",
+      "tag": "Quittieren",
+      "name": {
+        "de": "Quittieren (S2)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "H1",
+      "tag": "Betrieb",
+      "name": {
+        "de": "Leuchte Betrieb (H1)"
+      },
+      "kind": "DO",
+      "side": "left",
+      "role": "lamp"
+    },
+    {
+      "id": "H2",
+      "tag": "Stoerung",
+      "name": {
+        "de": "Leuchte Störung (H2)"
+      },
+      "kind": "DO",
+      "side": "left",
+      "role": "lamp"
+    },
+    {
+      "id": "B1",
+      "tag": "Motorschutz",
+      "name": {
+        "de": "Motorschutz (B1)"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor",
+      "nc": true
+    },
+    {
+      "id": "K1",
+      "tag": "Pumpe",
+      "name": {
+        "de": "Pumpenschütz (K1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor",
+      "power": true
+    }
+  ],
+  "tests": [
+    {
+      "id": "stoerung",
+      "name": {
+        "de": "Störung und Quittieren"
+      },
+      "durationMs": 5000,
+      "seeds": [1, 2],
+      "stimuli": {
+        "S1": [
+          [100, true],
+          [4500, false]
+        ],
+        "S2": [
+          [1000, true],
+          [1100, false],
+          [2500, true],
+          [2600, false],
+          [3000, true],
+          [3100, false]
+        ],
+        "B1": [
+          [2000, true],
+          [2700, false]
+        ]
+      },
+      "expect": {
+        "K1": [
+          [100, true],
+          [2000, false],
+          [3000, true],
+          [4500, false]
+        ],
+        "H1": [
+          [100, true],
+          [2000, false],
+          [3000, true],
+          [4500, false]
+        ],
+        "H2": [
+          [2000, true],
+          [3000, false]
+        ]
+      }
+    },
+    {
+      "id": "aus",
+      "name": {
+        "de": "Störung bei ausgeschalteter Pumpe"
+      },
+      "durationMs": 3000,
+      "seeds": [3],
+      "stimuli": {
+        "B1": [
+          [300, true],
+          [500, false]
+        ],
+        "S1": [[1000, true]],
+        "S2": [
+          [2000, true],
+          [2100, false]
+        ]
+      },
+      "expect": {
+        "K1": [[2000, true]],
+        "H1": [[2000, true]],
+        "H2": [
+          [300, true],
+          [2000, false]
+        ]
+      }
+    }
+  ],
+  "par": {
+    "cost": 23,
+    "energy": 4837,
+    "size": 10
+  }
+}

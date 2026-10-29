@@ -29,9 +29,10 @@ export function useSimulation(
   level: Level,
   solution: Solution,
   compiled: SolutionCompileResult,
+  initialMode: SimMode = 'test',
 ): SimControls {
   const runRef = useRef<LevelRun | null>(null);
-  const [mode, setModeState] = useState<SimMode>('test');
+  const [mode, setModeState] = useState<SimMode>(initialMode);
   const [testIdx, setTestIdx] = useState(0);
   const [seed, setSeed] = useState(level.tests[0]?.seeds[0] ?? 1);
   const [running, setRunning] = useState(false);

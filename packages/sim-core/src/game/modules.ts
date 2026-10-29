@@ -1,7 +1,7 @@
 import { CPU_TYPES, type CpuType } from '../catalog';
 import type { Text } from './text';
 
-export type ModuleKind = 'cpu' | 'di' | 'do' | 'ai' | 'ao' | 'rel';
+export type ModuleKind = 'cpu' | 'di' | 'do' | 'ai' | 'ao' | 'rel' | 'cp';
 export type ChannelKind = 'DI' | 'DO' | 'AI' | 'AO';
 
 export interface ModuleType {
@@ -16,8 +16,14 @@ export interface ModuleType {
   cpu?: CpuType;
   /** Relaisausgang: Ansprech- und Abfallverzögerung in ms */
   delay?: { on: number; off: number };
+  /** Eingänge können einen Prozessalarm (OB40) auslösen */
+  alarms?: boolean;
   description: Text;
 }
+
+/** Koppelmodul: Sende-/Empfangswörter je CPU (wie PUT/GET, 1 Zyklus Latenz) */
+export const COUPLER_WORDS = 2;
+export const COUPLER_BASE = 100;
 
 const cpu = (key: keyof typeof CPU_TYPES, description: string): ModuleType => {
   const c = CPU_TYPES[key];
@@ -35,8 +41,31 @@ const cpu = (key: keyof typeof CPU_TYPES, description: string): ModuleType => {
 
 export const MODULE_TYPES: Record<string, ModuleType> = {
   'cpu-klein': cpu('klein', '10 ms Zyklus, bis 40 SCL-Anweisungen bzw. 10 Netzwerke.'),
-  'cpu-mittel': cpu('mittel', '5 ms Zyklus, mehr Programmspeicher, Weckalarm.'),
-  'cpu-schnell': cpu('schnell', '1 ms Zyklus, Prozessalarm.'),
+  'cpu-mittel': cpu('mittel', '5 ms Zyklus, mehr Programmspeicher, Weck- und Prozessalarm.'),
+  'cpu-schnell': cpu('schnell', '1 ms Zyklus, Weck- und Prozessalarm, kleiner Programmspeicher.'),
+  di8hf: {
+    id: 'di8hf',
+    name: { de: 'DI 8 HF' },
+    kind: 'di',
+    width: 1,
+    price: 4,
+    channels: 8,
+    alarms: true,
+    description: {
+      de: '8 schnelle digitale Eingänge; jede Flanke kann einen Prozessalarm (OB40) auslösen.',
+    },
+  },
+  kop: {
+    id: 'kop',
+    name: { de: 'KOP' },
+    kind: 'cp',
+    width: 1,
+    price: 3,
+    channels: 0,
+    description: {
+      de: 'Koppelmodul: tauscht mit dem Koppelmodul der Nachbar-CPU je 2 Wörter aus. Senden über %QW100/%QW102, Empfang über %IW100/%IW102. Was eine CPU am Zyklusende sendet, liest die Partner-CPU ab ihrem nächsten Zyklus.',
+    },
+  },
   di8: {
     id: 'di8',
     name: { de: 'DI 8' },
@@ -88,7 +117,7 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
 };
 
 export function channelKind(kind: ModuleKind): ChannelKind | undefined {
-  if (kind === 'cpu') return undefined;
+  if (kind === 'cpu' || kind === 'cp') return undefined;
   // Relaisausgänge sind elektrisch Digitalausgänge
   if (kind === 'rel') return 'DO';
   return kind.toUpperCase() as ChannelKind;

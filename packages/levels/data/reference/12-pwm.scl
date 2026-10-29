@@ -1,0 +1,26 @@
+DATA_BLOCK "Periode"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+TON_TIME
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      ein_ms : DInt;
+   END_VAR
+
+BEGIN
+	// Periode 1 s: das Zeitglied startet sich selbst neu
+	"Periode"(IN := NOT "Periode".Q, PT := T#1s);
+
+	// 0…27648 → 0…1000 ms Einschaltdauer
+	#ein_ms := ROUND(NORM_X(MIN := 0, VALUE := "Leistung", MAX := 27648) * 1000.0);
+	"Heizband" := "Freigabe" AND TIME_TO_DINT("Periode".ET) < #ein_ms;
+END_ORGANIZATION_BLOCK

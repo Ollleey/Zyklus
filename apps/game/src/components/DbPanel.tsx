@@ -20,6 +20,8 @@ export const INSTANCE_TYPES = [
 interface Props {
   project: PlcProject;
   onChange: (p: PlcProject) => void;
+  /** eigene FBs als "Name" – mögliche Typen für Instanz-DBs */
+  userFbs?: string[];
 }
 
 function nextNumber(blocks: Block[]): number {
@@ -38,7 +40,7 @@ function uniqueName(blocks: Block[], base: string): string {
 }
 
 /** Datenbausteine der CPU: Global-DBs mit Variablen, Instanz-DBs für Zeiten, Zähler, Flanken. */
-export function DbPanel({ project, onChange }: Props) {
+export function DbPanel({ project, onChange, userFbs = [] }: Props) {
   const dbs = project.blocks.filter(
     (b): b is GlobalDb | InstanceDb => b.kind === 'DB' || b.kind === 'IDB',
   );
@@ -117,10 +119,22 @@ export function DbPanel({ project, onChange }: Props) {
             (db.kind === 'IDB' ? (
               <label className="db-type">
                 {t('db.instanceOf')}{' '}
-                <select value={db.of} onChange={(e) => replace(db, { ...db, of: e.target.value })}>
-                  {INSTANCE_TYPES.map((ty) => (
-                    <option key={ty}>{ty}</option>
-                  ))}
+                <select
+                  value={INSTANCE_TYPES.includes(db.of) ? db.of : `"${db.of.replace(/"/g, '')}"`}
+                  onChange={(e) => replace(db, { ...db, of: e.target.value.replace(/"/g, '') })}
+                >
+                  {userFbs.length > 0 && (
+                    <optgroup label={t('db.userFbs')}>
+                      {userFbs.map((ty) => (
+                        <option key={ty}>{ty}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label={t('db.systemTypes')}>
+                    {INSTANCE_TYPES.map((ty) => (
+                      <option key={ty}>{ty}</option>
+                    ))}
+                  </optgroup>
                 </select>
               </label>
             ) : (

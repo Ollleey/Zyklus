@@ -37,6 +37,19 @@ export interface VarDecl {
 
 export type CodeBlockKind = 'OB' | 'FB' | 'FC';
 
+/**
+ * Startereignis eines Alarm-OBs (in TIA Teil der Gerätekonfiguration):
+ * Weckalarm (OB30…OB38) im festen Takt oder Prozessalarm (OB40…OB47) an einer Eingangsflanke.
+ */
+export type ObEvent =
+  | { kind: 'cyclic'; intervalMs: number; phaseMs?: number }
+  | { kind: 'process'; input: string; edge: 'rising' | 'falling' };
+
+export const OB_NUMBERS = {
+  cyclic: [30, 38],
+  process: [40, 47],
+} as const satisfies Record<ObEvent['kind'], readonly [number, number]>;
+
 export interface CodeBlock {
   kind: CodeBlockKind;
   name: string;
@@ -54,6 +67,8 @@ export interface CodeBlock {
    * (SR, RS, P_TRIG, N_TRIG, IN_RANGE, OUT_RANGE, CONV), die es in SCL nicht gibt.
    */
   generatedFrom?: 'FUP';
+  /** nur OB: Startereignis; ohne Ereignis ist der OB der zyklische OB1 */
+  event?: ObEvent;
 }
 
 /** Globaler Datenbaustein */

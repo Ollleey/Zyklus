@@ -10,10 +10,34 @@ Jede CPU hat:
 - **PLC-Variablentabelle**: Name, Datentyp, Adresse (`"Start"` → `%I0.0`)
 - **OB1 „Main“**: Schnittstelle (nur **Temp** und **Constant**) + Anweisungsteil in SCL oder FUP
 - **Globale Datenbausteine**: statische Daten, z. B. `"Daten".Schritt`
-- **Instanz-DBs** für Zeiten, Zähler, Flanken: z. B. `"T1_DB"` vom Typ `IEC_TIMER`
+- **Instanz-DBs** für Zeiten, Zähler, Flanken und eigene FBs: z. B. `"T1_DB"` vom Typ `IEC_TIMER`
+- **Eigene FB/FC** und **Alarm-OBs** (Weckalarm OB30…38, Prozessalarm OB40…47)
 
 Ein OB hat – wie in TIA – keine statischen Variablen. Was über Zyklen erhalten bleiben soll,
-gehört in einen Datenbaustein. Eigene FB/FC mit Multiinstanzen folgen in M7.
+gehört in einen Datenbaustein oder in die statischen Daten eines FB.
+
+## Eigene Bausteine
+
+| Baustein           | Schnittstelle                                           | Aufruf                                       |
+| ------------------ | ------------------------------------------------------- | -------------------------------------------- |
+| FB                 | Input, Output, InOut, Static, Temp, Constant            | `"Motor_DB"(Start := "S1", Laeuft => "M1");` |
+| FC                 | Input, Output, InOut, Temp, Constant                    | `"Begrenze"(x := "Wert", ueberlauf => #ov);` |
+| Multiinstanz im FB | Static vom Typ `TON_TIME`, `IEC_TIMER`, `"EigenerFB"` … | `#T1(IN := #ein, PT := T#2s);`               |
+
+- Eingänge mit `:=`, Ausgänge mit `=>`. Nicht versorgte FB-Eingänge behalten den Wert vom letzten
+  Aufruf; bei FCs müssen alle Eingänge und Durchgangsparameter versorgt sein.
+- Durchgangsparameter (InOut) brauchen eine Variable genau passenden Typs.
+- Von außen lesbar: `"Motor_DB".Laeuft`, `"Motor_DB".T1.Q`; Ausgänge schreibt nur der FB selbst.
+- FCs mit Rückgabewert gibt es nicht – Ausgang verwenden. Rekursion ist nicht möglich.
+- Die Spiel-SPS setzt FB/FC an jeder Aufrufstelle ein. Die Programmgröße zählt den Rumpf einmal,
+  jeder Aufruf kostet eine Anweisung; Energie fällt je ausgeführtem Befehl an.
+
+## Alarm-OBs
+
+- Weckalarm: Takt und Phasenverschiebung in ms. Prozessalarm: Eingang (`%I0.3` oder `"Variable"`)
+  und Flanke. In der `.scl`-Quelle steht das Ereignis als Kommentar im Bausteinkopf:
+  `// Ereignis: Weckalarm, Takt 100 ms, Phase 0 ms`.
+- Alarm-OBs haben wie OB1 nur Temp und Constant; Daten teilen sie mit OB1 über Datenbausteine.
 
 Im Editor schreibt man nur den Anweisungsteil. Export/Import als `.scl`-Quelle:
 
@@ -166,4 +190,4 @@ Anweisungen zählen nicht.
 
 ## Bewusst nicht unterstützt (noch)
 
-Arrays, Strukturen, Strings, `**`, Zeiger, GOTO, eigene FB/FC und weitere OBs (M7).
+Arrays, Strukturen, Strings, `**`, Zeiger, GOTO, FCs mit Rückgabewert, Aufruf eigener FB/FC aus FUP.

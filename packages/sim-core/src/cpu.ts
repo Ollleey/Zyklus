@@ -1,7 +1,7 @@
 import { parseAddress, sizeOfType, defaultTypeForSize, AddressError, type Area } from './address';
 import { createInstance, type InstanceState } from './instances';
 import { execute, precomputeEnergy } from './interpreter';
-import { INSTANCE_FIELDS, type InstanceField, type IrProgram } from './ir';
+import { INSTANCE_FIELDS, type InstanceField, type IrProgram, type IrTask } from './ir';
 import { ByteArea } from './memory';
 import type { DataType, Value } from './types';
 import { IrValidationError, validateProgram } from './validate';
@@ -33,6 +33,8 @@ export interface CpuMetrics {
   /** gewichtete Energie */
   energy: number;
   maxOpsInCycle: number;
+  /** ausgeführte Alarm-OBs */
+  interrupts: number;
 }
 
 /**
@@ -49,7 +51,7 @@ export class Cpu {
   readonly instances: InstanceState[];
   mode: CpuMode = 'RUN';
   stopInfo?: StopInfo;
-  readonly metrics: CpuMetrics = { cycles: 0, ops: 0, energy: 0, maxOpsInCycle: 0 };
+  readonly metrics: CpuMetrics = { cycles: 0, ops: 0, energy: 0, maxOpsInCycle: 0, interrupts: 0 };
 
   private readonly energy: number[];
   private readonly tempSlots: number[];
@@ -83,12 +85,46 @@ export class Cpu {
     return t >= phase && (t - phase) % this.config.cycleMs === 0;
   }
 
-  /** Ein vollständiger Zyklus zum Zeitpunkt `now` (ms). In STOP passiert nichts. */
-  scan(now: number): void {
+  /**
+   * Ein ms-Tick: zuerst Prozessalarme (Flanke an der Peripherie seit dem letzten Tick),
+   * dann fällige Weckalarme, dann OB1, falls dessen Zyklus fällig ist.
+   */
+  step(now: number): void {
     if (this.mode !== 'RUN') return;
-    this.pae.copyFrom(this.inputs);
-    for (const i of this.tempSlots) this.slots[i] = this.program.slots[i]!.init;
+    for (const task of this.program.tasks ?? []) {
+      if (task.kind === 'process' && task.input) {
+        const v = this.inputs.read('BOOL', task.input.byte, task.input.bit) as boolean;
+        const key = `${task.input.byte}.${task.input.bit}`;
+        const last = this.lastInputs.get(key);
+        this.lastInputs.set(key, v);
+        const hit = last !== undefined && (task.edge === 'falling' ? last && !v : !last && v);
+        if (hit) this.runTask(task, now);
+      }
+    }
+    for (const task of this.program.tasks ?? []) {
+      if (task.kind !== 'cyclic' || !task.intervalMs) continue;
+      const phase = task.phaseMs ?? 0;
+      if (now >= phase && (now - phase) % task.intervalMs === 0) this.runTask(task, now);
+    }
+    if (this.mode === 'RUN' && this.isDue(now)) this.scan(now);
+  }
 
+  private readonly lastInputs = new Map<string, boolean>();
+
+  /**
+   * Alarm-OB ausführen. **Spielregel:** Der OB liest frische Eingänge (PAE wird vorher
+   * aktualisiert) und seine Ausgänge wirken sofort.
+   */
+  private runTask(task: IrTask, now: number): void {
+    this.pae.copyFrom(this.inputs);
+    if (!this.runCode(now, task.start, task.end)) return;
+    this.outputs.copyFrom(this.paa);
+    this.metrics.interrupts++;
+  }
+
+  /** Führt einen Codebereich aus; false bei Zykluszeitüberschreitung (CPU in STOP). */
+  private runCode(now: number, start?: number, end?: number): boolean {
+    for (const i of this.tempSlots) this.slots[i] = this.program.slots[i]!.init;
     const res = execute({
       program: this.program,
       energy: this.energy,
@@ -97,21 +133,29 @@ export class Cpu {
       areas: { I: this.pae, Q: this.paa, M: this.m },
       now,
       budget: this.config.maxOpsPerCycle,
+      start,
+      end,
     });
-
-    this.metrics.cycles++;
     this.metrics.ops += res.ops;
     this.metrics.energy += res.energy;
     this.metrics.maxOpsInCycle = Math.max(this.metrics.maxOpsInCycle, res.ops);
-
     if (!res.ok) {
       this.stop(
         now,
         `Zykluszeitüberschreitung: mehr als ${this.config.maxOpsPerCycle} Befehle in einem Zyklus`,
       );
-      return;
+      return false;
     }
-    this.outputs.copyFrom(this.paa);
+    return true;
+  }
+
+  /** Ein vollständiger Zyklus zum Zeitpunkt `now` (ms). In STOP passiert nichts. */
+  scan(now: number): void {
+    if (this.mode !== 'RUN') return;
+    this.pae.copyFrom(this.inputs);
+    const ok = this.runCode(now);
+    this.metrics.cycles++;
+    if (ok) this.outputs.copyFrom(this.paa);
   }
 
   /** CPU geht in STOP: Ausgänge werden abgeschaltet. */

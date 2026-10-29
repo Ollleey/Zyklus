@@ -1,6 +1,6 @@
 import type { Value } from '../types';
-import type { Edge, Level, TestCase } from './level';
-import { valueAt } from './signals';
+import type { Device, Edge, Level, TestCase } from './level';
+import { fromRaw, valueAt } from './signals';
 
 /**
  * Dynamisches Anlagenmodell: liefert physikalische Werte für Eingangsgeräte und rechnet mit den
@@ -16,6 +16,9 @@ export interface Plant {
 }
 
 type Params = Record<string, unknown>;
+
+/** Rundungsreserve für Endlagen (Positionen werden in Bruchteilen je ms aufaddiert) */
+const EPS = 1e-6;
 
 /**
  * Tank mit Zulaufpumpe und veränderlichem Ablauf (Angaben in % Füllstand je Sekunde).
@@ -51,13 +54,217 @@ class Tank implements Plant {
   }
 }
 
-const MODELS: Record<string, (p: Params) => Plant> = {
+/**
+ * Bohrstation: Spannzylinder, Bohrmotor und Vorschub (Senken/Heben). Position 0 = oben,
+ * 100 = Bohrtiefe; ab 60 steckt der Bohrer im Werkstück.
+ * params: up, down, clamped (Sensoren), clamp, motor, lower, raise (Ausgänge),
+ * downSpeed, upSpeed (%/s), clampMs (Spannzeit), dwellMs (Mindestverweilzeit unten)
+ */
+class Drill implements Plant {
+  private pos = 0;
+  private clamp = 0;
+  private dwell = 0;
+  private visited = false;
+  private holes = 0;
+  private bad = 0;
+  private damage = 0;
+  private readonly ids: Record<
+    'up' | 'down' | 'clamped' | 'clamp' | 'motor' | 'lower' | 'raise',
+    string
+  >;
+  private readonly downSpeed: number;
+  private readonly upSpeed: number;
+  private readonly clampMs: number;
+  private readonly dwellMs: number;
+
+  constructor(p: Params) {
+    this.ids = {
+      up: String(p.up),
+      down: String(p.down),
+      clamped: String(p.clamped),
+      clamp: String(p.clamp),
+      motor: String(p.motor),
+      lower: String(p.lower),
+      raise: String(p.raise),
+    };
+    this.downSpeed = Number(p.downSpeed ?? 100);
+    this.upSpeed = Number(p.upSpeed ?? 200);
+    this.clampMs = Number(p.clampMs ?? 150);
+    this.dwellMs = Number(p.dwellMs ?? 200);
+  }
+
+  inputs() {
+    return {
+      [this.ids.up]: this.pos <= EPS,
+      [this.ids.down]: this.pos >= 100 - EPS,
+      [this.ids.clamped]: this.clamp >= 1,
+    };
+  }
+
+  step(_t: number, out: Record<string, Value>) {
+    const on = (id: string) => out[id] === true;
+    const lower = on(this.ids.lower);
+    const raise = on(this.ids.raise);
+    const motor = on(this.ids.motor);
+    // Spannzylinder fährt in clampMs aus und doppelt so schnell zurück
+    this.clamp = on(this.ids.clamp)
+      ? Math.min(1, this.clamp + 1 / this.clampMs)
+      : Math.max(0, this.clamp - 2 / this.clampMs);
+    let v = 0;
+    if (lower && raise) this.damage = 1;
+    else if (lower) v = this.downSpeed / 1000;
+    else if (raise) v = -this.upSpeed / 1000;
+    const inPart = this.pos >= 60;
+    // Werkstück lose bzw. Bohrer steht im Material
+    if (inPart && (v !== 0 || motor) && this.clamp < 1) this.damage = 1;
+    if (inPart && v > 0 && !motor) this.damage = 1;
+    this.pos = Math.min(100, Math.max(0, this.pos + v));
+    if (this.pos >= 100 - EPS) {
+      this.visited = true;
+      if (motor) this.dwell++;
+    }
+    if (this.pos <= EPS && this.visited) {
+      if (this.dwell >= this.dwellMs) this.holes++;
+      else this.bad++;
+      this.visited = false;
+      this.dwell = 0;
+    }
+  }
+
+  state() {
+    return {
+      pos: Math.round(this.pos * 10) / 10,
+      clamp: Math.round(this.clamp * 100) / 100,
+      holes: this.holes,
+      bad: this.bad,
+      damage: this.damage,
+    };
+  }
+}
+
+/**
+ * Sortierstrecke mit Dauerlauf-Band: Pakete passieren die Messlichtschranke (mit
+ * Höhenmessung), nach `travelMs` die Lichtschranke vor der Weiche. Am Ende dieser
+ * Lichtschranke entscheidet die Weichenstellung: hohe Pakete (über `threshold`) zur Seite.
+ * params: measure, height, gate (Sensoren), diverter (Ausgang), packages ([t, Höhe in mm][]),
+ * travelMs, lengthMs, threshold
+ */
+class Sorter implements Plant {
+  private readonly packages: [number, number][];
+  private readonly ids: Record<'measure' | 'height' | 'gate' | 'diverter', string>;
+  private readonly travel: number;
+  private readonly length: number;
+  private readonly threshold: number;
+  private t = 0;
+  private sorted = 0;
+  private wrong = 0;
+
+  constructor(p: Params) {
+    this.packages = (p.packages as [number, number][]) ?? [];
+    this.ids = {
+      measure: String(p.measure),
+      height: String(p.height),
+      gate: String(p.gate),
+      diverter: String(p.diverter),
+    };
+    this.travel = Number(p.travelMs ?? 900);
+    this.length = Number(p.lengthMs ?? 250);
+    this.threshold = Number(p.threshold ?? 120);
+  }
+
+  private under(offset: number): [number, number] | undefined {
+    return this.packages.find(
+      ([t0]) => this.t >= t0 + offset && this.t < t0 + offset + this.length,
+    );
+  }
+
+  inputs() {
+    const m = this.under(0);
+    return {
+      [this.ids.measure]: !!m,
+      [this.ids.height]: m ? m[1] : 0,
+      [this.ids.gate]: !!this.under(this.travel),
+    };
+  }
+
+  step(t: number, out: Record<string, Value>) {
+    this.t = t + 1;
+    for (const [t0, h] of this.packages) {
+      if (t0 + this.travel + this.length !== t) continue;
+      if ((out[this.ids.diverter] === true) === h > this.threshold) this.sorted++;
+      else this.wrong++;
+    }
+  }
+
+  state() {
+    return { sorted: this.sorted, wrong: this.wrong };
+  }
+}
+
+/**
+ * Wärmestrecke 1. Ordnung (PT1) mit Totzeit: T' = (Tumg + K·u(t − Tt) − Verlust − T) / τ.
+ * params: sensor (AI, °C), heater (AO, %), tau (ms), gain (°C bei 100 %), ambient, temp0,
+ * deadMs (Totzeit), loss (Edge[]: zusätzliche Wärmeverluste in °C)
+ */
+class Thermal implements Plant {
+  private temp: number;
+  private heat = 0;
+  private readonly sensor: string;
+  private readonly heater: string;
+  private readonly heaterDev?: Device;
+  private readonly tau: number;
+  private readonly gain: number;
+  private readonly ambient: number;
+  private readonly loss: Edge[];
+  /** Ringpuffer der Heizleistung für die Totzeit */
+  private readonly delay: number[];
+  private head = 0;
+
+  constructor(p: Params, level: Level) {
+    this.sensor = String(p.sensor);
+    this.heater = String(p.heater);
+    this.heaterDev = level.devices.find((d) => d.id === this.heater);
+    this.tau = Number(p.tau ?? 8000);
+    this.gain = Number(p.gain ?? 100);
+    this.ambient = Number(p.ambient ?? 20);
+    this.temp = Number(p.temp0 ?? this.ambient);
+    this.loss = (p.loss as Edge[]) ?? [];
+    this.delay = new Array(Math.max(0, Number(p.deadMs ?? 0))).fill(0);
+  }
+
+  inputs() {
+    return { [this.sensor]: this.temp };
+  }
+
+  step(t: number, out: Record<string, Value>) {
+    const raw = Number(out[this.heater] ?? 0);
+    const a = this.heaterDev?.analog;
+    this.heat = Math.max(0, Math.min(100, a ? fromRaw(raw, a) : raw));
+    let u = this.heat;
+    if (this.delay.length) {
+      u = this.delay[this.head]!;
+      this.delay[this.head] = this.heat;
+      this.head = (this.head + 1) % this.delay.length;
+    }
+    const target = this.ambient + (this.gain * u) / 100 - (valueAt(this.loss, t, 0) as number);
+    this.temp += (target - this.temp) / this.tau;
+  }
+
+  state() {
+    return { temp: Math.round(this.temp * 100) / 100, heat: Math.round(this.heat * 10) / 10 };
+  }
+}
+
+const MODELS: Record<string, (p: Params, level: Level) => Plant> = {
   tank: (p) => new Tank(p),
+  drill: (p) => new Drill(p),
+  sorter: (p) => new Sorter(p),
+  thermal: (p, l) => new Thermal(p, l),
 };
 
 /** Anlagenmodell zu einem Level (Testparameter überschreiben Levelparameter), sonst undefined. */
 export function createPlant(level: Level, test?: TestCase): Plant | undefined {
   const type = level.plant?.type;
   const make = type ? MODELS[type] : undefined;
-  return make?.({ ...(level.plant?.params ?? {}), ...(test?.plant ?? {}) });
+  return make?.({ ...(level.plant?.params ?? {}), ...(test?.plant ?? {}) }, level);
 }

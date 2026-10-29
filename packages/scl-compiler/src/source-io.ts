@@ -3,6 +3,7 @@ import {
   type Block,
   type CodeBlock,
   type IfaceSection,
+  type ObEvent,
   type PlcProject,
   type Tag,
   type VarDecl,
@@ -30,6 +31,24 @@ const BLOCK_HEADER: Record<CodeBlock['kind'], [string, string]> = {
   FB: ['FUNCTION_BLOCK', 'END_FUNCTION_BLOCK'],
   FC: ['FUNCTION', 'END_FUNCTION'],
 };
+
+function eventText(e: ObEvent): string {
+  return e.kind === 'cyclic'
+    ? `Weckalarm, Takt ${e.intervalMs} ms, Phase ${e.phaseMs ?? 0} ms`
+    : `Prozessalarm, ${e.edge === 'rising' ? 'steigende' : 'fallende'} Flanke an ${e.input}`;
+}
+
+/** Liest die Ereignis-Zeile, die `projectToSource` in den Bausteinkopf schreibt. */
+function parseEvent(header: string[]): ObEvent | undefined {
+  for (const l of header) {
+    const c = /\/\/\s*Ereignis:\s*Weckalarm, Takt (\d+) ms(?:, Phase (\d+) ms)?/.exec(l);
+    if (c) return { kind: 'cyclic', intervalMs: Number(c[1]), phaseMs: Number(c[2] ?? 0) };
+    const p = /\/\/\s*Ereignis:\s*Prozessalarm, (steigende|fallende) Flanke an (.+?)\s*$/.exec(l);
+    if (p)
+      return { kind: 'process', edge: p[1] === 'steigende' ? 'rising' : 'falling', input: p[2]! };
+  }
+  return undefined;
+}
 
 function declLines(vars: VarDecl[], indent: string): string[] {
   return vars.map((v) => {
@@ -87,6 +106,8 @@ export function projectToSource(project: PlcProject): string {
       out.push(`${head} "${b.name}"${b.kind === 'FC' ? ' : Void' : ''}`);
       if (b.title) out.push(`TITLE = ${b.title}`);
       out.push(`{ S7_Optimized_Access := 'TRUE' }`, 'VERSION : 0.1');
+      // Das Startereignis ist in TIA Teil der Gerätekonfiguration, nicht der Quelle
+      if (b.kind === 'OB' && b.event) out.push(`// Ereignis: ${eventText(b.event)}`);
       for (const s of IFACE_SECTIONS) {
         const rows = b.iface[s];
         if (!rows?.length) continue;
@@ -116,7 +137,8 @@ export function sourceToProject(
 ): { project?: PlcProject; diagnostics: Diagnostic[] } {
   const parsed = parseSource(src);
   if (parsed.diagnostics.length) return { diagnostics: parsed.diagnostics };
-  const numbers = { OB: 1, FB: 1, FC: 1, DB: 1 };
+  const numbers = { OB: 1, FB: 1, FC: 1, DB: 1, cyclic: 30, process: 40 };
+  const lines = src.split('\n');
   const blocks: Block[] = parsed.blocks.map((b) => {
     const vars = (section: IfaceSection) =>
       b.decls
@@ -127,7 +149,9 @@ export function sourceToProject(
       if (b.instanceOf) return { kind: 'IDB', name: b.name, number, of: b.instanceOf };
       return { kind: 'DB', name: b.name, number, vars: vars('Static') };
     }
-    const number = numbers[b.kind]++;
+    const event =
+      b.kind === 'OB' ? parseEvent(lines.slice(b.span.start.line - 1, b.bodyLine - 1)) : undefined;
+    const number = event ? numbers[event.kind]++ : numbers[b.kind]++;
     const iface: CodeBlock['iface'] = {};
     for (const s of IFACE_SECTIONS) {
       const rows = vars(s);
@@ -141,6 +165,7 @@ export function sourceToProject(
       title: b.title,
       iface,
       source: dedent(b.bodyText),
+      ...(event ? { event } : {}),
     };
   });
   return { project: { tags, blocks }, diagnostics: [] };

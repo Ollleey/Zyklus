@@ -30,7 +30,7 @@ export class Simulation {
     const t = this.time;
     this.env.beforeScans?.(t, this);
     // CPUs in Listenreihenfolge; Rechenzeit innerhalb eines Ticks = 0
-    for (const cpu of this.cpus) if (cpu.isDue(t)) cpu.scan(t);
+    for (const cpu of this.cpus) cpu.step(t);
     this.env.afterScans?.(t, this);
     this.time = t + 1;
   }

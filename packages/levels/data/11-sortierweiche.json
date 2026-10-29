@@ -1,0 +1,194 @@
+{
+  "id": "11-sortierweiche",
+  "order": 11,
+  "title": {
+    "de": "Sortierweiche nach Höhe"
+  },
+  "customer": {
+    "de": "Paketzentrum Nordheide"
+  },
+  "mail": {
+    "from": {
+      "de": "Aylin Karaca <a.karaca@pz-nordheide.example>"
+    },
+    "subject": {
+      "de": "Hohe Pakete landen auf der falschen Rutsche"
+    },
+    "body": {
+      "de": "Moin,\n\nam Sortierband messen wir die Paket­höhe an der ersten Lichtschranke. Die Weiche sitzt aber knapp einen Meter weiter. Solange nur ein Paket auf der Strecke ist, klappt alles – aber wenn es voll wird, stellt die Weiche für das Paket, das gerade gemessen wurde, nicht für das, das gerade ankommt.\n\nDie Steuerung muss sich also merken, was unterwegs ist. Bekommt ihr das hin?\n\nAylin Karaca\nTechnik"
+    }
+  },
+  "datasheet": {
+    "de": "# Sortierstrecke SW-1\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | DI | Lichtschranke Messstelle (1 = Paket da) |\n| B2 | AI | Höhensensor über B1, 0…300 mm → 0…27648, leicht verrauscht |\n| B3 | DI | Lichtschranke vor der Weiche |\n| Y1 | DO | Weiche (1 = hohe Pakete zur Seite) |\n\n## Strecke\n\nDas Band läuft immer. Ein Paket braucht von B1 bis B3 **900 ms** und belegt eine Lichtschranke 250 ms. Pakete folgen in mindestens 350 ms Abstand – es können also drei oder mehr gleichzeitig unterwegs sein.\n\n## Funktion\n\n- Pakete **höher als 120 mm** gehen zur Seite (Y1 = 1), niedrigere geradeaus (Y1 = 0).\n- Entscheidend ist die Stellung der Weiche in dem Moment, in dem das Paket B3 **verlässt**.\n- Gemessen wird, während das Paket in B1 steht.\n\n## Hinweis\n\nDie Pakete überholen sich nicht. Eine Warteschlange aus Bits lässt sich in einem Word halten: `SHL`/`SHR` schieben, `AND`/`OR` setzen und lesen."
+  },
+  "board": {
+    "width": 8,
+    "ductCapacity": 4
+  },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "ai2"],
+  "toleranceMs": 0,
+  "plant": {
+    "type": "sorter",
+    "params": {
+      "measure": "B1",
+      "height": "B2",
+      "gate": "B3",
+      "diverter": "Y1",
+      "travelMs": 900,
+      "lengthMs": 250,
+      "threshold": 120,
+      "packages": []
+    }
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Mess_LS",
+      "name": {
+        "de": "Lichtschranke Messstelle (B1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor"
+    },
+    {
+      "id": "B2",
+      "tag": "Hoehe",
+      "name": {
+        "de": "Höhensensor (B2)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "mm",
+        "min": 0,
+        "max": 300,
+        "noise": 30
+      }
+    },
+    {
+      "id": "B3",
+      "tag": "Weiche_LS",
+      "name": {
+        "de": "Lichtschranke Weiche (B3)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor"
+    },
+    {
+      "id": "Y1",
+      "tag": "Weiche",
+      "name": {
+        "de": "Weiche (Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    }
+  ],
+  "tests": [
+    {
+      "id": "locker",
+      "name": {
+        "de": "Lockerer Betrieb"
+      },
+      "durationMs": 9070,
+      "seeds": [1, 2],
+      "stimuli": {},
+      "plant": {
+        "packages": [
+          [300, 175],
+          [1462, 92],
+          [2351, 92],
+          [3147, 88],
+          [3939, 94],
+          [5044, 88],
+          [5759, 93],
+          [6495, 72]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Kein Paket falsch einsortiert"
+          },
+          "signal": "plant.wrong",
+          "min": 0,
+          "max": 0,
+          "from": 0,
+          "to": 9070
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Alle 8 Pakete sortiert"
+          },
+          "signal": "plant.sorted",
+          "min": 8,
+          "max": 8,
+          "from": 9020,
+          "to": 9070
+        }
+      ]
+    },
+    {
+      "id": "dicht",
+      "name": {
+        "de": "Dichter Betrieb"
+      },
+      "durationMs": 7639,
+      "seeds": [3, 4],
+      "stimuli": {},
+      "plant": {
+        "packages": [
+          [300, 157],
+          [686, 140],
+          [1159, 181],
+          [1567, 95],
+          [2029, 150],
+          [2432, 63],
+          [2801, 183],
+          [3254, 65],
+          [3734, 145],
+          [4197, 182],
+          [4581, 94],
+          [4944, 95],
+          [5396, 166],
+          [5868, 98]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Kein Paket falsch einsortiert"
+          },
+          "signal": "plant.wrong",
+          "min": 0,
+          "max": 0,
+          "from": 0,
+          "to": 7639
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Alle 14 Pakete sortiert"
+          },
+          "signal": "plant.sorted",
+          "min": 14,
+          "max": 14,
+          "from": 7589,
+          "to": 7639
+        }
+      ]
+    }
+  ],
+  "par": {
+    "cost": 11,
+    "energy": 6803,
+    "size": 10
+  }
+}

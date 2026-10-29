@@ -1,0 +1,57 @@
+DATA_BLOCK "Fifo"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      Bits : Word;     // Bit 0 = vorderstes Paket, 1 = hoch
+      Anzahl : Int;    // Pakete zwischen B1 und B3
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Ein"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Aus"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	"Ein"(CLK := "Mess_LS");
+	"Aus"(CLK := "Weiche_LS");
+
+	// Paket an der Weiche: vorderstes Bit herausschieben
+	IF "Aus".Q THEN
+	    "Weiche" := ("Fifo".Bits AND WORD#1) <> WORD#0;
+	    "Fifo".Bits := SHR(IN := "Fifo".Bits, N := 1);
+	    "Fifo".Anzahl := "Fifo".Anzahl - 1;
+	END_IF;
+
+	// Neues Paket an der Messstelle hinten anstellen (120 mm von 300 mm)
+	IF "Ein".Q THEN
+	    IF "Hoehe" > 11059 THEN
+	        "Fifo".Bits := "Fifo".Bits OR SHL(IN := WORD#1, N := "Fifo".Anzahl);
+	    END_IF;
+	    "Fifo".Anzahl := "Fifo".Anzahl + 1;
+	END_IF;
+END_ORGANIZATION_BLOCK
