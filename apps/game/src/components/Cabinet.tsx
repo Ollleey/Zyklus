@@ -1,18 +1,29 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   MODULE_TYPES,
-  channelKind,
+  RANGE_LABEL,
+  channelInfo,
+  channelKindAt,
+  channelRange,
   tr,
   wallRange,
+  type AnalogRange,
   type BoardAnalysis,
   type Device,
   type Level,
   type Solution,
 } from '@zyklus/sim-core';
 import { t } from '../i18n';
-import { connect, disconnect, moveModule, placeModule, removeModule } from '../state/edit';
+import {
+  connect,
+  disconnect,
+  moveModule,
+  placeModule,
+  removeModule,
+  setChannelRange,
+} from '../state/edit';
 import { DeviceSymbol, signalLabel } from './cabinet/Devices';
-import { G, colX, layout, terminalPos } from './cabinet/geometry';
+import { G, colX, cpuFrontWidth, ioPanel, layout, terminalPos } from './cabinet/geometry';
 import { roundedPath } from './cabinet/wires';
 import {
   CpuFront,
@@ -202,7 +213,8 @@ export function Cabinet({
   const channelPos = (moduleId: string, ch: number) => {
     const m = solution.modules.find((x) => x.id === moduleId)!;
     const mt = MODULE_TYPES[m.type]!;
-    return terminalPos(l, m, mt.width, mt.channels, ch);
+    const panel = ioPanel(m, mt);
+    return terminalPos(l, panel, panel.width, mt.channels, ch);
   };
 
   const clickSlot = (col: number) => {
@@ -392,7 +404,9 @@ export function Cabinet({
               if (!mt) return null;
               const isSel = selected === m.id;
               const cpu = analysis.cpuOf.get(m.id);
-              const kind = channelKind(mt.kind);
+              const kinds = Array.from({ length: mt.channels }, (_, ch) => channelKindAt(mt, ch));
+              const ranges = kinds.map((_, ch) => channelRange(solution, m.id, mt, ch));
+              const panel = ioPanel(m, mt);
               const addresses = Array.from({ length: mt.channels }, (_, ch) =>
                 analysis.channelAddress.get(`${m.id}:${ch}`),
               );
@@ -402,7 +416,6 @@ export function Cabinet({
               const wired = addresses.map((_, ch) =>
                 solution.wires.some((w) => w.module === m.id && w.channel === ch),
               );
-              const target = !!wireDevice && wireDevice.kind === kind;
               return (
                 <g
                   key={m.id}
@@ -415,28 +428,32 @@ export function Cabinet({
                     setSelected(isSel ? null : m.id);
                   }}
                 >
-                  {mt.kind === 'cpu' ? (
+                  {mt.kind === 'cpu' && (
                     <CpuFront
                       l={l}
                       x={m.x}
-                      t={mt}
+                      t={{ ...mt, width: cpuFrontWidth(mt) }}
                       id={m.id}
                       status={cpuStatus?.get(m.id)}
                       powered={!!cpuStatus}
                       canSwitch={canSwitch && !!cpuStatus}
                       onSwitch={(mode) => onCpuSwitch?.(m.id, mode)}
                     />
-                  ) : (
+                  )}
+                  {(mt.kind !== 'cpu' || mt.channels > 0) && (
                     <IoFront
                       l={l}
-                      x={m.x}
-                      t={mt}
-                      id={m.id}
+                      x={panel.x}
+                      t={{ ...mt, width: panel.width }}
+                      id={mt.kind === 'cpu' ? '' : m.id}
+                      title={mt.kind === 'cpu' ? t('cabinet.onboard') : undefined}
+                      kinds={kinds}
+                      ranges={ranges}
                       addresses={addresses}
                       symbols={symbols}
                       states={states}
                       wired={wired}
-                      target={target}
+                      targetKind={wireDevice?.kind}
                       onChannel={(ch) => clickChannel(m.id, ch)}
                       onHoverChannel={(ch) =>
                         setHoverWire(
@@ -591,6 +608,13 @@ export function Cabinet({
         </div>
       </div>
 
+      {selectedModule && (
+        <ModuleInspector
+          solution={solution}
+          moduleId={selectedModule.id}
+          onRange={(ch, range) => onChange(setChannelRange(solution, selectedModule.id, ch, range))}
+        />
+      )}
       <div className="cabinet-info">
         <span className="hint">{hint}</span>
         {selectedModule && (
@@ -612,6 +636,53 @@ export function Cabinet({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** Eigenschaften der gewählten Baugruppe: Messbereich je Analogkanal */
+function ModuleInspector({
+  solution,
+  moduleId,
+  onRange,
+}: {
+  solution: Solution;
+  moduleId: string;
+  onRange: (ch: number, range: AnalogRange) => void;
+}) {
+  const m = solution.modules.find((x) => x.id === moduleId);
+  const mt = m ? MODULE_TYPES[m.type] : undefined;
+  if (!m || !mt) return null;
+  const channels = Array.from({ length: mt.channels }, (_, ch) => ch).filter(
+    (ch) => (channelInfo(mt, ch)?.group.ranges?.length ?? 0) > 0,
+  );
+  if (!channels.length) return null;
+  return (
+    <div className="inspector" role="group" aria-label={t('cabinet.inspector')}>
+      <span className="inspector-title">
+        {tr(mt.name)} {m.id}: {t('cabinet.range')}
+      </span>
+      {channels.map((ch) => {
+        const info = channelInfo(mt, ch)!;
+        const wire = solution.wires.find((w) => w.module === m.id && w.channel === ch);
+        return (
+          <label key={ch} className="inspector-field">
+            {info.group.kind} {info.index}
+            {wire ? ` (${wire.device})` : ''}
+            <select
+              value={channelRange(solution, m.id, mt, ch)}
+              disabled={info.group.ranges!.length < 2}
+              onChange={(e) => onRange(ch, e.target.value as AnalogRange)}
+            >
+              {info.group.ranges!.map((r) => (
+                <option key={r} value={r}>
+                  {RANGE_LABEL[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+        );
+      })}
     </div>
   );
 }

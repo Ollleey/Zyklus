@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MODULE_TYPES, tr, type ModuleType } from '@zyklus/sim-core';
+import { MODULE_TYPES, RANGE_LABEL, ioGroups, tr, type ModuleType } from '@zyklus/sim-core';
 import { BOX_SPECS, CATEGORIES } from '@zyklus/fup-model';
 import semantik from '../../../../docs/semantik.md?raw';
 import scl from '../../../../docs/scl.md?raw';
@@ -109,8 +109,12 @@ function moduleRows(m: ModuleType): [string, string][] {
       ['Weckalarm (OB30…38)', m.cpu.cyclicInterrupt ? 'ja' : 'nein'],
       ['Prozessalarm (OB40…47)', m.cpu.processInterrupt ? 'ja' : 'nein'],
     );
-  } else if (m.channels) {
-    rows.push(['Kanäle', `${m.channels}`]);
+  }
+  const groups = ioGroups(m);
+  if (groups.length) {
+    rows.push(['Kanäle', groups.map((g) => `${g.kind} ${g.count}`).join(', ')]);
+    const ranges = [...new Set(groups.flatMap((g) => g.ranges ?? []))];
+    if (ranges.length) rows.push(['Messbereich', ranges.map((r) => RANGE_LABEL[r]).join(' oder ')]);
   }
   if (m.delay) rows.push(['Schaltzeiten', `ein ${m.delay.on} ms, aus ${m.delay.off} ms`]);
   if (m.alarms) rows.push(['Prozessalarm', 'jede Flanke, wählbar steigend/fallend']);

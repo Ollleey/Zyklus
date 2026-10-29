@@ -53,6 +53,19 @@ export function layout(level: Level): Layout {
 /** x-Koordinate eines Rasterschritts */
 export const colX = (l: Layout, col: number) => l.railX + col * G.te;
 
+/** Breite des CPU-Teils einer Kompakt-CPU; rechts daneben liegt das E/A-Feld (2 TE) */
+export const cpuFrontWidth = (t: { width: number; channels: number; kind: string }) =>
+  t.kind === 'cpu' && t.channels ? t.width - 2 : t.width;
+
+/** Lage des Klemmenfelds einer Baugruppe: Spalte und Breite in TE */
+export function ioPanel(
+  m: { x: number },
+  t: { width: number; channels: number; kind: string },
+): { x: number; width: number } {
+  const front = cpuFrontWidth(t);
+  return t.kind === 'cpu' ? { x: m.x + front, width: t.width - front } : { x: m.x, width: t.width };
+}
+
 /** Klemmenposition (Federzug) eines Kanals: zwei Spalten, von oben nach unten nummeriert */
 export function terminalPos(
   l: Layout,
@@ -62,12 +75,12 @@ export function terminalPos(
   ch: number,
 ): { x: number; y: number } {
   const w = widthTe * G.te - G.gap;
-  const cols = channels > 4 || widthTe > 1 ? 2 : 1;
+  const cols = channels > 8 ? 4 : channels > 4 || widthTe > 1 ? 2 : 1;
   const rows = Math.ceil(channels / cols);
   const top = G.module.y + G.module.h - 44;
   const rowH = Math.min(10, 40 / Math.max(1, rows));
-  const col = cols === 2 ? ch % 2 : 0;
-  const row = cols === 2 ? Math.floor(ch / 2) : ch;
+  const col = ch % cols;
+  const row = Math.floor(ch / cols);
   const cellW = w / cols;
   return {
     x: colX(l, module.x) + G.gap / 2 + cellW * col + cellW / 2,

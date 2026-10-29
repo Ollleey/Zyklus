@@ -1,0 +1,46 @@
+DATA_BLOCK "Antrieb"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      f_soll : Real;   // Sollfrequenz nach der Rampe in Hz
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      ziel : Real;
+      ist : Real;
+   END_VAR
+   VAR CONSTANT
+      schritt : Real := 0.1;   // 10 Hz/s bei 10 ms Zyklus
+   END_VAR
+
+BEGIN
+	#ziel := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Sollwert", MAX := 27648), MAX := 50.0);
+	IF NOT "Band_ein" THEN
+	    #ziel := 0.0;
+	END_IF;
+
+	// Rampe
+	IF "Antrieb".f_soll < #ziel - #schritt THEN
+	    "Antrieb".f_soll := "Antrieb".f_soll + #schritt;
+	ELSIF "Antrieb".f_soll > #ziel + #schritt THEN
+	    "Antrieb".f_soll := "Antrieb".f_soll - #schritt;
+	ELSE
+	    "Antrieb".f_soll := #ziel;
+	END_IF;
+
+	"FU_Freigabe" := "Band_ein" OR "Antrieb".f_soll > 0.5;
+	"Frequenz" := SCALE_X(MIN := 0, VALUE := "Antrieb".f_soll / 50.0, MAX := 27648);
+
+	// Rückmeldung vom Umrichter (4–20 mA)
+	#ist := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Istfrequenz", MAX := 27648), MAX := 50.0);
+	"Drehzahl_erreicht" := "Band_ein" AND ABS(#ist - #ziel) <= 1.0;
+END_ORGANIZATION_BLOCK

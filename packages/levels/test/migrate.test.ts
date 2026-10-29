@@ -51,16 +51,20 @@ function legacy(id: string): LegacySolution {
 }
 
 describe('Migration auf das 15-mm-Raster', () => {
-  it.each(LEVELS.map((l) => [l.id] as const))('alter Referenzaufbau von %s bleibt gültig', (id) => {
-    const level = levelById(id)!;
-    const up = migrateSolution(level, legacy(id));
-    expect(up.version).toBe(2);
-    const a = analyzeBoard(level, up);
-    expect(a.issues.filter((i) => i.severity === 'error')).toEqual([]);
-    // gleiche Adressen wie mit dem heutigen Referenzaufbau
-    const ref = analyzeBoard(level, { version: 2, ...BOARDS[id]!, projects: {} });
-    expect([...a.bindings]).toEqual([...ref.bindings]);
-  });
+  // nur Aufträge, die es schon in Version 1 gab
+  it.each(LEVELS.filter((l) => l.order <= 15).map((l) => [l.id] as const))(
+    'alter Referenzaufbau von %s bleibt gültig',
+    (id) => {
+      const level = levelById(id)!;
+      const up = migrateSolution(level, legacy(id));
+      expect(up.version).toBe(2);
+      const a = analyzeBoard(level, up);
+      expect(a.issues.filter((i) => i.severity === 'error')).toEqual([]);
+      // gleiche Adressen wie mit dem heutigen Referenzaufbau
+      const ref = analyzeBoard(level, { version: 2, ...BOARDS[id]!, projects: {} });
+      expect([...a.bindings]).toEqual([...ref.bindings]);
+    },
+  );
 
   it('Lücken bleiben proportional, Reihenfolge und ids bleiben', () => {
     const level = levelById('01-foerderband')!;

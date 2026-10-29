@@ -1,0 +1,265 @@
+{
+  "id": "16-zwei-behaelter",
+  "order": 16,
+  "title": {
+    "de": "Zwei Behälter, eine Steuerung"
+  },
+  "customer": {
+    "de": "Brauerei Kaltenecker"
+  },
+  "mail": {
+    "from": {
+      "de": "Lena Kaltenecker <l.kaltenecker@brauerei-kaltenecker.example>"
+    },
+    "subject": {
+      "de": "Neue Füllstandssonden – und keiner merkt den Kabelbruch"
+    },
+    "body": {
+      "de": "Hallo,\n\nwir haben an beiden Vorlagebehältern neue Füllstandssonden mit 4–20 mA eingebaut. Die Pumpen sollen wie bisher nachfüllen, jeder Behälter für sich.\n\nDer eigentliche Grund für den Umbau: Letzten Monat ist ein Sondenkabel abgerissen, die alte Steuerung hat 0 % gelesen und die Pumpe laufen lassen, bis der Behälter übergelaufen ist. Mit 4–20 mA soll das nicht mehr passieren.\n\nGruß\nLena Kaltenecker"
+    }
+  },
+  "datasheet": {
+    "de": "# Vorlagebehälter VB-1 und VB-2\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Füllstand VB-1, 0…100 %, **4–20 mA** |\n| B2 | AI | Füllstand VB-2, 0…100 %, **4–20 mA** |\n| P1 | DO | Pumpe VB-1 – Leistungsausgang (über REL 4) |\n| P2 | DO | Pumpe VB-2 – Leistungsausgang (über REL 4) |\n| H1 | DO | Leuchte Störung |\n\n## Funktion je Behälter\n\n1. Füllstand **unter 40 %** → Pumpe ein.\n2. Füllstand **über 80 %** → Pumpe aus.\n3. **Drahtbruch** der Sonde (Rohwert 32767) → Pumpe sofort aus, H1 an, solange der Fehler ansteht.\n\n## Analogeingänge\n\nAnalogkanäle stehen ab Werk auf **0–10 V**. Eine 4–20-mA-Sonde an einem 0–10-V-Kanal liefert nur Überlauf. Den Messbereich stellt man an der gesteckten Baugruppe ein (Baugruppe anklicken). Nur im Bereich 4–20 mA erkennt der Kanal einen Drahtbruch.\n\n## Hinweis\n\nBeide Behälter verhalten sich gleich – eine eigene Funktion (FC), zweimal aufgerufen, spart Anweisungen."
+  },
+  "board": {
+    "width": 16,
+    "ductCapacity": 4
+  },
+  "allowedModules": ["cpu-klein", "cpu-kompakt", "ai2", "ai4", "di4", "do4", "do8", "rel4"],
+  "toleranceMs": 0,
+  "plant": {
+    "type": "tanks",
+    "params": {
+      "a": {
+        "sensor": "B1",
+        "pump": "P1",
+        "inflow": 12,
+        "level0": 50,
+        "outflow": [[0, 4]]
+      },
+      "b": {
+        "sensor": "B2",
+        "pump": "P2",
+        "inflow": 12,
+        "level0": 60,
+        "outflow": [[0, 6]]
+      }
+    }
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Fuellstand_A",
+      "name": {
+        "de": "Füllstand VB-1 (B1)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "%",
+        "min": 0,
+        "max": 100,
+        "noise": 60
+      },
+      "signal": "4-20mA"
+    },
+    {
+      "id": "B2",
+      "tag": "Fuellstand_B",
+      "name": {
+        "de": "Füllstand VB-2 (B2)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "%",
+        "min": 0,
+        "max": 100,
+        "noise": 60
+      },
+      "signal": "4-20mA"
+    },
+    {
+      "id": "P1",
+      "tag": "Pumpe_A",
+      "name": {
+        "de": "Pumpe VB-1 (P1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor",
+      "power": true
+    },
+    {
+      "id": "P2",
+      "tag": "Pumpe_B",
+      "name": {
+        "de": "Pumpe VB-2 (P2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor",
+      "power": true
+    },
+    {
+      "id": "H1",
+      "tag": "Stoerung",
+      "name": {
+        "de": "Leuchte Störung (H1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "normal",
+      "name": {
+        "de": "Normaler Betrieb"
+      },
+      "durationMs": 40000,
+      "seeds": [1, 2],
+      "stimuli": {},
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "VB-1 zwischen 35 % und 85 %"
+          },
+          "signal": "plant.levelA",
+          "min": 35,
+          "max": 85,
+          "from": 0,
+          "to": 40000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "VB-2 zwischen 35 % und 85 %"
+          },
+          "signal": "plant.levelB",
+          "min": 35,
+          "max": 85,
+          "from": 0,
+          "to": 40000
+        },
+        {
+          "kind": "maxChanges",
+          "name": {
+            "de": "P1 schaltet höchstens 10-mal"
+          },
+          "signal": "P1",
+          "max": 10
+        },
+        {
+          "kind": "maxChanges",
+          "name": {
+            "de": "P2 schaltet höchstens 10-mal"
+          },
+          "signal": "P2",
+          "max": 10
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Keine Störmeldung"
+          },
+          "signal": "H1",
+          "value": false,
+          "from": 0,
+          "to": 40000
+        }
+      ]
+    },
+    {
+      "id": "kabelbruch",
+      "name": {
+        "de": "Kabelbruch an B1"
+      },
+      "durationMs": 30000,
+      "seeds": [3],
+      "stimuli": {},
+      "faults": {
+        "B1": [[8000, 20000, "break"]]
+      },
+      "plant": {
+        "a": {
+          "sensor": "B1",
+          "pump": "P1",
+          "inflow": 12,
+          "level0": 45,
+          "outflow": [[0, 4]]
+        },
+        "b": {
+          "sensor": "B2",
+          "pump": "P2",
+          "inflow": 12,
+          "level0": 60,
+          "outflow": [[0, 6]]
+        }
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": {
+            "de": "P1 aus während des Kabelbruchs"
+          },
+          "signal": "P1",
+          "value": false,
+          "from": 8200,
+          "to": 20000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Störung während des Kabelbruchs"
+          },
+          "signal": "H1",
+          "value": true,
+          "from": 8200,
+          "to": 20000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Keine Störung vorher"
+          },
+          "signal": "H1",
+          "value": false,
+          "from": 0,
+          "to": 8000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "VB-2 läuft unbeeinflusst weiter"
+          },
+          "signal": "plant.levelB",
+          "min": 35,
+          "max": 85,
+          "from": 0,
+          "to": 30000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "VB-1 läuft nie über"
+          },
+          "signal": "plant.levelA",
+          "min": 0,
+          "max": 85,
+          "from": 0,
+          "to": 30000
+        }
+      ]
+    }
+  ],
+  "par": {
+    "cost": 13,
+    "energy": 166044,
+    "size": 12
+  }
+}

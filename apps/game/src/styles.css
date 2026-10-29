@@ -2350,3 +2350,31 @@ code {
   text-anchor: middle;
   fill: #e4e7ea !important;
 }
+
+/* ---------- D4: Modul-Inspektor ---------- */
+
+.inspector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  margin-top: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-size: var(--t-sm);
+}
+.inspector-title {
+  font-weight: 600;
+}
+.inspector-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+}
+.inspector-field select {
+  font-family: var(--font-ui);
+}

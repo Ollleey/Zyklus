@@ -119,5 +119,8 @@
   "cabinet.unwire": "trennen",
   "cabinet.zoomIn": "Vergrößern",
   "cabinet.zoomOut": "Verkleinern",
-  "cabinet.fit": "Einpassen"
+  "cabinet.fit": "Einpassen",
+  "cabinet.onboard": "E/A",
+  "cabinet.inspector": "Eigenschaften der Baugruppe",
+  "cabinet.range": "Messbereich"
 }

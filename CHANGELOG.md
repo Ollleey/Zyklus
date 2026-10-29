@@ -1,5 +1,25 @@
 # Changelog
 
+## D4 – Neue Baugruppen, Analogtechnik, Level 16–17 (2026-10-29)
+
+- Baugruppen mit Kanalgruppen: DI 4, DO 4 (je 15 mm), DI 8/DO 8 (30 mm), AI 4 (30 mm) und CPU kompakt
+  (120 mm) mit E/A auf der CPU (DI 6, DO 4, AI 2 0–10 V); Adressvergabe je Gruppe, E/A auf der CPU
+  zuerst (%I0.0, %Q0.0, %IW64)
+- Messbereich je Analogkanal (0–10 V oder 4–20 mA) im Modul-Inspektor (Baugruppe anklicken);
+  Feldgeräte haben eine feste Signalart. Falscher Bereich: Eingang liefert 32767, Ausgang kommt
+  beim Stellglied nicht an, Warnung im Schrank. Drahtbruch erkennt nur 4–20 mA (32767), bei 0–10 V
+  fällt das Signal auf 0. Ältere Aufträge ohne Signalart verhalten sich wie bisher
+- Analogfront: Balken je Kanal, rote Fehler-LED bei Überlauf/Drahtbruch, Messbereich in der
+  Beschriftung; Kompakt-CPU mit eigenem E/A-Feld; DI 8/DO 8 mit zweispaltigem Streifen
+- Level 16 „Zwei Behälter, eine Steuerung“ (AI 4 auf 4–20 mA, Drahtbrucherkennung, FC zweimal
+  aufgerufen) und Level 17 „Förderband am Frequenzumrichter“ (Rampe 10 Hz/s im festen Zyklus,
+  Freigabe, Rückmeldung über 4–20 mA); Anlagenmodelle „zwei Behälter“ und „Antrieb am Umrichter“
+  mit Überlastungszählung, Anlagenansichten; Referenzlösungen, Richtwerte, Tests typischer
+  Fehllösungen (Messbereich vergessen, Rampe zu steil auf 5-ms-CPU, Sollwert ohne Rampe)
+- Erlaubnislisten der Level 1–15 um passende neue Baugruppen ergänzt; alle Referenzen bestehen
+- Handbuch zeigt Kanalgruppen und Messbereiche der Baugruppen
+- 511 Tests
+
 ## D3 – Leitungen und Feldgeräte (2026-10-29)
 
 - Leitungen als Adern mit Biegeradius: vom Gerät zum Plattenrand, durch den unteren Kanal unter dem

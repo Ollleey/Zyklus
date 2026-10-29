@@ -638,5 +638,132 @@
         "channel": 0
       }
     ]
+  },
+  "16-zwei-behaelter": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "ai1",
+        "type": "ai4",
+        "x": 6
+      },
+      {
+        "id": "rel1",
+        "type": "rel4",
+        "x": 8
+      },
+      {
+        "id": "do1",
+        "type": "do4",
+        "x": 10
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "ai1",
+        "channel": 0
+      },
+      {
+        "device": "B2",
+        "module": "ai1",
+        "channel": 1
+      },
+      {
+        "device": "P1",
+        "module": "rel1",
+        "channel": 0
+      },
+      {
+        "device": "P2",
+        "module": "rel1",
+        "channel": 1
+      },
+      {
+        "device": "H1",
+        "module": "do1",
+        "channel": 0
+      }
+    ],
+    "config": {
+      "ai1": {
+        "ranges": {
+          "0": "4-20mA",
+          "1": "4-20mA"
+        }
+      }
+    }
+  },
+  "17-frequenzumrichter": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di4",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do4",
+        "x": 7
+      },
+      {
+        "id": "ai1",
+        "type": "ai2",
+        "x": 8
+      },
+      {
+        "id": "ao1",
+        "type": "ao2",
+        "x": 9
+      }
+    ],
+    "wires": [
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "H1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "K1",
+        "module": "do1",
+        "channel": 1
+      },
+      {
+        "device": "B1",
+        "module": "ai1",
+        "channel": 0
+      },
+      {
+        "device": "B2",
+        "module": "ai1",
+        "channel": 1
+      },
+      {
+        "device": "A1",
+        "module": "ao1",
+        "channel": 0
+      }
+    ],
+    "config": {
+      "ai1": {
+        "ranges": {
+          "1": "4-20mA"
+        }
+      }
+    }
   }
 }

@@ -195,6 +195,13 @@ CTU setzt zusätzlich QU, CTD zusätzlich QD (so heißen die Ausgänge im IEC_CO
   Rohwert `(v − min) / (max − min) · 27648`, begrenzt auf −4864 … 32511. Danach Rauschen
   (Normalverteilung), Ausreißer und Geberfehler: Drahtbruch/Überlauf **32767**, Unterlauf **−32768**.
   Die Störungen werden genau einmal je ms gezogen (reproduzierbar).
+- **Messbereich:** Analogkanäle stehen auf 0–10 V oder 4–20 mA (Standard: erster wählbarer Bereich,
+  bei AI 2/AI 4/AO 2 0–10 V; E/A auf der CPU nur 0–10 V). Hat ein Gerät eine feste Signalart, die
+  nicht zum Kanal passt, liefert ein Eingang dauerhaft 32767 und ein Ausgang kommt beim Stellglied
+  als 0 an (Warnung im Schrank). Drahtbruch meldet nur 4–20 mA mit 32767; bei 0–10 V fällt das
+  Signal auf 0. Geräte ohne Signalart (ältere Aufträge) passen zu jedem Bereich.
+- **Kanalgruppen:** Gemischte Baugruppen und E/A auf der CPU vergeben Adressen je Gruppe
+  (Digital byteweise, Analog wortweise); E/A auf der CPU kommen vor allen gesteckten Baugruppen.
 - **Relaisausgänge:** Kontakt folgt dem Befehl erst nach Ansprechzeit (15 ms) bzw. Abfallzeit (30 ms);
   ein kürzerer Befehl wird verschluckt. Gemessen wird immer der Kontakt.
 - **Anlagenmodell:** rechnet nach den CPU-Zyklen eines Ticks mit den Kontaktzuständen weiter;

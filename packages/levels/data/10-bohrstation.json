@@ -25,7 +25,17 @@
     "width": 20,
     "ductCapacity": 8
   },
-  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "rel4"],
+  "allowedModules": [
+    "cpu-klein",
+    "cpu-mittel",
+    "di8",
+    "do8",
+    "rel4",
+    "cpu-kompakt",
+    "di4",
+    "do4",
+    "dio8"
+  ],
   "toleranceMs": 30,
   "plant": {
     "type": "drill",

@@ -25,7 +25,17 @@
     "width": 15,
     "ductCapacity": 4
   },
-  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "ai2"],
+  "allowedModules": [
+    "cpu-klein",
+    "cpu-mittel",
+    "di8",
+    "do8",
+    "ai2",
+    "cpu-kompakt",
+    "di4",
+    "do4",
+    "ai4"
+  ],
   "toleranceMs": 0,
   "plant": {
     "type": "sorter",

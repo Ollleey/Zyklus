@@ -14,7 +14,7 @@ const browser = await chromium.launch({ channel: 'msedge' });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 
 /** Spielstand leeren, Referenzlösungen einspielen (im Browser über die Dev-Server-Module). */
-async function prepare(solutions, solvedUpTo = 14) {
+async function prepare(solutions, solvedUpTo = 16) {
   await page.goto(base);
   await page.evaluate(
     async ({ ROOT, solutions, solvedUpTo }) => {
@@ -83,19 +83,33 @@ await page.waitForTimeout(1000);
 await startSim(1, 2500);
 await shot('03-level1-simulation');
 
-// Analog-Level (Tank)
-await prepare([{ id: '07-tank' }]);
-await page.locator('.mail-item', { hasText: 'Pumpe taktet' }).click();
+// Analog-Level (zwei Behälter, 4–20 mA)
+await prepare([{ id: '16-zwei-behaelter' }]);
+await page.locator('.mail-item', { hasText: 'Kabelbruch' }).click();
 await page.waitForTimeout(1000);
 await startSim(100, 1500);
-await shot('04-analog-tank');
+await shot('04-analog-behaelter');
 
 // Sandkasten mit allen Modultypen
-const types = ['cpu-klein', 'di8', 'di8hf', 'do8', 'rel4', 'ai2', 'ao2', 'kop'];
+const types = [
+  'cpu-kompakt',
+  'di8',
+  'di8hf',
+  'do8',
+  'rel4',
+  'ai2',
+  'ao2',
+  'kop',
+  'di4',
+  'do4',
+  'dio8',
+  'ai4',
+];
+const WIDTH = { 'cpu-kompakt': 8, rel4: 2, kop: 2, dio8: 2, ai4: 2 };
 let x = 0;
 const modules = types.map((type, i) => {
   const m = { id: `m${i}`, type, x };
-  x += type.startsWith('cpu') ? 6 : type === 'rel4' || type === 'kop' ? 2 : 1;
+  x += WIDTH[type] ?? 1;
   return m;
 });
 await prepare([

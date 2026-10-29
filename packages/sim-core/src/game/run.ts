@@ -6,7 +6,15 @@ import { analyzeBoard, type BoardAnalysis, type Solution } from './board';
 import type { Device, Edge, Level, TestCase } from './level';
 import { COUPLER_BASE, COUPLER_WORDS, moduleType } from './modules';
 import { createPlant, type Plant } from './plants';
-import { AnalogDisturbance, faultAt, inputSignal, interpolate, toRaw, valueAt } from './signals';
+import {
+  AnalogDisturbance,
+  RAW_OVERFLOW,
+  faultAt,
+  inputSignal,
+  interpolate,
+  toRaw,
+  valueAt,
+} from './signals';
 
 export interface RunOptions {
   /** Testfall mit Stimuli; ohne Testfall läuft der Handbetrieb */
@@ -143,6 +151,8 @@ export class LevelRun {
   private commanded(d: Device): Value {
     const b = this.analysis.bindings.get(d.id);
     if (!b) return d.kind === 'AO' ? 0 : false;
+    // Stellglied mit anderer Signalart als der Ausgang: kommt nichts Brauchbares an
+    if (b.mismatch && d.kind === 'AO') return 0;
     return this.cpus.get(b.cpu)!.read(b.address, b.t);
   }
 
@@ -178,7 +188,13 @@ export class LevelRun {
         v = this.inputValue(d, t);
       } else if (d.kind === 'AI') {
         const clean = toRaw(this.analogPhysical(d, t), d.analog!);
-        v = this.disturb.get(d.id)!.apply(clean, faultAt(this.opts.test?.faults?.[d.id], t));
+        const fault = faultAt(this.opts.test?.faults?.[d.id], t);
+        // immer ziehen, damit die Zufallsfolge unabhängig vom Messbereich bleibt
+        v = this.disturb.get(d.id)!.apply(clean, fault);
+        const ch = this.analysis.bindings.get(d.id);
+        // falscher Messbereich: Überlauf; Drahtbruch erkennt nur 4–20 mA, bei 0–10 V fällt das Signal auf 0
+        if (ch?.mismatch) v = RAW_OVERFLOW;
+        else if (fault === 'break' && d.signal && ch?.range === '0-10V') v = 0;
         this.push(`true.${d.id}`, t, clean);
       } else {
         continue;

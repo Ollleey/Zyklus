@@ -39,6 +39,19 @@ function lastRise(edges: Edge[] | undefined, now: number): number | undefined {
   return t;
 }
 
+/** Integral eines Zahlenverlaufs bis `now` (Wert · ms), z. B. zurückgelegter Weg aus der Frequenz */
+function integral(edges: Edge[] | undefined, now: number): number {
+  if (!edges) return 0;
+  let total = 0;
+  for (let i = 0; i < edges.length; i++) {
+    const [t0, v] = edges[i]!;
+    if (t0 > now) break;
+    const t1 = Math.min(edges[i + 1]?.[0] ?? now, now);
+    total += Number(v) * (t1 - t0);
+  }
+  return total;
+}
+
 /** Zeit (ms), die ein Signal bis `now` auf TRUE war. */
 function onTime(edges: Edge[] | undefined, now: number): number {
   if (!edges) return 0;
@@ -92,13 +105,17 @@ export function PlantView({
   const type = level.plant?.type;
   const param = (k: string) => level.plant?.params?.[k] as string | undefined;
   // Sensoren, die das Anlagenmodell liefert, sind im Handbetrieb nicht bedienbar
+  const sub = (group: string, k: string) =>
+    (level.plant?.params?.[group] as Record<string, string> | undefined)?.[k];
   const plantKeys: Record<string, string[]> = {
     tank: ['sensor'],
+    drive: ['feedback'],
     drill: ['up', 'down', 'clamped'],
     sorter: ['measure', 'height', 'gate'],
     thermal: ['sensor'],
   };
   const fromPlant = new Set((plantKeys[type ?? ''] ?? []).map((k) => param(k)));
+  if (type === 'tanks') for (const g of ['a', 'b']) fromPlant.add(sub(g, 'sensor'));
   const inputs = level.devices.filter((d) => d.kind === 'DI' && !fromPlant.has(d.id));
   const analogs = level.devices.filter((d) => d.kind === 'AI');
   const on = (id: string | undefined) => (id ? values.get(id) === true : false);
@@ -138,6 +155,32 @@ export function PlantView({
         )}
         {type === 'tank' && (
           <Tank level={num(traces?.get('plant.level'), 50)} pump={on(param('pump'))} />
+        )}
+        {type === 'tanks' && (
+          <>
+            <g transform="translate(-75 0)">
+              <Tank
+                level={num(traces?.get('plant.levelA'), 50)}
+                pump={on(sub('a', 'pump'))}
+                label={sub('a', 'pump')}
+              />
+            </g>
+            <g transform="translate(115 0)">
+              <Tank
+                level={num(traces?.get('plant.levelB'), 50)}
+                pump={on(sub('b', 'pump'))}
+                label={sub('b', 'pump')}
+              />
+            </g>
+          </>
+        )}
+        {type === 'drive' && (
+          <DriveView
+            offset={integral(traces?.get('plant.freq'), now) * 0.004}
+            freq={num(traces?.get('plant.freq'), 0)}
+            enabled={on(param('enable'))}
+            overload={num(traces?.get('plant.overload'), 0)}
+          />
         )}
         {type === 'heater' && (
           <Heater
@@ -357,7 +400,7 @@ function StarDelta({ main, star, delta }: { main: boolean; star: boolean; delta:
   );
 }
 
-function Tank({ level, pump }: { level: number; pump: boolean }) {
+function Tank({ level, pump, label = 'P1' }: { level: number; pump: boolean; label?: string }) {
   const h = 110;
   const fill = (h * Math.max(0, Math.min(100, level))) / 100;
   return (
@@ -377,7 +420,7 @@ function Tank({ level, pump }: { level: number; pump: boolean }) {
       </text>
       <circle cx={90} cy={110} r={18} className={`motor-round ${pump ? 'motor-on' : ''}`} />
       <text x={90} y={114} className="plant-label">
-        P1
+        {label}
       </text>
       <line x1={108} y1={110} x2={150} y2={110} className={`pipe ${pump ? 'pipe-on' : ''}`} />
     </g>
@@ -765,6 +808,38 @@ function Filler({ valve, count, target }: { valve: boolean; count: number; targe
       <text x={300} y={90} className="plant-label">
         Impulse
       </text>
+    </g>
+  );
+}
+
+/** Förderband am Umrichter: Geschwindigkeit aus der Frequenz, Freigabe, Überlastungen */
+function DriveView({
+  offset,
+  freq,
+  enabled,
+  overload,
+}: {
+  offset: number;
+  freq: number;
+  enabled: boolean;
+  overload: number;
+}) {
+  return (
+    <g>
+      <Conveyor offset={offset} on={freq > 0.5} />
+      <rect x={20} y={14} width={110} height={40} rx={4} className="display" />
+      <text x={75} y={42} className="display-text">
+        {freq.toFixed(1)} Hz
+      </text>
+      <circle cx={300} cy={30} r={9} className={`bulb ${enabled ? 'bulb-on' : ''}`} />
+      <text x={318} y={34} className="plant-label plant-left">
+        Freigabe
+      </text>
+      {overload > 0 && (
+        <text x={200} y={30} className="plant-label plant-alarm">
+          {overload}× gekippt
+        </text>
+      )}
     </g>
   );
 }

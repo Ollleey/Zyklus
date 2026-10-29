@@ -1,8 +1,20 @@
 import { CPU_TYPES, type CpuType } from '../catalog';
 import type { Text } from './text';
 
-export type ModuleKind = 'cpu' | 'di' | 'do' | 'ai' | 'ao' | 'rel' | 'cp';
+export type ModuleKind = 'cpu' | 'di' | 'do' | 'dio' | 'ai' | 'ao' | 'rel' | 'cp';
 export type ChannelKind = 'DI' | 'DO' | 'AI' | 'AO';
+
+/** Messbereich eines Analogkanals bzw. Signalart eines Analoggeräts */
+export type AnalogRange = '0-10V' | '4-20mA';
+
+export const RANGE_LABEL: Record<AnalogRange, string> = { '0-10V': '0–10 V', '4-20mA': '4–20 mA' };
+
+/** Kanäle einer Art auf einer Baugruppe; `ranges`: wählbare Messbereiche, der erste ist Standard */
+export interface IoGroup {
+  kind: ChannelKind;
+  count: number;
+  ranges?: AnalogRange[];
+}
 
 export interface ModuleType {
   id: string;
@@ -11,8 +23,10 @@ export interface ModuleType {
   /** Breite auf der Hutschiene in Rasterschritten (TE) zu 15 mm */
   width: number;
   price: number;
-  /** Anzahl E/A-Kanäle (CPU: 0) */
+  /** Anzahl E/A-Kanäle insgesamt */
   channels: number;
+  /** Kanalgruppen in Kanalreihenfolge (gemischte Baugruppen, E/A auf der CPU) */
+  io?: IoGroup[];
   cpu?: CpuType;
   /** Relaisausgang: Ansprech- und Abfallverzögerung in ms */
   delay?: { on: number; off: number };
@@ -28,7 +42,9 @@ export const COUPLER_BASE = 100;
 /** Rasterschritt der Hutschiene in mm */
 export const TE_MM = 15;
 
-const cpu = (key: keyof typeof CPU_TYPES, description: string): ModuleType => {
+const BOTH: AnalogRange[] = ['0-10V', '4-20mA'];
+
+const cpu = (key: keyof typeof CPU_TYPES, description: string, io?: IoGroup[]): ModuleType => {
   const c = CPU_TYPES[key];
   return {
     id: `cpu-${key}`,
@@ -36,7 +52,8 @@ const cpu = (key: keyof typeof CPU_TYPES, description: string): ModuleType => {
     kind: 'cpu',
     width: c.width,
     price: c.price,
-    channels: 0,
+    channels: io ? io.reduce((n, g) => n + g.count, 0) : 0,
+    ...(io ? { io } : {}),
     cpu: c,
     description: { de: description },
   };
@@ -44,6 +61,15 @@ const cpu = (key: keyof typeof CPU_TYPES, description: string): ModuleType => {
 
 export const MODULE_TYPES: Record<string, ModuleType> = {
   'cpu-klein': cpu('klein', '10 ms Zyklus, bis 40 SCL-Anweisungen bzw. 10 Netzwerke.'),
+  'cpu-kompakt': cpu(
+    'kompakt',
+    '10 ms Zyklus wie CPU klein, dazu E/A auf der CPU: DI 6 (%I0.0…%I0.5), DO 4 (%Q0.0…%Q0.3), AI 2 0–10 V (%IW64, %IW66).',
+    [
+      { kind: 'DI', count: 6 },
+      { kind: 'DO', count: 4 },
+      { kind: 'AI', count: 2, ranges: ['0-10V'] },
+    ],
+  ),
   'cpu-mittel': cpu('mittel', '5 ms Zyklus, mehr Programmspeicher, Weck- und Prozessalarm.'),
   'cpu-schnell': cpu('schnell', '1 ms Zyklus, Weck- und Prozessalarm, kleiner Programmspeicher.'),
   di8hf: {
@@ -68,6 +94,37 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
     description: {
       de: 'Koppelmodul: tauscht mit dem Koppelmodul der Nachbar-CPU je 2 Wörter aus. Senden über %QW100/%QW102, Empfang über %IW100/%IW102. Was eine CPU am Zyklusende sendet, liest die Partner-CPU ab ihrem nächsten Zyklus.',
     },
+  },
+  di4: {
+    id: 'di4',
+    name: { de: 'DI 4' },
+    kind: 'di',
+    width: 1,
+    price: 1,
+    channels: 4,
+    description: { de: '4 digitale Eingänge, 24 V.' },
+  },
+  do4: {
+    id: 'do4',
+    name: { de: 'DO 4' },
+    kind: 'do',
+    width: 1,
+    price: 1,
+    channels: 4,
+    description: { de: '4 digitale Ausgänge, 24 V / 0,5 A.' },
+  },
+  dio8: {
+    id: 'dio8',
+    name: { de: 'DI 8/DO 8' },
+    kind: 'dio',
+    width: 2,
+    price: 3,
+    channels: 16,
+    io: [
+      { kind: 'DI', count: 8 },
+      { kind: 'DO', count: 8 },
+    ],
+    description: { de: '8 digitale Eingänge und 8 digitale Ausgänge, 24 V, auf einer Baugruppe.' },
   },
   di8: {
     id: 'di8',
@@ -94,7 +151,22 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
     width: 1,
     price: 3,
     channels: 2,
-    description: { de: '2 analoge Eingänge, Rohwert 0…27648.' },
+    io: [{ kind: 'AI', count: 2, ranges: BOTH }],
+    description: {
+      de: '2 analoge Eingänge, Messbereich je Kanal 0–10 V oder 4–20 mA, Rohwert 0…27648. Bei 4–20 mA meldet der Kanal Drahtbruch mit 32767.',
+    },
+  },
+  ai4: {
+    id: 'ai4',
+    name: { de: 'AI 4' },
+    kind: 'ai',
+    width: 2,
+    price: 5,
+    channels: 4,
+    io: [{ kind: 'AI', count: 4, ranges: BOTH }],
+    description: {
+      de: '4 analoge Eingänge, Messbereich je Kanal 0–10 V oder 4–20 mA, Rohwert 0…27648.',
+    },
   },
   rel4: {
     id: 'rel4',
@@ -115,15 +187,40 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
     width: 1,
     price: 3,
     channels: 2,
-    description: { de: '2 analoge Ausgänge, Rohwert 0…27648.' },
+    io: [{ kind: 'AO', count: 2, ranges: BOTH }],
+    description: { de: '2 analoge Ausgänge, je Kanal 0–10 V oder 4–20 mA, Rohwert 0…27648.' },
   },
 };
 
 export function channelKind(kind: ModuleKind): ChannelKind | undefined {
-  if (kind === 'cpu' || kind === 'cp') return undefined;
+  if (kind === 'cpu' || kind === 'cp' || kind === 'dio') return undefined;
   // Relaisausgänge sind elektrisch Digitalausgänge
   if (kind === 'rel') return 'DO';
   return kind.toUpperCase() as ChannelKind;
+}
+
+/** Kanalgruppen einer Baugruppe (einfarbige Baugruppen: eine Gruppe) */
+export function ioGroups(t: ModuleType): IoGroup[] {
+  if (t.io) return t.io;
+  const k = channelKind(t.kind);
+  return k && t.channels ? [{ kind: k, count: t.channels }] : [];
+}
+
+/** Gruppe und Index innerhalb der Gruppe für einen Kanal */
+export function channelInfo(
+  t: ModuleType,
+  ch: number,
+): { group: IoGroup; index: number } | undefined {
+  let base = 0;
+  for (const group of ioGroups(t)) {
+    if (ch < base + group.count) return ch >= base ? { group, index: ch - base } : undefined;
+    base += group.count;
+  }
+  return undefined;
+}
+
+export function channelKindAt(t: ModuleType, ch: number): ChannelKind | undefined {
+  return channelInfo(t, ch)?.group.kind;
 }
 
 export function moduleType(id: string): ModuleType {

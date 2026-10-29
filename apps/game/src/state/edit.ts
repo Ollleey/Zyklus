@@ -3,6 +3,7 @@ import {
   emptyProject,
   moduleType,
   syncDeviceTags,
+  type AnalogRange,
   type Level,
   type PlcProject,
   type Solution,
@@ -40,11 +41,14 @@ export function moveModule(level: Level, s: Solution, id: string, x: number): So
 export function removeModule(level: Level, s: Solution, id: string): Solution {
   const projects = { ...s.projects };
   delete projects[id];
+  const config = { ...s.config };
+  delete config[id];
   return withTags(level, {
     ...s,
     modules: s.modules.filter((m) => m.id !== id),
     wires: s.wires.filter((w) => w.module !== id),
     projects,
+    config,
   });
 }
 
@@ -64,6 +68,20 @@ export function connect(
 
 export function disconnect(level: Level, s: Solution, device: string): Solution {
   return withTags(level, { ...s, wires: s.wires.filter((w) => w.device !== device) });
+}
+
+/** Messbereich eines Analogkanals setzen (Modul-Inspektor) */
+export function setChannelRange(
+  s: Solution,
+  moduleId: string,
+  ch: number,
+  range: AnalogRange,
+): Solution {
+  const cfg = s.config?.[moduleId] ?? {};
+  return {
+    ...s,
+    config: { ...s.config, [moduleId]: { ...cfg, ranges: { ...cfg.ranges, [ch]: range } } },
+  };
 }
 
 export function updateProject(

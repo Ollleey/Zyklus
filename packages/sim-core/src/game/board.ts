@@ -3,7 +3,14 @@ import type { PlcProject } from '../project';
 import type { DataType } from '../types';
 import type { Device, Level } from './level';
 import { SOLUTION_VERSION, wallRange } from './migrate';
-import { MODULE_TYPES, channelKind, type ModuleType } from './modules';
+import {
+  MODULE_TYPES,
+  RANGE_LABEL,
+  channelInfo,
+  ioGroups,
+  type AnalogRange,
+  type ModuleType,
+} from './modules';
 
 /** Ein Modul auf der Hutschiene; `x` = linker Steckplatz. */
 export interface PlacedModule {
@@ -26,6 +33,26 @@ export interface Solution {
   wires: Wire[];
   /** PLC-Projekt je CPU-Modul (Schlüssel = Modul-id) */
   projects: Record<string, PlcProject>;
+  /** Einstellungen je Baugruppe (Modul-Inspektor), z. B. Messbereich je Analogkanal */
+  config?: Record<string, ModuleConfig>;
+}
+
+export interface ModuleConfig {
+  /** Messbereich je Kanalnummer */
+  ranges?: Record<number, AnalogRange>;
+}
+
+/** Eingestellter Messbereich eines Analogkanals (Standard: erster wählbarer Bereich) */
+export function channelRange(
+  solution: Pick<Solution, 'config'>,
+  moduleId: string,
+  t: ModuleType,
+  ch: number,
+): AnalogRange | undefined {
+  const ranges = channelInfo(t, ch)?.group.ranges;
+  if (!ranges?.length) return undefined;
+  const set = solution.config?.[moduleId]?.ranges?.[ch];
+  return set && ranges.includes(set) ? set : ranges[0];
 }
 
 export function emptySolution(): Solution {
@@ -47,6 +74,7 @@ export type BoardIssueCode =
   | 'needs-relay'
   | 'wall'
   | 'coupler'
+  | 'range-mismatch'
   | 'unwired';
 
 export interface BoardIssue {
@@ -65,6 +93,10 @@ export interface Binding {
   t: DataType;
   /** über einen Relaisausgang angeschlossen: Schaltverzögerung in ms */
   delay?: { on: number; off: number };
+  /** Analogkanal: eingestellter Messbereich */
+  range?: AnalogRange;
+  /** Signalart des Geräts passt nicht zum Messbereich: Kanal liefert Überlauf bzw. kein Signal */
+  mismatch?: boolean;
 }
 
 export interface BoardAnalysis {
@@ -149,6 +181,31 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
   const wr = wallRange(level.board);
   let pastWall = false;
   const couplers: { module: string; cpu: string }[] = [];
+  /** Adressen je Kanalgruppe: Digital byteweise, Analog wortweise (Relais zählen als DO) */
+  const assign = (id: string, t: ModuleType) => {
+    let ch = 0;
+    for (const g of ioGroups(t)) {
+      const k = g.kind.toLowerCase() as 'di' | 'do' | 'ai' | 'ao';
+      for (let i = 0; i < g.count; i++, ch++) {
+        const addr =
+          k === 'di' || k === 'do'
+            ? formatAddress({
+                area: k === 'di' ? 'I' : 'Q',
+                size: 'X',
+                byte: counters[k] + Math.floor(i / 8),
+                bit: i % 8,
+              })
+            : formatAddress({
+                area: k === 'ai' ? 'I' : 'Q',
+                size: 'W',
+                byte: counters[k] + i * 2,
+                bit: 0,
+              });
+        channelAddress.set(`${id}:${ch}`, addr);
+      }
+      counters[k] += k === 'di' || k === 'do' ? Math.ceil(g.count / 8) : g.count * 2;
+    }
+  };
   for (const m of sorted) {
     const t = types.get(m.id)!;
     if (wr && !pastWall && m.x >= wr[1]) {
@@ -159,6 +216,11 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
     if (t.kind === 'cpu') {
       cpu = m.id;
       counters = { di: 0, do: 0, ai: ANALOG_BASE, ao: ANALOG_BASE };
+      // E/A auf der CPU bekommen die ersten Adressen
+      if (t.channels) {
+        cpuOf.set(m.id, cpu);
+        assign(m.id, t);
+      }
       continue;
     }
     if (!cpu) {
@@ -178,25 +240,7 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       }
       continue;
     }
-    // Relaisausgänge belegen wie DO ein Ausgangsbyte
-    const k = t.kind === 'rel' ? 'do' : (t.kind as 'di' | 'do' | 'ai' | 'ao');
-    for (let ch = 0; ch < t.channels; ch++) {
-      let addr: string;
-      if (k === 'di' || k === 'do') {
-        addr = formatAddress({
-          area: k === 'di' ? 'I' : 'Q',
-          size: 'X',
-          byte: counters[k],
-          bit: ch,
-        });
-      } else {
-        const word = counters[k] + ch * 2;
-        addr = formatAddress({ area: k === 'ai' ? 'I' : 'Q', size: 'W', byte: word, bit: 0 });
-      }
-      channelAddress.set(`${m.id}:${ch}`, addr);
-    }
-    if (k === 'di' || k === 'do') counters[k] += 1;
-    else counters[k] += t.channels * 2;
+    assign(m.id, t);
   }
   if (!sorted.some((m) => types.get(m.id)!.kind === 'cpu')) {
     err({ code: 'no-cpu', message: 'Es ist keine CPU gesteckt' });
@@ -233,7 +277,8 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       });
       continue;
     }
-    if (w.channel < 0 || w.channel >= t.channels) {
+    const info = channelInfo(t, w.channel);
+    if (!info) {
       err({
         code: 'bad-wire',
         message: `${t.name.de} hat keinen Kanal ${w.channel}`,
@@ -242,10 +287,10 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       });
       continue;
     }
-    if (channelKind(t.kind) !== dev.kind) {
+    if (info.group.kind !== dev.kind) {
       err({
         code: 'channel-kind',
-        message: `${dev.name.de} braucht einen ${dev.kind}-Kanal, nicht ${channelKind(t.kind) ?? 'die CPU'}`,
+        message: `${dev.name.de} braucht einen ${dev.kind}-Kanal, nicht ${info.group.kind}`,
         device: w.device,
         module: w.module,
       });
@@ -294,12 +339,25 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
     for (let c = Math.max(0, from); c <= Math.min(width - 1, to); c++) ductLoad[c]!++;
     const cpuId = cpuOf.get(mod.id);
     const address = channelAddress.get(key);
+    const range = channelRange(solution, mod.id, t, w.channel);
+    const mismatch = !!(range && dev.signal && dev.signal !== range);
+    if (mismatch) {
+      issues.push({
+        code: 'range-mismatch',
+        severity: 'warning',
+        message: `${dev.name.de} liefert ${RANGE_LABEL[dev.signal!]}, der Kanal ist auf ${RANGE_LABEL[range!]} eingestellt`,
+        device: dev.id,
+        module: mod.id,
+      });
+    }
     if (cpuId && address && !bindings.has(dev.id)) {
       bindings.set(dev.id, {
         cpu: cpuId,
         address,
         t: dev.kind === 'DI' || dev.kind === 'DO' ? 'BOOL' : 'INT',
         delay: t.delay,
+        ...(range ? { range } : {}),
+        ...(mismatch ? { mismatch } : {}),
       });
     }
   }

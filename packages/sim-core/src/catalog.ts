@@ -15,7 +15,7 @@ export interface CpuType {
   processInterrupt: boolean;
 }
 
-export const CPU_TYPES: Record<'klein' | 'mittel' | 'schnell', CpuType> = {
+export const CPU_TYPES: Record<'klein' | 'kompakt' | 'mittel' | 'schnell', CpuType> = {
   klein: {
     id: 'klein',
     name: 'CPU klein',
@@ -25,6 +25,19 @@ export const CPU_TYPES: Record<'klein' | 'mittel' | 'schnell', CpuType> = {
     maxStatements: 40,
     width: 6,
     price: 4,
+    cyclicInterrupt: false,
+    processInterrupt: false,
+  },
+  /** wie CPU klein, mit E/A auf der CPU (DI 6, DO 4, AI 2) */
+  kompakt: {
+    id: 'kompakt',
+    name: 'CPU kompakt',
+    cycleMs: 10,
+    maxOpsPerCycle: 1000,
+    maxNetworks: 10,
+    maxStatements: 40,
+    width: 8,
+    price: 7,
     cyclicInterrupt: false,
     processInterrupt: false,
   },

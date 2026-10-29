@@ -26,7 +26,7 @@
     "ductCapacity": 4,
     "wall": 11
   },
-  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "rel4", "kop"],
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "rel4", "kop", "di4", "do4"],
   "toleranceMs": 60,
   "plant": {
     "type": "pumphouse",

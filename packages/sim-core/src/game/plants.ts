@@ -255,11 +255,88 @@ class Thermal implements Plant {
   }
 }
 
+/** Zwei unabhängige Behälter (params a, b wie beim Tank); Zustand levelA, levelB */
+class TwoTanks implements Plant {
+  private readonly a: Tank;
+  private readonly b: Tank;
+
+  constructor(p: Params) {
+    this.a = new Tank((p.a as Params) ?? {});
+    this.b = new Tank((p.b as Params) ?? {});
+  }
+
+  inputs() {
+    return { ...this.a.inputs(), ...this.b.inputs() };
+  }
+
+  step(t: number, out: Record<string, Value>) {
+    this.a.step(t, out);
+    this.b.step(t, out);
+  }
+
+  state() {
+    return { levelA: this.a.state().level, levelB: this.b.state().level };
+  }
+}
+
+/**
+ * Antrieb am Frequenzumrichter ohne eigene Rampe: Mit Freigabe folgt die Frequenz sofort dem
+ * analogen Sollwert, ohne Freigabe trudelt der Motor aus. Ändert sich die Frequenz unter Freigabe
+ * schneller als `maxRate` (Hz/s, gemessen über 100 ms), zählt das als Überlastung.
+ * params: setpoint (AO, Hz), enable (DO), feedback (AI, Hz), maxRate, coast (Hz/s)
+ */
+class Drive implements Plant {
+  private freq = 0;
+  private overload = 0;
+  private hot = false;
+  private readonly history: number[] = new Array(100).fill(0);
+  private head = 0;
+  private readonly ids: Record<'setpoint' | 'enable' | 'feedback', string>;
+  private readonly spec?: Device;
+  private readonly maxRate: number;
+  private readonly coast: number;
+
+  constructor(p: Params, level: Level) {
+    this.ids = {
+      setpoint: String(p.setpoint),
+      enable: String(p.enable),
+      feedback: String(p.feedback),
+    };
+    this.spec = level.devices.find((d) => d.id === this.ids.setpoint);
+    this.maxRate = Number(p.maxRate ?? 15);
+    this.coast = Number(p.coast ?? 25);
+  }
+
+  inputs() {
+    return { [this.ids.feedback]: this.freq };
+  }
+
+  step(_t: number, out: Record<string, Value>) {
+    const enabled = out[this.ids.enable] === true;
+    const raw = Number(out[this.ids.setpoint] ?? 0);
+    const a = this.spec?.analog;
+    const target = Math.max(0, a ? fromRaw(raw, a) : raw);
+    this.freq = enabled ? target : Math.max(0, this.freq - this.coast / 1000);
+    const before = this.history[this.head]!;
+    this.history[this.head] = this.freq;
+    this.head = (this.head + 1) % this.history.length;
+    const tooFast = enabled && Math.abs(this.freq - before) > this.maxRate * 0.1 + 0.05;
+    if (tooFast && !this.hot) this.overload++;
+    this.hot = tooFast;
+  }
+
+  state() {
+    return { freq: Math.round(this.freq * 100) / 100, overload: this.overload };
+  }
+}
+
 const MODELS: Record<string, (p: Params, level: Level) => Plant> = {
   tank: (p) => new Tank(p),
+  tanks: (p) => new TwoTanks(p),
   drill: (p) => new Drill(p),
   sorter: (p) => new Sorter(p),
   thermal: (p, l) => new Thermal(p, l),
+  drive: (p, l) => new Drive(p, l),
 };
 
 /** Anlagenmodell zu einem Level (Testparameter überschreiben Levelparameter), sonst undefined. */

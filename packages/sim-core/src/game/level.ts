@@ -1,4 +1,4 @@
-import { MODULE_TYPES, type ChannelKind } from './modules';
+import { MODULE_TYPES, type AnalogRange, type ChannelKind } from './modules';
 import type { Text } from './text';
 
 /** Die drei Bewertungsgrößen einer Lösung. */
@@ -54,6 +54,8 @@ export interface Device {
   analog?: AnalogSpec;
   /** Leistungsverbraucher (Schütz, Motor): braucht einen Relaisausgang */
   power?: boolean;
+  /** Analoggeräte: elektrische Signalart; ohne Angabe passt jeder Messbereich */
+  signal?: AnalogRange;
 }
 
 /** Geberfehler an einem Analogeingang: Drahtbruch/Überlauf = 32767, Unterlauf = −32768 */
@@ -190,6 +192,9 @@ export function validateLevel(json: unknown): Level {
     }
     if ((d.kind === 'AI' || d.kind === 'AO') && (!d.analog || !(d.analog.max > d.analog.min))) {
       p.push(`Gerät ${d.id}: analog (min < max) fehlt`);
+    }
+    if (d.signal !== undefined && d.signal !== '0-10V' && d.signal !== '4-20mA') {
+      p.push(`Gerät ${d.id}: signal muss 0-10V oder 4-20mA sein`);
     }
   }
   const knownSignal = (s: string) =>

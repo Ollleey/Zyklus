@@ -76,7 +76,9 @@ function verify(level: Level, solution: Solution) {
 
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
-    expect(LEVELS.map((l) => l.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(LEVELS.map((l) => l.order)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+    ]);
   });
 
   it.each(LEVELS.map((l) => [l.id, l] as const))(
@@ -394,5 +396,69 @@ describe('Fehllösungen der Level 10–15', () => {
   it('Level 15: zu hohe Verstärkung schwingt', () => {
     const src = ref('15-pi-regler').replace('Kp : Real := 1.5;', 'Kp : Real := 8.0;');
     expect(run('15-pi-regler', src).passed).toBe(false);
+  });
+});
+
+describe('Fehllösungen der Level 16–17', () => {
+  const ref = (id: string) => readFileSync(join(DATA, `${id}.scl`), 'utf8');
+  const runWith = (
+    id: string,
+    board: { modules: PlacedModule[]; wires: Wire[] },
+    src = ref(id),
+  ) => {
+    const level = levelById(id)!;
+    return verify(level, solutionFor(level, src, board));
+  };
+
+  it('Level 16: ohne Messbereich 4–20 mA liefern die Sonden nur Überlauf', () => {
+    const board = { ...BOARDS['16-zwei-behaelter']! } as {
+      modules: PlacedModule[];
+      wires: Wire[];
+      config?: unknown;
+    };
+    delete board.config;
+    const c = compileSolution(
+      levelById('16-zwei-behaelter')!,
+      solutionFor(levelById('16-zwei-behaelter')!, ref('16-zwei-behaelter'), board),
+    );
+    expect(c.analysis.issues.filter((i) => i.code === 'range-mismatch')).toHaveLength(2);
+    expect(runWith('16-zwei-behaelter', board).passed).toBe(false);
+  });
+
+  it('Level 17: gleicher Rampenschritt auf der 5-ms-CPU ist zu schnell', () => {
+    const b = BOARDS['17-frequenzumrichter']!;
+    const board = {
+      ...b,
+      modules: b.modules.map((m) =>
+        m.type === 'cpu-klein' ? { ...m, type: 'cpu-mittel' } : { ...m, x: m.x + 1 },
+      ),
+    };
+    const v = runWith('17-frequenzumrichter', board);
+    expect(v.runs.flatMap((r) => r.criteria.filter((c) => !c.ok).map((c) => c.name.de))).toContain(
+      'Keine Überlastung',
+    );
+  });
+
+  it('Level 17: Sollwert ohne Rampe überlastet das Band', () => {
+    const src = ref('17-frequenzumrichter').replace(
+      /\/\/ Rampe[\s\S]*?END_IF;\n/,
+      '"Antrieb".f_soll := #ziel;\n',
+    );
+    expect(runWith('17-frequenzumrichter', BOARDS['17-frequenzumrichter']!, src).passed).toBe(
+      false,
+    );
+  });
+
+  it('Level 17: Rückmeldung ohne 4–20 mA – H1 meldet nie', () => {
+    const board = { ...BOARDS['17-frequenzumrichter']! } as {
+      modules: PlacedModule[];
+      wires: Wire[];
+      config?: unknown;
+    };
+    delete board.config;
+    const v = runWith('17-frequenzumrichter', board);
+    expect(v.runs.flatMap((r) => r.criteria.filter((c) => !c.ok).map((c) => c.name.de))).toContain(
+      'H1 meldet erreicht (30 Hz)',
+    );
   });
 });

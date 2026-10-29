@@ -1,4 +1,10 @@
-import { tr, type ModuleType } from '@zyklus/sim-core';
+import {
+  RANGE_LABEL,
+  tr,
+  type AnalogRange,
+  type ChannelKind,
+  type ModuleType,
+} from '@zyklus/sim-core';
 import { G, colX, terminalPos, type Layout } from './geometry';
 
 /** Gemeinsame SVG-Definitionen: Materialien, Leuchten, Muster. Einmal je Schrank. */
@@ -372,8 +378,12 @@ export function CpuFront({
 /** Abgekürzter Symbolname für den Beschriftungsstreifen */
 const abbrev = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n - 1)}…`);
 
+/** Kanäle je Spalte des Beschriftungsstreifens (mehr als 8 Kanäle: zwei Spalten) */
+export const stripRows = (channels: number) => (channels > 8 ? Math.ceil(channels / 2) : channels);
+
 /**
- * Schmale E/A-Baugruppe: Typstreifen, Beschriftungsstreifen mit LED, Adresse und Symbol je Kanal,
+ * Schmale E/A-Baugruppe (auch das E/A-Feld einer Kompakt-CPU): Typstreifen, Beschriftungsstreifen
+ * mit LED, Adresse und Symbol je Kanal, bei Analogkanälen Balken, Fehler-LED und Messbereich,
  * Federzugklemmen unten.
  */
 export function IoFront({
@@ -381,31 +391,40 @@ export function IoFront({
   x,
   t,
   id,
+  kinds,
+  ranges,
   addresses,
   symbols,
   states,
   wired,
-  target,
+  targetKind,
   onChannel,
   selectedChannel,
   onHoverChannel,
   hotChannel,
+  title,
 }: {
   l: Layout;
   x: number;
   t: ModuleType;
   id: string;
+  /** Kanalart je Kanal */
+  kinds: (ChannelKind | undefined)[];
+  /** Messbereich je Kanal (nur Analog) */
+  ranges: (AnalogRange | undefined)[];
   addresses: (string | undefined)[];
   symbols: (string | undefined)[];
   states: (boolean | number | undefined)[];
   wired: boolean[];
-  /** Klemmen nehmen gerade eine Leitung an */
-  target: boolean;
+  /** Klemmen dieser Kanalart nehmen gerade eine Leitung an */
+  targetKind?: ChannelKind;
   onChannel: (ch: number) => void;
   selectedChannel?: number;
   onHoverChannel?: (ch: number | null) => void;
   /** Klemme, deren Leitung gerade hervorgehoben ist */
   hotChannel?: number;
+  /** Beschriftung oben statt des Typnamens */
+  title?: string;
 }) {
   const left = colX(l, x) + G.gap / 2;
   const w = t.width * G.te - G.gap;
@@ -419,17 +438,22 @@ export function IoFront({
         ? '#8E63CF'
         : kind === 'rel'
           ? '#E07B5F'
-          : '#F4C443';
+          : kind === 'dio' || kind === 'cpu'
+            ? '#9AA4AE'
+            : '#F4C443';
   const rows = t.channels;
-  const rowH = rows ? Math.min(6.4, 52 / rows) : 0;
-  const analog = kind === 'ai' || kind === 'ao';
-  const symChars = t.width > 1 ? 11 : 8;
+  const perCol = stripRows(rows);
+  const cols = rows > perCol ? 2 : 1;
+  const colW = (w - 1.6) / cols;
+  const rowH = perCol ? Math.min(6.4, 52 / perCol) : 0;
+  const narrow = colW < 16;
+  const symChars = narrow ? 8 : 11;
   return (
     <g className="hw-io">
       <rect x={left} y={y} width={w} height={h} rx={1.6} fill="url(#hw-io)" />
       <rect x={left} y={y} width={w} height={2.2} rx={1} fill={stripe} opacity={0.85} />
       <text x={left + w / 2} y={y + 8} className="hw-name">
-        {tr(t.name)}
+        {title ?? tr(t.name)}
       </text>
       <text x={left + w / 2} y={y + 12.2} className="hw-sub">
         {id}
@@ -445,48 +469,54 @@ export function IoFront({
           x={left + 0.8}
           y={y + 17.5}
           width={w - 1.6}
-          height={rows * rowH + 1.5}
+          height={perCol * rowH + 1.5}
           fill="#F4F5F6"
           stroke="#C3C8CD"
           strokeWidth={0.25}
         />
       )}
       {Array.from({ length: rows }, (_, ch) => {
-        const cy = y + 18.6 + ch * rowH + rowH / 2;
+        const col = Math.floor(ch / perCol);
+        const cx0 = left + 0.8 + col * colW;
+        const cy = y + 18.6 + (ch % perCol) * rowH + rowH / 2;
         const v = states[ch];
-        const on = analog ? false : v === true;
-        const ledColor = kind === 'di' ? LED.green : LED.green;
+        const k = kinds[ch];
+        const analog = k === 'AI' || k === 'AO';
+        const raw = Number(v ?? 0);
+        const fault = analog && v !== undefined && (raw >= 32767 || raw <= -32768);
         const addr = addresses[ch]?.replace('%', '') ?? `${ch}`;
         const sym = symbols[ch];
-        const narrow = t.width === 1;
-        const tx = left + (analog ? w * 0.28 + 2.6 : 4.4);
+        const second = sym ?? (analog && ranges[ch] ? RANGE_LABEL[ranges[ch]!] : undefined);
+        const tx = cx0 + 3.6;
         return (
           <g key={ch}>
             {analog ? (
-              <g>
-                <rect x={left + 1.6} y={cy - 1} width={w * 0.28} height={2} fill="#C9CED3" />
-                <rect
-                  x={left + 1.6}
-                  y={cy - 1}
-                  width={Math.max(0, Math.min(1, Number(v ?? 0) / 27648)) * w * 0.28}
-                  height={2}
-                  fill="#8E63CF"
-                />
-              </g>
+              <Led x={cx0 + 1.6} y={cy} r={0.9} on={fault} color={LED.red} />
             ) : (
-              <Led x={left + 2.4} y={cy} r={1} on={on} color={ledColor} />
+              <Led x={cx0 + 1.6} y={cy} r={1} on={v === true} color={LED.green} />
             )}
-            <text x={tx} y={narrow && sym ? cy - 0.4 : cy + 0.9} className="hw-addr">
+            <text x={tx} y={second ? cy - 0.4 : cy + 0.9} className="hw-addr">
               {addr}
             </text>
-            {sym && (
-              <text
-                x={narrow ? tx : left + w - 0.9}
-                y={narrow ? cy + 2.3 : cy + 0.9}
-                className={`hw-sym ${narrow ? 'hw-sym-under' : ''}`}
-              >
-                <title>{sym}</title>
-                {abbrev(sym, symChars)}
+            {analog && (
+              <g>
+                <rect x={cx0 + colW - 4.6} y={cy - 2.2} width={3.6} height={1.1} fill="#C9CED3" />
+                <rect
+                  x={cx0 + colW - 4.6}
+                  y={cy - 2.2}
+                  width={Math.max(0, Math.min(1, raw / 27648)) * 3.6}
+                  height={1.1}
+                  fill={fault ? '#E5484D' : '#8E63CF'}
+                />
+              </g>
+            )}
+            {second && (
+              <text x={tx} y={cy + 2.3} className="hw-sym hw-sym-under">
+                <title>
+                  {sym ?? ''}
+                  {analog && ranges[ch] ? ` · Messbereich ${RANGE_LABEL[ranges[ch]!]}` : ''}
+                </title>
+                {abbrev(second, symChars)}
               </text>
             )}
           </g>
@@ -495,10 +525,12 @@ export function IoFront({
       {/* Federzugklemmen */}
       {Array.from({ length: rows }, (_, ch) => {
         const p = terminalPos(l, { x }, t.width, rows, ch);
+        const k = kinds[ch];
+        const analog = k === 'AI' || k === 'AO';
         return (
           <g
             key={`t${ch}`}
-            className={`hw-terminal ${target ? 'hw-terminal-target' : ''} ${selectedChannel === ch ? 'hw-terminal-sel' : ''} ${hotChannel === ch ? 'hw-terminal-hot' : ''}`}
+            className={`hw-terminal ${targetKind && targetKind === k ? 'hw-terminal-target' : ''} ${selectedChannel === ch ? 'hw-terminal-sel' : ''} ${hotChannel === ch ? 'hw-terminal-hot' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               onChannel(ch);
@@ -508,6 +540,7 @@ export function IoFront({
           >
             <title>
               Klemme {ch + 1}
+              {k ? ` · ${k}` : ''}
               {addresses[ch] ? ` · ${addresses[ch]}` : ''}
               {symbols[ch] ? ` · ${symbols[ch]}` : ''}
             </title>

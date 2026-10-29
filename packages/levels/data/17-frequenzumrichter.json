@@ -1,0 +1,309 @@
+{
+  "id": "17-frequenzumrichter",
+  "order": 17,
+  "title": {
+    "de": "Förderband am Frequenzumrichter"
+  },
+  "customer": {
+    "de": "Logistikzentrum Weißenfeld"
+  },
+  "mail": {
+    "from": {
+      "de": "Tomasz Nowak <t.nowak@lz-weissenfeld.example>"
+    },
+    "subject": {
+      "de": "Band reißt beim Anfahren die Kartons um"
+    },
+    "body": {
+      "de": "Hallo,\n\nunser Zuführband hängt jetzt an einem Frequenzumrichter. Der Umrichter macht leider genau, was man ihm sagt: Springt der Sollwert, springt das Band – und die Kartons fallen um.\n\nDie Geschwindigkeit stellt der Bediener am Poti ein. Die Steuerung soll sanft hoch- und runterfahren und melden, wenn das Band seine Geschwindigkeit erreicht hat. Die Rückmeldung kommt vom Umrichter.\n\nTomasz Nowak"
+    }
+  },
+  "datasheet": {
+    "de": "# Zuführband ZB-3\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Band ein (Schalter) |\n| B1 | AI | Geschwindigkeits-Poti 0…100 %, **0–10 V** |\n| H1 | DO | Leuchte „Geschwindigkeit erreicht“ |\n| K1 | DO | Freigabe Frequenzumrichter |\n| A1 | AO | Frequenzsollwert 0…50 Hz, **0–10 V** |\n| B2 | AI | Istfrequenz vom Umrichter 0…50 Hz, **4–20 mA** |\n\n## Funktion\n\n1. Poti 0…100 % entspricht 0…50 Hz.\n2. Mit S1 ein: K1 ein, Sollwert an A1 fährt mit **10 Hz/s** auf den Poti-Wert.\n3. S1 aus: Sollwert fährt mit 10 Hz/s auf 0, danach K1 aus.\n4. H1 leuchtet, wenn S1 ein ist und die **Istfrequenz** (B2) auf 1 Hz genau dem Poti-Wert entspricht.\n\n## Umrichter\n\nDer Umrichter hat keine eigene Rampe. Ändert sich die Frequenz schneller als **15 Hz/s**, kippen die Kartons (Überlastung). Ohne Freigabe trudelt das Band aus.\n\n## Hinweis\n\nOB1 läuft im festen Takt der CPU. Bei 10 ms Zyklus sind 10 Hz/s genau 0,1 Hz je Zyklus – eine schnellere CPU braucht einen kleineren Schritt. Analogkanäle stehen ab Werk auf 0–10 V."
+  },
+  "board": {
+    "width": 16,
+    "ductCapacity": 4
+  },
+  "allowedModules": [
+    "cpu-klein",
+    "cpu-kompakt",
+    "cpu-mittel",
+    "di4",
+    "di8",
+    "do4",
+    "do8",
+    "ai2",
+    "ai4",
+    "ao2"
+  ],
+  "toleranceMs": 0,
+  "plant": {
+    "type": "drive",
+    "params": {
+      "setpoint": "A1",
+      "enable": "K1",
+      "feedback": "B2",
+      "maxRate": 15,
+      "coast": 25
+    }
+  },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Band_ein",
+      "name": {
+        "de": "Band ein (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "switch"
+    },
+    {
+      "id": "B1",
+      "tag": "Sollwert",
+      "name": {
+        "de": "Geschwindigkeits-Poti (B1)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "%",
+        "min": 0,
+        "max": 100,
+        "noise": 20
+      },
+      "signal": "0-10V"
+    },
+    {
+      "id": "H1",
+      "tag": "Drehzahl_erreicht",
+      "name": {
+        "de": "Leuchte Geschwindigkeit erreicht (H1)"
+      },
+      "kind": "DO",
+      "side": "left",
+      "role": "lamp"
+    },
+    {
+      "id": "K1",
+      "tag": "FU_Freigabe",
+      "name": {
+        "de": "Freigabe Umrichter (K1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "actuator"
+    },
+    {
+      "id": "A1",
+      "tag": "Frequenz",
+      "name": {
+        "de": "Frequenzsollwert (A1)"
+      },
+      "kind": "AO",
+      "side": "right",
+      "role": "actuator",
+      "analog": {
+        "unit": "Hz",
+        "min": 0,
+        "max": 50
+      },
+      "signal": "0-10V"
+    },
+    {
+      "id": "B2",
+      "tag": "Istfrequenz",
+      "name": {
+        "de": "Istfrequenz Umrichter (B2)"
+      },
+      "kind": "AI",
+      "side": "right",
+      "role": "sensor",
+      "analog": {
+        "unit": "Hz",
+        "min": 0,
+        "max": 50,
+        "noise": 30
+      },
+      "signal": "4-20mA"
+    }
+  ],
+  "tests": [
+    {
+      "id": "fahrt",
+      "name": {
+        "de": "Anfahren, schneller, Halt"
+      },
+      "durationMs": 22000,
+      "seeds": [1, 2],
+      "stimuli": {
+        "S1": [
+          [500, true],
+          [14000, false]
+        ],
+        "B1": [
+          [0, 60],
+          [7999, 60],
+          [8000, 100],
+          [21999, 100]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Keine Überlastung"
+          },
+          "signal": "plant.overload",
+          "min": 0,
+          "max": 0,
+          "from": 0,
+          "to": 22000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "30 Hz nach dem Anfahren"
+          },
+          "signal": "plant.freq",
+          "min": 29,
+          "max": 31,
+          "from": 4500,
+          "to": 8000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "50 Hz nach der Erhöhung"
+          },
+          "signal": "plant.freq",
+          "min": 49,
+          "max": 51,
+          "from": 11000,
+          "to": 14000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Band steht am Ende"
+          },
+          "signal": "plant.freq",
+          "min": 0,
+          "max": 0.5,
+          "from": 20000,
+          "to": 22000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Freigabe während der Fahrt"
+          },
+          "signal": "K1",
+          "value": true,
+          "from": 600,
+          "to": 14000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Freigabe am Ende aus"
+          },
+          "signal": "K1",
+          "value": false,
+          "from": 20500,
+          "to": 22000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "H1 meldet erreicht (30 Hz)"
+          },
+          "signal": "H1",
+          "value": true,
+          "from": 5000,
+          "to": 8000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "H1 meldet erreicht (50 Hz)"
+          },
+          "signal": "H1",
+          "value": true,
+          "from": 11000,
+          "to": 14000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "H1 aus beim Hochfahren"
+          },
+          "signal": "H1",
+          "value": false,
+          "from": 1000,
+          "to": 3000
+        }
+      ]
+    },
+    {
+      "id": "unterbrochen",
+      "name": {
+        "de": "Kurz aus und wieder ein"
+      },
+      "durationMs": 10000,
+      "seeds": [3],
+      "stimuli": {
+        "S1": [
+          [500, true],
+          [2000, false],
+          [3000, true]
+        ],
+        "B1": [
+          [0, 60],
+          [9999, 60]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Keine Überlastung"
+          },
+          "signal": "plant.overload",
+          "min": 0,
+          "max": 0,
+          "from": 0,
+          "to": 10000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "30 Hz am Ende"
+          },
+          "signal": "plant.freq",
+          "min": 29,
+          "max": 31,
+          "from": 7000,
+          "to": 10000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "H1 meldet erreicht"
+          },
+          "signal": "H1",
+          "value": true,
+          "from": 7500,
+          "to": 10000
+        }
+      ]
+    }
+  ],
+  "par": {
+    "cost": 12,
+    "energy": 113150,
+    "size": 11
+  }
+}

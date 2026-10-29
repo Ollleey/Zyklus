@@ -1,0 +1,46 @@
+FUNCTION "Behaelter" : Void
+TITLE = Füllstand mit Hysterese und Drahtbrucherkennung
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT
+      roh : Int;   // 4–20 mA: 0…27648, Drahtbruch 32767
+   END_VAR
+   VAR_OUTPUT
+      bruch : Bool;
+   END_VAR
+   VAR_IN_OUT
+      pumpe : Bool;
+   END_VAR
+   VAR_TEMP
+      prozent : Real;
+   END_VAR
+
+BEGIN
+	#bruch := #roh >= 32767;
+	IF #bruch THEN
+	    #pumpe := FALSE;
+	    RETURN;
+	END_IF;
+	#prozent := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := #roh, MAX := 27648), MAX := 100.0);
+	IF #prozent < 40.0 THEN
+	    #pumpe := TRUE;
+	END_IF;
+	IF #prozent > 80.0 THEN
+	    #pumpe := FALSE;
+	END_IF;
+END_FUNCTION
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      bruch_a : Bool;
+      bruch_b : Bool;
+   END_VAR
+
+BEGIN
+	"Behaelter"(roh := "Fuellstand_A", bruch => #bruch_a, pumpe := "Pumpe_A");
+	"Behaelter"(roh := "Fuellstand_B", bruch => #bruch_b, pumpe := "Pumpe_B");
+	"Stoerung" := #bruch_a OR #bruch_b;
+END_ORGANIZATION_BLOCK
