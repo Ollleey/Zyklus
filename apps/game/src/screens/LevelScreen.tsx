@@ -16,7 +16,7 @@ import { t } from '../i18n';
 import { Cabinet, type CpuStatus } from '../components/Cabinet';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
 import { PlantView } from '../components/PlantView';
-import { ProgramPanel } from '../components/ProgramPanel';
+import { ProgramPanel, type WatchReader } from '../components/ProgramPanel';
 import { ResultDialog } from '../components/ResultDialog';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Markdown } from '../ui/Markdown';
@@ -73,6 +73,29 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
     }
     return m;
   }, [run, sim.frame]);
+  /** Beobachten: PLC-Variablen aus dem Prozessabbild, Datenbausteine und Instanzen */
+  const watch: WatchReader = (cpu, ref) => {
+    const c = run?.cpus.get(cpu);
+    if (!c) return undefined;
+    try {
+      if (ref.tag) {
+        const tag = solution.projects[cpu]?.tags.find((x) => x.name === ref.tag);
+        return tag ? (c.readImage(tag.address, tag.t) as boolean | number) : undefined;
+      }
+      if (ref.local)
+        return c.readSlot(ref.block ? `${ref.block}.${ref.local}` : ref.local) as boolean | number;
+      if (ref.db && ref.member) {
+        try {
+          return c.readSlot(`${ref.db}.${ref.member}`) as boolean | number;
+        } catch {
+          return c.readInstance(ref.db, ref.member.toUpperCase() as never) as boolean | number;
+        }
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  };
   const readIo = (cpu: string, address: string) => {
     try {
       return run?.cpus.get(cpu)?.read(address) as boolean | number | undefined;
@@ -265,7 +288,12 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
           />
           <section className="pane pane-program">
             <h3 className="pane-title">{t('program.title')}</h3>
-            <ProgramPanel solution={solution} compiled={compiled.cpus} onChange={setSolution} />
+            <ProgramPanel
+              solution={solution}
+              compiled={compiled.cpus}
+              onChange={setSolution}
+              watch={run ? watch : undefined}
+            />
           </section>
         </div>
         <Splitter

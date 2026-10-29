@@ -68,8 +68,12 @@ export function Inbox({ levels, progress, onOpen, onPlace }: Props) {
                   {p?.solved ? `✓ ${t('inbox.solved')}` : unlocked ? t('inbox.open') : '🔒'}
                 </span>
                 {p?.best && (
-                  <span className="mail-best">
-                    ¤{p.best.cost} · {p.best.energy} E · {p.best.size} Anw.
+                  <span className="mail-best meta-list">
+                    <span>
+                      {t('inbox.best')}: ¤{p.best.cost}
+                    </span>
+                    <span>{p.best.energy} Energie</span>
+                    <span>{p.best.size} Anweisungen</span>
                   </span>
                 )}
               </button>

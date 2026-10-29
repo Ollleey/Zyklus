@@ -85,7 +85,8 @@ export function Handbook({ onBack }: { onBack: () => void }) {
           {page === 'fup' && <Markdown text={fup} joinLines />}
           {page === 'boxes' && <Boxes />}
           <footer className="paper-foot">
-            {t('app.title')} · {t('handbook.title')} · {PAGES.find((p) => p.id === page)!.title}
+            {t('handbook.title')}, Seite {PAGES.findIndex((p) => p.id === page) + 1}:{' '}
+            {PAGES.find((p) => p.id === page)!.title}
           </footer>
         </article>
       </div>

@@ -1,5 +1,22 @@
 # Changelog
 
+## D6 – Zeitdiagramm, Prozessansicht, Feinschliff, Abnahme (2026-10-29)
+
+- Zeitdiagramm neu: Ist kräftig (Bool cyan, Analog violett, Anlagenwerte gelb), Soll als helles
+  Band dahinter, Abweichungen rot schraffiert – Klick setzt den Zeiger an den Anfang; Analogspuren
+  mit Wertebereich; Zeiger mit Zeit und den Werten aller Spuren (Klick heftet ihn an); Spurhöhe passt
+  sich an, das Diagramm füllt den Simulationsbereich
+- Prozessansicht: Drucktaster als Grafik mit Kragen und Hub, Öffner rot, Wahlschalter als Knebel,
+  Kennzeichnung und elektrisches Signal am Taster; Bereich verstellbar (Standard ein Drittel)
+- Beobachten: Werte von PLC-Variablen, Datenbausteinen, Instanzen und Temp-Variablen am Zeilenende
+  im SCL-Editor, Wertspalte in der PLC-Variablentabelle (nur während einer Simulation), BOOL nach
+  Einstellung
+- Feinschliff: Kopfzeilen von Patience und Posteingang ohne Punkt-Aufzählungen, Handbuchfuß,
+  Zeigerstil
+- Abnahme: Screenshots in `docs/design/after/`, Gegenüberstellung in `docs/design/README.md`;
+  ×100 mit Zeitdiagramm und Live-Werten 55–61 Bilder je Sekunde
+- 524 Tests
+
 ## D5 – BOOL-Literale 0/1 (2026-10-29)
 
 - SCL: `0` und `1` gelten überall als Bool, wo ein Bool erwartet wird – Zuweisung (`"Motor" := 1;`),

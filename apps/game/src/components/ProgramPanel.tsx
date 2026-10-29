@@ -15,6 +15,7 @@ import { formatDiagnostic, type ProjectDiagnostic } from '@zyklus/scl-compiler';
 import type { CpuCompileResult } from '@zyklus/levels';
 import { t } from '../i18n';
 import { setCompletionSymbols } from '../monaco-setup';
+import { formatValue, useBoolFormat } from '../state/prefs';
 import { updateProject } from '../state/edit';
 import { emptyFup, isFupBody } from '@zyklus/fup-model';
 import { DbPanel, INSTANCE_TYPES } from './DbPanel';
@@ -26,11 +27,21 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 type Tab = 'main' | 'tags' | 'dbs';
 
+/** Wert eines Operanden in der laufenden Simulation */
+export type WatchReader = (
+  cpu: string,
+  ref: { tag?: string; db?: string; member?: string; local?: string; block?: string },
+) => boolean | number | undefined;
+
 interface Props {
   solution: Solution;
   compiled: Map<string, CpuCompileResult>;
   onChange: (s: Solution) => void;
+  /** Beobachten: nur während einer Simulation gesetzt */
+  watch?: WatchReader;
 }
+
+const REF_RE = /"([^"]+)"(?:\.([A-Za-z_][A-Za-z0-9_]*))?|#([A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*)/g;
 
 const isCode = (b: Block): b is CodeBlock => b.kind === 'OB' || b.kind === 'FB' || b.kind === 'FC';
 
@@ -60,7 +71,8 @@ function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
   return { kind, name, number, lang: 'SCL', iface, source: '', ...(event ? { event } : {}) };
 }
 
-export function ProgramPanel({ solution, compiled, onChange }: Props) {
+export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
+  const boolFormat = useBoolFormat();
   const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
   const [cpuId, setCpuId] = useState<string | undefined>(cpus[0]?.id);
   const [tab, setTab] = useState<Tab>('main');
@@ -343,6 +355,40 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
             />
           ) : (
             <SclEditor
+              live={
+                watch &&
+                ((line) => {
+                  const code = line.replace(/\/\/.*$/, '');
+                  const parts: string[] = [];
+                  const seen = new Set<string>();
+                  for (const m of code.matchAll(REF_RE)) {
+                    const [all, name, member, local] = m;
+                    if (seen.has(all) || parts.length >= 4) continue;
+                    seen.add(all);
+                    const isDb =
+                      !!member ||
+                      project.blocks.some(
+                        (b) =>
+                          b.name === name && b.kind !== 'OB' && b.kind !== 'FB' && b.kind !== 'FC',
+                      );
+                    const v = local
+                      ? block.kind === 'OB'
+                        ? watch(cpuId, {
+                            local,
+                            block: block.name === MAIN_OB ? undefined : block.name,
+                          })
+                        : undefined
+                      : isDb && member
+                        ? watch(cpuId, { db: name, member })
+                        : watch(cpuId, { tag: name });
+                    if (v === undefined) continue;
+                    parts.push(
+                      `${local ? `#${local}` : member ? `${name}.${member}` : name} = ${formatValue(v, boolFormat, typeof v === 'number' && !Number.isInteger(v) ? 2 : 0)}`,
+                    );
+                  }
+                  return parts.length ? parts.join('   ') : undefined;
+                })
+              }
               key={block.name}
               value={block.source}
               onChange={(source) => changeBlock((b) => ({ ...b, source }))}
@@ -357,6 +403,19 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
       {tab === 'tags' && (
         <div className="scroll">
           <TagTable
+            live={
+              watch &&
+              ((tag) => {
+                const v = watch(cpuId, { tag: tag.name });
+                return v === undefined
+                  ? ''
+                  : formatValue(
+                      v,
+                      boolFormat,
+                      typeof v === 'number' && !Number.isInteger(v) ? 2 : 0,
+                    );
+              })
+            }
             tags={project.tags}
             onChange={(tags) => change((p) => ({ ...p, tags }))}
             errorRows={errorRows.get('tags')}

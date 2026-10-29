@@ -8,10 +8,12 @@ interface Props {
   tags: Tag[];
   onChange: (tags: Tag[]) => void;
   errorRows?: Set<number>;
+  /** Beobachten: aktueller Wert je Variable (während der Simulation) */
+  live?: (tag: Tag) => string | undefined;
 }
 
 /** PLC-Variablentabelle. Zeilen angeschlossener Geräte haben eine feste Adresse. */
-export function TagTable({ tags, onChange, errorRows }: Props) {
+export function TagTable({ tags, onChange, errorRows, live }: Props) {
   const set = (i: number, patch: Partial<Tag>) =>
     onChange(tags.map((r, k) => (k === i ? { ...r, ...patch } : r)));
   return (
@@ -21,6 +23,7 @@ export function TagTable({ tags, onChange, errorRows }: Props) {
           <th>{t('table.name')}</th>
           <th>{t('table.type')}</th>
           <th>{t('table.address')}</th>
+          {live && <th>{t('table.value')}</th>}
           <th>{t('table.comment')}</th>
           <th />
         </tr>
@@ -58,6 +61,7 @@ export function TagTable({ tags, onChange, errorRows }: Props) {
                   spellCheck={false}
                 />
               </td>
+              {live && <td className="live-cell">{live(tag)}</td>}
               <td>
                 <input
                   value={tag.comment ?? ''}

@@ -2393,3 +2393,227 @@ code {
   text-anchor: end;
   font-family: var(--font-mono);
 }
+
+/* ---------- D6: Zeitdiagramm ---------- */
+
+.analyzer-box {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.analyzer {
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: crosshair;
+}
+.analyzer .row-even {
+  fill: #171b20;
+}
+.analyzer .row-odd {
+  fill: var(--bg-deep);
+}
+.analyzer .row-label {
+  fill: var(--text);
+  font-size: var(--t-xs);
+}
+.analyzer .row-value {
+  fill: var(--c-signal);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-anchor: end;
+}
+.analyzer .row-axis {
+  fill: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-anchor: end;
+}
+.analyzer .grid {
+  stroke: #232931;
+}
+.analyzer .tick {
+  fill: var(--muted);
+  font-size: 10px;
+  text-anchor: middle;
+}
+.analyzer .trace-expected {
+  fill: none;
+  stroke: #c9ced3;
+  stroke-width: 8;
+  stroke-linejoin: round;
+  opacity: 0.2;
+}
+.analyzer .trace {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+.analyzer .trace-bool {
+  stroke: var(--c-signal);
+}
+.analyzer .trace-analog {
+  stroke: #a27ce6;
+}
+.analyzer .trace-plant {
+  stroke: #e0c46a;
+}
+.analyzer .trace-truth {
+  stroke: #c9ced3;
+  stroke-width: 1.2;
+}
+.analyzer .mismatch {
+  stroke: var(--red);
+  stroke-width: 0.8;
+  cursor: pointer;
+}
+.analyzer .cursor-now {
+  stroke: var(--muted);
+  stroke-dasharray: 2 3;
+}
+.analyzer .cursor line {
+  stroke: var(--text);
+  stroke-width: 1;
+}
+.analyzer .cursor rect {
+  fill: var(--panel-2);
+  stroke: var(--line-strong);
+}
+.analyzer .cursor text {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-anchor: middle;
+}
+.analyzer .cursor-pinned line {
+  stroke: var(--c-select);
+  stroke-width: 1.5;
+}
+.analyzer .cursor-pinned rect {
+  stroke: var(--c-select);
+}
+
+/* ---------- D6: Drucktaster, Prozessansicht ---------- */
+
+.sim-body {
+  grid-template-rows: minmax(0, 1fr);
+}
+.plant {
+  min-width: 0;
+}
+.plant-svg {
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.panel-buttons {
+  gap: var(--s-2);
+}
+.push {
+  gap: var(--s-2);
+  padding: 4px var(--s-3) 4px 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  transform: none;
+  box-shadow: none;
+  text-align: left;
+}
+.push-nc {
+  background: var(--panel-2);
+  border-color: var(--line);
+}
+.push-collar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #59616a, #2a2f35 70%);
+  box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+.push-cap {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #6fe0a0, #23884f 70%);
+  box-shadow:
+    0 3px 0 #14532f,
+    0 4px 5px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+  transition:
+    transform 60ms,
+    box-shadow 60ms;
+}
+.push-nc .push-cap {
+  background: radial-gradient(circle at 38% 32%, #f08a85, #b8302b 70%);
+  box-shadow:
+    0 3px 0 #6e1714,
+    0 4px 5px rgba(0, 0, 0, 0.5);
+}
+.push-down .push-cap {
+  transform: translateY(1px);
+  box-shadow:
+    0 0 0 #14532f,
+    inset 0 2px 3px rgba(0, 0, 0, 0.45);
+}
+.push-switch .push-collar {
+  border-radius: 6px;
+}
+.push-switch .push-cap {
+  width: 8px;
+  height: 22px;
+  border-radius: 3px;
+  background: #c9ced3;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  transform: rotate(-35deg);
+}
+.push-switch.push-down .push-cap {
+  transform: rotate(35deg);
+}
+.push-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.push-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+.push-signal .led {
+  width: 7px;
+  height: 7px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .push-cap {
+    transition: none;
+  }
+}
+.live-value {
+  color: #7fe0c8 !important;
+  font-style: italic;
+  opacity: 0.85;
+}
+.live-cell {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  color: var(--c-signal);
+  text-align: right;
+  min-width: 56px;
+}
+.meta-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.analyzer .cursor {
+  stroke-dasharray: none;
+}

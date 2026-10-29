@@ -1,4 +1,8 @@
-# Design-Überarbeitung D1–D6 – Plan (zur Freigabe)
+# Design-Überarbeitung D1–D6 – Plan
+
+**Stand:** D1–D6 umgesetzt, siehe [README.md](README.md) (vorher/nachher) und `CHANGELOG.md`.
+Abweichungen vom Plan: Trennwand 30 mm; eigene 0-V-Rückleitung nicht gezeichnet (das Modell kennt
+keine Bezugsleiter); Light Theme nur als Tokens; volle Beobachtung (Haltepunkte, Steuern) bleibt M9.
 
 Grundlage: Auftrag „Design-Überarbeitung + Erweiterungen“, Rückfragen vom 2026-10-29,
 Ist-Screenshots in [`before/`](before/) (erzeugt mit `node scripts/screenshots.mjs docs/design/before`).

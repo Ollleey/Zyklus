@@ -1,5 +1,6 @@
 import { tr, type Edge, type Level } from '@zyklus/sim-core';
 import { t } from '../i18n';
+import { formatBool, useBoolFormat } from '../state/prefs';
 
 interface Props {
   level: Level;
@@ -94,6 +95,7 @@ export function PlantView({
   onAnalog,
   testParams,
 }: Props) {
+  const boolFormat = useBoolFormat();
   const press = (id: string) => {
     pressedAt.set(id, performance.now());
     onActuate(id, true);
@@ -158,14 +160,14 @@ export function PlantView({
         )}
         {type === 'tanks' && (
           <>
-            <g transform="translate(-75 0)">
+            <g transform="translate(-85 0)">
               <Tank
                 level={num(traces?.get('plant.levelA'), 50)}
                 pump={on(sub('a', 'pump'))}
                 label={sub('a', 'pump')}
               />
             </g>
-            <g transform="translate(115 0)">
+            <g transform="translate(95 0)">
               <Tank
                 level={num(traces?.get('plant.levelB'), 50)}
                 pump={on(sub('b', 'pump'))}
@@ -292,8 +294,17 @@ export function PlantView({
               onPointerUp={() => manual && !isSwitch && release(d.id)}
               onPointerLeave={() => manual && !isSwitch && pressed && release(d.id)}
             >
-              <span className={`led ${signal ? 'led-on' : ''}`} />
-              <span className="push-label">{tr(d.name).replace(/\s*\([^)]*\)$/, '')}</span>
+              <span className="push-collar" aria-hidden="true">
+                <span className="push-cap" />
+              </span>
+              <span className="push-text">
+                <span className="push-label">{tr(d.name).replace(/\s*\([^)]*\)$/, '')}</span>
+                <span className="push-signal">
+                  <span className={`led ${signal ? 'led-on' : ''}`} />
+                  {d.id}
+                  {d.nc ? ' · Öffner' : ''} = {formatBool(signal, boolFormat)}
+                </span>
+              </span>
             </button>
           );
         })}

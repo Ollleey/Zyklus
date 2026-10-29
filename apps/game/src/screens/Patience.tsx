@@ -123,10 +123,17 @@ export function Patience({ onBack }: { onBack: () => void }) {
           ← {t('level.back')}
         </button>
         <div className="topbar-title">
-          {t('patience.title')}
-          <span className="customer">
-            {t('patience.deal')} {game.seed} · {game.moves} {t('patience.moves')} · {stats.wins}{' '}
-            {t('patience.wins')}
+          <span className="topbar-name">{t('patience.title')}</span>
+          <span className="customer meta-list">
+            <span>
+              {t('patience.deal')} {game.seed}
+            </span>
+            <span>
+              {game.moves} {t('patience.moves')}
+            </span>
+            <span>
+              {stats.wins} {t('patience.wins')}
+            </span>
           </span>
         </div>
         <div className="topbar-actions">

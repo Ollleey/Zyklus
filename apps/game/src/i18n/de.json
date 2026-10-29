@@ -123,5 +123,7 @@
   "cabinet.onboard": "E/A",
   "cabinet.inspector": "Eigenschaften der Baugruppe",
   "cabinet.range": "Messbereich",
-  "sim.boolFormat": "BOOL anzeigen als"
+  "sim.boolFormat": "BOOL anzeigen als",
+  "table.value": "Wert",
+  "inbox.best": "Bestwert"
 }
