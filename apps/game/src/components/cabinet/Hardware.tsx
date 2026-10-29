@@ -448,14 +448,42 @@ export function IoFront({
   const rowH = perCol ? Math.min(6.4, 52 / perCol) : 0;
   const narrow = colW < 16;
   const symChars = narrow ? 8 : 11;
+  const termTop = y + h - 46;
   return (
     <g className="hw-io">
-      <rect x={left} y={y} width={w} height={h} rx={1.6} fill="url(#hw-io)" />
-      <rect x={left} y={y} width={w} height={2.2} rx={1} fill={stripe} opacity={0.85} />
-      <text x={left + w / 2} y={y + 8} className="hw-name">
+      <rect x={left} y={y} width={w} height={h} rx={1.6} fill="url(#hw-housing)" />
+      {/* Lüftungsschlitze wie an der CPU */}
+      {Array.from({ length: Math.max(1, Math.floor((w - 3) / 3)) }, (_, i) => (
+        <rect
+          key={i}
+          x={left + 1.8 + i * 3}
+          y={y + 1.2}
+          width={1.4}
+          height={2.6}
+          rx={0.5}
+          fill="#15181B"
+        />
+      ))}
+      {/* Kennfarbe der Baugruppe */}
+      <rect x={left + 0.8} y={y + 4.4} width={w - 1.6} height={0.9} rx={0.4} fill={stripe} />
+      {/* Klemmenblock */}
+      {rows > 0 && (
+        <g>
+          <rect
+            x={left + 0.5}
+            y={termTop}
+            width={w - 1}
+            height={h - (termTop - y) - 0.6}
+            rx={1}
+            fill="#3A4047"
+          />
+          <rect x={left + 0.5} y={termTop} width={w - 1} height={0.5} fill="#596169" />
+        </g>
+      )}
+      <text x={left + w / 2} y={y + 9.4} className="hw-name">
         {title ?? tr(t.name)}
       </text>
-      <text x={left + w / 2} y={y + 12.2} className="hw-sub">
+      <text x={left + w / 2} y={y + 13.2} className="hw-sub">
         {id}
       </text>
       {t.alarms && (
@@ -464,17 +492,20 @@ export function IoFront({
         </text>
       )}
       {/* Beschriftungsstreifen */}
-      {rows > 0 && (
-        <rect
-          x={left + 0.8}
-          y={y + 17.5}
-          width={w - 1.6}
-          height={perCol * rowH + 1.5}
-          fill="#F4F5F6"
-          stroke="#C3C8CD"
-          strokeWidth={0.25}
-        />
-      )}
+      {rows > 0 &&
+        Array.from({ length: cols }, (_, col) => (
+          <rect
+            key={`strip${col}`}
+            x={left + 0.8 + col * colW + 3}
+            y={y + 17.5}
+            width={colW - 3.4}
+            height={perCol * rowH + 1.5}
+            rx={0.4}
+            fill="#F2F3F4"
+            stroke="#15181B"
+            strokeWidth={0.35}
+          />
+        ))}
       {Array.from({ length: rows }, (_, ch) => {
         const col = Math.floor(ch / perCol);
         const cx0 = left + 0.8 + col * colW;
@@ -487,20 +518,20 @@ export function IoFront({
         const addr = addresses[ch]?.replace('%', '') ?? `${ch}`;
         const sym = symbols[ch];
         const second = sym ?? (analog && ranges[ch] ? RANGE_LABEL[ranges[ch]!] : undefined);
-        const tx = cx0 + 3.6;
+        const tx = cx0 + 3.8;
         return (
           <g key={ch}>
             {analog ? (
-              <Led x={cx0 + 1.6} y={cy} r={0.9} on={fault} color={LED.red} />
+              <Led x={cx0 + 1.5} y={cy} r={0.85} on={fault} color={LED.red} />
             ) : (
-              <Led x={cx0 + 1.6} y={cy} r={1} on={v === true} color={LED.green} />
+              <Led x={cx0 + 1.5} y={cy} r={0.95} on={v === true} color={LED.green} />
             )}
             <text x={tx} y={second ? cy - 0.4 : cy + 0.9} className="hw-addr">
               {addr}
             </text>
             {analog && (
               <g>
-                <rect x={cx0 + colW - 4.6} y={cy - 2.2} width={3.6} height={1.1} fill="#C9CED3" />
+                <rect x={cx0 + colW - 4.6} y={cy - 2.2} width={3.6} height={1.1} fill="#D5D9DD" />
                 <rect
                   x={cx0 + colW - 4.6}
                   y={cy - 2.2}
@@ -557,8 +588,8 @@ export function IoFront({
               cx={p.x}
               cy={p.y}
               r={1.2}
-              fill={wired[ch] ? '#3B4148' : '#1E2226'}
-              stroke="#80878E"
+              fill={wired[ch] ? '#2A2F35' : '#121417'}
+              stroke="#6E767E"
               strokeWidth={0.3}
             />
             {wired[ch] && (

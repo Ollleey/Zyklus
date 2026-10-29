@@ -2617,3 +2617,24 @@ code {
 .analyzer .cursor {
   stroke-dasharray: none;
 }
+
+/* ---------- E/A-Baugruppen im Gehäuse der CPU ---------- */
+
+.hw-io .hw-name {
+  fill: #e4e7ea !important;
+}
+.hw-io .hw-sub {
+  fill: #9aa4ae !important;
+}
+.hw-io .hw-sub-accent {
+  fill: #f4a64b !important;
+}
+.hw-io .hw-term-no {
+  fill: #aab2ba !important;
+}
+.hw-io .hw-addr {
+  fill: #1c2126 !important;
+}
+.hw-io .hw-sym {
+  fill: #4d5760 !important;
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+## D6.1 – E/A-Baugruppen im Gehäuse der CPU (2026-10-29)
+
+- E/A-Baugruppen, Koppelmodul und E/A-Feld der Kompakt-CPU im selben anthrazitfarbenen Gehäuse wie
+  die CPU: Lüftungsschlitze, schmale Kennfarbe statt farbigem Kopf, helle Beschriftung auf dunkler
+  Front, Kanal-LEDs auf der Front neben weißen Beschriftungsstreifen, dunkler Klemmenblock mit
+  orangen Betätigern
+
 ## D6 – Zeitdiagramm, Prozessansicht, Feinschliff, Abnahme (2026-10-29)
 
 - Zeitdiagramm neu: Ist kräftig (Bool cyan, Analog violett, Anlagenwerte gelb), Soll als helles
