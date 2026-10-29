@@ -5,6 +5,7 @@ import { Handbook } from './screens/Handbook';
 import { Inbox, type Place } from './screens/Inbox';
 import { LevelScreen } from './screens/LevelScreen';
 import { Patience } from './screens/Patience';
+import { SandboxScreen } from './screens/SandboxScreen';
 import { loadProgress } from './state/persistence';
 
 export function App() {
@@ -30,6 +31,7 @@ export function App() {
   }
   if (place === 'handbook') return <Handbook onBack={home} />;
   if (place === 'patience') return <Patience onBack={home} />;
+  if (place === 'sandkasten') return <SandboxScreen onBack={home} />;
   if (place === 'sandbox') {
     return <LevelScreen level={SANDBOX} onBack={home} onProgress={() => {}} sandbox />;
   }

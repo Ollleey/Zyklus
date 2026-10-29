@@ -90,7 +90,7 @@ await page.waitForTimeout(1000);
 await startSim(100, 1500);
 await shot('04-analog-behaelter');
 
-// Sandkasten mit allen Modultypen
+// Testpult mit allen Modultypen
 const types = [
   'cpu-kompakt',
   'di8',
@@ -129,7 +129,7 @@ await prepare([
       'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Lampe_1" := "Taster_1";\n"Anzeige" := "Poti";\nEND_ORGANIZATION_BLOCK',
   },
 ]);
-await button('Sandkasten').click();
+await button('Testpult').click();
 await page.waitForTimeout(1000);
 await closeBrief();
 await shot('05-sandkasten-alle-module');

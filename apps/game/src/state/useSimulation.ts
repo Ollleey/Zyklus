@@ -22,6 +22,10 @@ export interface SimControls {
   reset: () => void;
   setSpeed: (s: number) => void;
   setManual: (device: string, v: boolean | number) => void;
+  /** laufenden Versuch holen bzw. anlegen (Bedienung in der Anlage vor dem Start) */
+  ensureRun: () => LevelRun | null;
+  /** Bild neu zeichnen (nach Eingriffen ohne laufende Simulation) */
+  redraw: () => void;
 }
 
 /** Steuert einen schrittweisen Simulationslauf im Browser (Echtzeit × Faktor). */
@@ -118,5 +122,7 @@ export function useSimulation(
       run?.setManual(device, v);
       setFrame((f) => f + 1);
     },
+    ensureRun: ensure,
+    redraw: () => setFrame((f) => f + 1),
   };
 }

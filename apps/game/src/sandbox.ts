@@ -13,13 +13,13 @@ const dev = (
 ): Device => ({ id, tag, name: T(name), kind, side, role, ...extra });
 
 /**
- * Sandkasten: freier Aufbau mit allen Baugruppen und einem Satz Testgeräte. Es gibt keine
+ * Testpult: freier Aufbau mit allen Baugruppen und einem Satz Testgeräte. Es gibt keine
  * Prüfung – nur den Handbetrieb. Technisch ein Level mit einem leeren Testfall.
  */
 export const SANDBOX: Level = validateLevel({
   id: 'sandbox',
   order: 0,
-  title: T('Sandkasten'),
+  title: T('Testpult'),
   customer: T('Eigene Werkstatt'),
   mail: {
     from: T('Werkstatt'),

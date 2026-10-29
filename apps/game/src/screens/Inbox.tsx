@@ -2,7 +2,8 @@ import { tr, type Level } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import type { LevelProgress } from '../state/persistence';
 
-export type Place = 'handbook' | 'sandbox' | 'patience';
+/** `sandbox` ist das Testpult (Schlüssel bleibt wegen gespeicherter Stände) */
+export type Place = 'handbook' | 'sandbox' | 'sandkasten' | 'patience';
 
 /** Gelöste Aufträge, ab denen das Bonusspiel freigeschaltet ist */
 export const PATIENCE_UNLOCK = 3;
@@ -31,8 +32,11 @@ export function Inbox({ levels, progress, onOpen, onPlace }: Props) {
           <button className="btn" onClick={() => onPlace('handbook')}>
             📖 {t('handbook.title')}
           </button>
+          <button className="btn" onClick={() => onPlace('sandkasten')}>
+            ⚙ {t('sandkasten.title')}
+          </button>
           <button className="btn" onClick={() => onPlace('sandbox')}>
-            ⚙ {t('sandbox.title')}
+            ⏻ {t('testpult.title')}
           </button>
           <button
             className="btn"

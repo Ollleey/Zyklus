@@ -10,7 +10,18 @@ export interface MenuItem {
 }
 
 /** Knopf mit aufklappender Liste; schließt bei Auswahl, Klick daneben und Esc. */
-export function Menu({ label, items }: { label: ReactNode; items: MenuItem[] }) {
+export function Menu({
+  label,
+  items,
+  small,
+  ariaLabel,
+}: {
+  label: ReactNode;
+  items: MenuItem[];
+  /** kleiner Knopf (Panelkopf) */
+  small?: boolean;
+  ariaLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -53,7 +64,8 @@ export function Menu({ label, items }: { label: ReactNode; items: MenuItem[] }) 
   return (
     <div className="menu" ref={root}>
       <button
-        className={`btn ${open ? 'btn-active' : ''}`}
+        className={`btn ${small ? 'btn-small' : ''} ${open ? 'btn-active' : ''}`}
+        aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}

@@ -1,5 +1,5 @@
 import type { AnalogRange, DeviceRole } from '@zyklus/sim-core';
-import { num, str, type Params, type Part, type PartType } from './model';
+import { num, rectOf, str, type Params, type Part, type PartType, type Rect } from './model';
 
 /** Elektrischer Anschluss eines Bauteils (wird zum Feldgerät im Schaltschrank) */
 export interface IoPoint {
@@ -501,4 +501,43 @@ export function createPart(
   const id = `p${parts.reduce((m, p) => Math.max(m, Number(p.id.slice(1)) || 0), 0) + 1}`;
   const params = structuredClone(CATALOG[type].defaults);
   return { id, type, tag: nextTag(type, parts), x: at.x, y: at.y, z: at.z ?? 100, rot: 0, params };
+}
+
+/** Einbauhöhe beim Ablegen aus der Bibliothek */
+export function defaultZ(type: PartType): number {
+  switch (CATALOG[type].category) {
+    case 'sensor':
+      return type === 'ultrasonic' ? 400 : type === 'level' || type === 'levelswitch' ? 0 : 115;
+    case 'bedien':
+      return 0;
+    default:
+      return type === 'bin' ? 60 : type === 'tank' || type === 'pump' || type === 'valve' ? 0 : 100;
+  }
+}
+
+/** Hüllkörper eines Bauteils: Grundfläche und Höhenbereich (für Seitenansicht und Auswahl) */
+export function boundsOf(part: Part): { rect: Rect; z0: number; z1: number } {
+  const size = CATALOG[part.type].size(part.params);
+  const rect = rectOf(part, size.l, size.w);
+  const z = part.z;
+  switch (part.type) {
+    case 'belt':
+    case 'rollers':
+    case 'curve':
+    case 'turntable':
+    case 'lift':
+    case 'loadcell':
+      return { rect, z0: z - size.h, z1: z };
+    case 'chute':
+      return { rect, z0: z - 20, z1: z + num(part.params, 'drop', 100) };
+    case 'magazine':
+      return { rect, z0: z - 40, z1: z + size.h };
+    case 'bin':
+      // steht auf dem Boden, höchstens 150 mm tief
+      return { rect, z0: Math.max(0, z - size.h), z1: z };
+    default:
+      if (CATALOG[part.type].category === 'sensor')
+        return { rect, z0: z - size.h / 2, z1: z + size.h / 2 };
+      return { rect, z0: z, z1: z + size.h };
+  }
 }

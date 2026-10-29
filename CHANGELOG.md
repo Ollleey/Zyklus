@@ -1,5 +1,25 @@
 # Changelog
 
+## S3 – Sandkasten: Arbeitsbereich und Anlageneditor (2026-10-29)
+
+- Bewegliche Panels für Aufträge, Testpult und Sandkasten:
+  - Andockbereiche links, rechts und unten; mehrere Panels in einem Bereich werden zu Tabs
+  - Verschieben durch Ziehen des Tabs oder über „⋯“, Schließen mit „✕“
+  - Menü „Ansicht“ öffnet geschlossene Panels wieder und stellt die Standardanordnung her
+  - Anordnung und Größen werden gespeichert; die Aufträge behalten ihre bisherige Anordnung und
+    Panelgrößen
+- Neuer Modus **Sandkasten**, der bisherige heißt jetzt **Testpult** (gespeicherte Stände bleiben)
+- Anlageneditor:
+  - Draufsicht und Seitenansicht, Raster mit Einrasten, Zoom mit dem Mausrad, Verschieben der
+    Fläche, Einpassen
+  - Bibliothek mit allen Bauteilen zum Ziehen oder Klicken
+  - Drehen (R), Kopieren (Strg+C/V, Strg+D), Löschen (Entf), Pfeiltasten verschieben;
+    Rückgängig/Wiederholen mit 100 Schritten, Ziehen zählt als ein Schritt
+  - Inspektor mit Kennzeichnung (automatisch, editierbar, auf Eindeutigkeit geprüft), Lage,
+    Drehung, allen Parametern, Störung und der Liste der Anschlüsse
+  - Erfassungszonen der Sensoren halbtransparent; Werkstücke per Rechtsklick einlegen
+- 570 Tests
+
 ## S2 – Sandkasten: Sensor-Physik (2026-10-29)
 
 - Alle Sensoren als reine Funktion `detect(sensor, szene, vorher)`:

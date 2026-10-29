@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   emptySolution,
   moduleType,
@@ -7,6 +7,7 @@ import {
   tr,
   verifySolution,
   type Level,
+  type LevelRun,
   type Solution,
   type Verification,
 } from '@zyklus/sim-core';
@@ -21,6 +22,7 @@ import { ResultDialog } from '../components/ResultDialog';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Markdown } from '../ui/Markdown';
 import { Menu } from '../ui/Menu';
+import { Dock, useDockLayout, viewMenu, type DockLayout, type PanelDef } from '../ui/Dock';
 import { Splitter, useStoredNumber } from '../ui/Split';
 import {
   clearSolution,
@@ -30,21 +32,43 @@ import {
   type LevelProgress,
 } from '../state/persistence';
 import { setBoolFormat, useBoolFormat } from '../state/prefs';
-import { useSimulation } from '../state/useSimulation';
+import { useSimulation, type SimControls } from '../state/useSimulation';
+
+/** Standardanordnung der Aufträge: wie bisher Schrank links, Programm rechts, Simulation unten */
+const LEVEL_DOCK: DockLayout = {
+  areas: { left: ['cabinet'], right: ['program'], bottom: ['sim'] },
+  active: {},
+};
+
+/** Sandkasten: Anlage und Schaltschrank als Tabs links, Programm rechts, Simulation unten */
+const SANDKASTEN_DOCK: DockLayout = {
+  areas: { left: ['plant', 'cabinet'], right: ['program'], bottom: ['sim'] },
+  active: { left: 'plant' },
+};
+
+/** Zusatz für den Sandkasten: Anlagenpanel und Inhalt des Simulationsbereichs */
+export interface PlantSlot {
+  panel: (run: LevelRun | null, sim: SimControls) => PanelDef;
+  simBody: (run: LevelRun | null, sim: SimControls) => ReactNode;
+  /** Kopfzeile: zusätzliche Einträge im Menü „Mehr“ */
+  menu?: { label: string; onSelect: () => void; disabled?: boolean }[];
+}
 
 interface Props {
   level: Level;
   progress?: LevelProgress;
   onBack: () => void;
   onProgress: (p: Record<string, LevelProgress>) => void;
-  /** Sandkasten: nur Handbetrieb, keine Prüfung */
+  /** Testpult und Sandkasten: nur Handbetrieb, keine Prüfung */
   sandbox?: boolean;
+  /** Sandkasten mit eigener Anlage */
+  plant?: PlantSlot;
 }
 
-export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Props) {
+export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plant }: Props) {
   const [solution, setSolution] = useState<Solution>(() => loadSolution(level));
   const [brief, setBrief] = useState<'mail' | 'datasheet' | null>(() =>
-    solution.modules.length ? null : sandbox ? 'datasheet' : 'mail',
+    solution.modules.length || plant ? null : sandbox ? 'datasheet' : 'mail',
   );
   const [result, setResult] = useState<Verification | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -52,6 +76,14 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => saveSolution(level.id, solution), [level.id, solution]);
+
+  // Sandkasten: Leitungen zu entfernten Bauteilen fallen weg
+  useEffect(() => {
+    if (!plant) return;
+    const ids = new Set(level.devices.map((d) => d.id));
+    if (solution.wires.some((w) => !ids.has(w.device)))
+      setSolution({ ...solution, wires: solution.wires.filter((w) => ids.has(w.device)) });
+  }, [plant, level, solution]);
 
   const compiled = useMemo(() => compileSolution(level, solution), [level, solution]);
   const sim = useSimulation(level, solution, compiled, sandbox ? 'manual' : 'test');
@@ -145,167 +177,53 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
     else setSolution(parsed.solution);
   };
 
-  // Panelgrößen: Schrankbreite (Anteil), Simulationshöhe (px), Prozessansicht (Anteil)
-  const [splitX, setSplitX] = useStoredNumber('split.x', 0.55, [0.3, 0.75]);
-  const [simH, setSimH] = useStoredNumber('split.sim', 320, [200, 700]);
+  // Breite der Prozessansicht im Simulationsbereich (Anteil)
   const [plantW, setPlantW] = useStoredNumber('split.plant', 0.34, [0.22, 0.6]);
 
-  return (
-    <div className="level">
-      <header className="topbar">
-        <button className="btn btn-ghost" onClick={onBack}>
-          ← {t('level.back')}
-        </button>
-        <div className="topbar-title">
-          <span className="topbar-name">
-            {!sandbox && <span className="level-no">{level.order}</span>}
-            {tr(level.title)}
-          </span>
-          <span className="customer">{tr(level.customer)}</span>
-        </div>
-        <div className="segmented" role="group" aria-label={t('level.brief')}>
-          <button
-            className={`seg ${brief === 'mail' ? 'seg-active' : ''}`}
-            aria-pressed={brief === 'mail'}
-            onClick={() => setBrief(brief === 'mail' ? null : 'mail')}
-          >
-            {t('level.mail')}
-          </button>
-          <button
-            className={`seg ${brief === 'datasheet' ? 'seg-active' : ''}`}
-            aria-pressed={brief === 'datasheet'}
-            onClick={() => setBrief(brief === 'datasheet' ? null : 'datasheet')}
-          >
-            {t('level.datasheet')}
-          </button>
-        </div>
-        <div className="topbar-actions">
-          <dl className="hdr-metrics">
-            <div>
-              <dt>{t('metrics.cost')}</dt>
-              <dd>¤{compiled.analysis.cost}</dd>
-            </div>
-            <div>
-              <dt>{t('metrics.size')}</dt>
-              <dd>{compiled.size}</dd>
-            </div>
-          </dl>
-          <Menu
-            label={t('level.more')}
-            items={[
-              {
-                label: t('level.save'),
-                title: t('level.save.title'),
-                disabled: !solution.modules.length,
-                onSelect: () =>
-                  download(
-                    `${level.id}.zyklus.json`,
-                    toSolutionFile(level.id, solution),
-                    'application/json',
-                  ),
-              },
-              {
-                label: t('level.load'),
-                title: t('level.load.title'),
-                onSelect: () => fileInput.current?.click(),
-              },
-              {
-                label: t('level.export'),
-                disabled: !solution.modules.length,
-                onSelect: exportScl,
-              },
-              {
-                label: t('level.reset'),
-                danger: true,
-                disabled: !solution.modules.length,
-                onSelect: () => setConfirmReset(true),
-              },
-            ]}
-          />
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".json,application/json"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (f) void importSolution(f);
-            }}
-          />
-          {!sandbox && (
-            <button
-              className="btn btn-primary"
-              onClick={verify}
-              disabled={!compiled.ok}
-              title={compiled.ok ? '' : t('sim.notReady')}
-            >
-              ▶ {t('level.verify')}
-            </button>
-          )}
-        </div>
-      </header>
-      {notice && (
-        <div className="notice" role="alert">
-          {notice}
-          <button
-            className="icon-btn"
-            onClick={() => setNotice(null)}
-            aria-label={t('dialog.close')}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      <main className="workspace" style={{ gridTemplateRows: `minmax(0, 1fr) 6px ${simH}px` }}>
-        <div
-          className="ws-top"
-          style={{ gridTemplateColumns: `minmax(0, ${splitX}fr) 6px minmax(0, ${1 - splitX}fr)` }}
-        >
-          <section className="pane pane-cabinet">
-            <h3 className="pane-title">{t('cabinet.title')}</h3>
-            <Cabinet
-              level={level}
-              solution={solution}
-              analysis={compiled.analysis}
-              onChange={setSolution}
-              values={run ? values : undefined}
-              cpuStatus={run ? cpuStatus : undefined}
-              readIo={run ? readIo : undefined}
-              canSwitch={sandbox}
-              onCpuSwitch={(cpu, mode) => {
-                run?.setCpuSwitch(cpu, mode);
-                if (!sim.running) sim.play();
-              }}
-            />
-          </section>
-          <Splitter
-            dir="x"
-            label={t('layout.splitX')}
-            onDrag={(p) => setSplitX(p.x / p.width)}
-            onStep={(d) => setSplitX(splitX + d * 0.02)}
-          />
-          <section className="pane pane-program">
-            <h3 className="pane-title">{t('program.title')}</h3>
-            <ProgramPanel
-              solution={solution}
-              compiled={compiled.cpus}
-              onChange={setSolution}
-              watch={run ? watch : undefined}
-            />
-          </section>
-        </div>
-        <Splitter
-          dir="y"
-          label={t('layout.splitY')}
-          onDrag={(p) => setSimH(p.height - p.y)}
-          onStep={(d) => setSimH(simH - d * 20)}
+  const panels: PanelDef[] = [
+    {
+      id: 'cabinet',
+      title: t('cabinet.title'),
+      className: 'pane-cabinet',
+      render: () => (
+        <Cabinet
+          level={level}
+          solution={solution}
+          analysis={compiled.analysis}
+          onChange={setSolution}
+          values={run ? values : undefined}
+          cpuStatus={run ? cpuStatus : undefined}
+          readIo={run ? readIo : undefined}
+          canSwitch={sandbox}
+          onCpuSwitch={(cpu, mode) => {
+            run?.setCpuSwitch(cpu, mode);
+            if (!sim.running) sim.play();
+          }}
         />
-
-        <section className="pane pane-sim">
+      ),
+    },
+    {
+      id: 'program',
+      title: t('program.title'),
+      className: 'pane-program',
+      render: () => (
+        <ProgramPanel
+          solution={solution}
+          compiled={compiled.cpus}
+          onChange={setSolution}
+          watch={run ? watch : undefined}
+        />
+      ),
+    },
+    {
+      id: 'sim',
+      title: t('sim.title'),
+      className: 'pane-sim',
+      inlineHead: true,
+      render: (head) => (
+        <>
           <div className="simbar">
-            <h3 className="pane-title">{t('sim.title')}</h3>
+            {head}
             <select
               hidden={sandbox}
               value={sim.mode === 'manual' ? 'manual' : `${sim.testIdx}`}
@@ -375,42 +293,171 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
               </span>
             )}
           </div>
-          <div
-            className="sim-body"
-            style={{ gridTemplateColumns: `minmax(0, ${1 - plantW}fr) 6px minmax(0, ${plantW}fr)` }}
+          {plant ? (
+            <div className="sim-body sim-body-sandbox">{plant.simBody(run, sim)}</div>
+          ) : (
+            <div
+              className="sim-body"
+              style={{
+                gridTemplateColumns: `minmax(0, ${1 - plantW}fr) 6px minmax(0, ${plantW}fr)`,
+              }}
+            >
+              <LogicAnalyzer level={level} run={run} test={test} />
+              <Splitter
+                dir="x"
+                label={t('layout.splitPlant')}
+                onDrag={(p) => setPlantW(1 - p.x / p.width)}
+                onStep={(d) => setPlantW(plantW - d * 0.02)}
+              />
+              <PlantView
+                level={level}
+                traces={run?.traces}
+                now={run?.time ?? 0}
+                values={values}
+                manual={sim.mode === 'manual'}
+                actuated={(d) => run?.isActuated(d) === true}
+                onActuate={(d, v) => {
+                  sim.setManual(d, v);
+                  if (!sim.running) sim.play();
+                }}
+                analogValue={(d) => {
+                  const v = run?.isActuated(d);
+                  const dev = level.devices.find((x) => x.id === d);
+                  return typeof v === 'number' ? v : (dev?.analog?.min ?? 0);
+                }}
+                testParams={test?.plant}
+                onAnalog={(d, v) => {
+                  sim.setManual(d, v);
+                  if (!sim.running) sim.play();
+                }}
+              />
+            </div>
+          )}
+        </>
+      ),
+    },
+    ...(plant ? [plant.panel(run, sim)] : []),
+  ];
+  const ids = panels.map((p) => p.id);
+  const dockName = plant ? 'sandkasten' : 'auftrag';
+  const dockDefaults = plant ? SANDKASTEN_DOCK : LEVEL_DOCK;
+  const dockSizes = plant ? 'sandkasten' : 'split';
+  const [dock, setDock, resetDock] = useDockLayout(dockName, dockDefaults, ids);
+
+  return (
+    <div className="level">
+      <header className="topbar">
+        <button className="btn btn-ghost" onClick={onBack}>
+          ← {t('level.back')}
+        </button>
+        <div className="topbar-title">
+          <span className="topbar-name">
+            {!sandbox && <span className="level-no">{level.order}</span>}
+            {tr(level.title)}
+          </span>
+          <span className="customer">{tr(level.customer)}</span>
+        </div>
+        <div className="segmented" role="group" aria-label={t('level.brief')} hidden={!!plant}>
+          <button
+            className={`seg ${brief === 'mail' ? 'seg-active' : ''}`}
+            aria-pressed={brief === 'mail'}
+            onClick={() => setBrief(brief === 'mail' ? null : 'mail')}
           >
-            <LogicAnalyzer level={level} run={run} test={test} />
-            <Splitter
-              dir="x"
-              label={t('layout.splitPlant')}
-              onDrag={(p) => setPlantW(1 - p.x / p.width)}
-              onStep={(d) => setPlantW(plantW - d * 0.02)}
-            />
-            <PlantView
-              level={level}
-              traces={run?.traces}
-              now={run?.time ?? 0}
-              values={values}
-              manual={sim.mode === 'manual'}
-              actuated={(d) => run?.isActuated(d) === true}
-              onActuate={(d, v) => {
-                sim.setManual(d, v);
-                if (!sim.running) sim.play();
-              }}
-              analogValue={(d) => {
-                const v = run?.isActuated(d);
-                const dev = level.devices.find((x) => x.id === d);
-                return typeof v === 'number' ? v : (dev?.analog?.min ?? 0);
-              }}
-              testParams={test?.plant}
-              onAnalog={(d, v) => {
-                sim.setManual(d, v);
-                if (!sim.running) sim.play();
-              }}
-            />
-          </div>
-        </section>
-      </main>
+            {t('level.mail')}
+          </button>
+          <button
+            className={`seg ${brief === 'datasheet' ? 'seg-active' : ''}`}
+            aria-pressed={brief === 'datasheet'}
+            onClick={() => setBrief(brief === 'datasheet' ? null : 'datasheet')}
+          >
+            {t('level.datasheet')}
+          </button>
+        </div>
+        <div className="topbar-actions">
+          <dl className="hdr-metrics">
+            <div>
+              <dt>{t('metrics.cost')}</dt>
+              <dd>¤{compiled.analysis.cost}</dd>
+            </div>
+            <div>
+              <dt>{t('metrics.size')}</dt>
+              <dd>{compiled.size}</dd>
+            </div>
+          </dl>
+          <Menu
+            label={t('dock.view')}
+            items={viewMenu(panels, dock, setDock, resetDock, dockDefaults)}
+          />
+          <Menu
+            label={t('level.more')}
+            items={[
+              ...(plant?.menu ?? []),
+              {
+                label: t('level.save'),
+                title: t('level.save.title'),
+                disabled: !solution.modules.length,
+                onSelect: () =>
+                  download(
+                    `${level.id}.zyklus.json`,
+                    toSolutionFile(level.id, solution),
+                    'application/json',
+                  ),
+              },
+              {
+                label: t('level.load'),
+                title: t('level.load.title'),
+                onSelect: () => fileInput.current?.click(),
+              },
+              {
+                label: t('level.export'),
+                disabled: !solution.modules.length,
+                onSelect: exportScl,
+              },
+              {
+                label: t('level.reset'),
+                danger: true,
+                disabled: !solution.modules.length,
+                onSelect: () => setConfirmReset(true),
+              },
+            ]}
+          />
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void importSolution(f);
+            }}
+          />
+          {!sandbox && (
+            <button
+              className="btn btn-primary"
+              onClick={verify}
+              disabled={!compiled.ok}
+              title={compiled.ok ? '' : t('sim.notReady')}
+            >
+              ▶ {t('level.verify')}
+            </button>
+          )}
+        </div>
+      </header>
+      {notice && (
+        <div className="notice" role="alert">
+          {notice}
+          <button
+            className="icon-btn"
+            onClick={() => setNotice(null)}
+            aria-label={t('dialog.close')}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <Dock panels={panels} layout={dock} onChange={setDock} sizeKey={dockSizes} />
 
       {brief && (
         <aside className="brief" role="dialog">

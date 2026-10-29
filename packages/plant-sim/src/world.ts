@@ -536,7 +536,7 @@ export class World {
           // z ist die Oberkante (Rand) des Behälters
           const r = rectOf(p, size.l, size.w);
           const t = 4;
-          const z0 = p.z - size.h;
+          const z0 = Math.max(0, p.z - size.h);
           const z1 = p.z;
           out.push({ part: p, rect: { ...r, x1: r.x0 + t }, z0, z1 });
           out.push({ part: p, rect: { ...r, x0: r.x1 - t }, z0, z1 });
@@ -587,6 +587,17 @@ export class World {
       }
     };
     shove(plate, 0);
+  }
+
+  /** höchste Auflagefläche an (x, y), 0 = Boden (zum Ablegen mit der Maus) */
+  topAt(x: number, y: number): number {
+    let top = 0;
+    for (const s of this.surfaces()) {
+      if (!inside(s.rect, x, y)) continue;
+      const t = s.top(x, y);
+      if (t !== undefined && t > top) top = t;
+    }
+    return top;
   }
 
   // -------------------------------------------------------------------------------------------
