@@ -1,5 +1,21 @@
 # Changelog
 
+## D3 – Leitungen und Feldgeräte (2026-10-29)
+
+- Leitungen als Adern mit Biegeradius: vom Gerät zum Plattenrand, durch den unteren Kanal unter dem
+  Deckel, von unten in die Baugruppe; an der Federzugklemme sitzt eine Aderendhülse in Aderfarbe
+- Farben nach Schaltschrank-Praxis: DC-Steuerleitungen dunkelblau, Analogleitungen violett mit
+  gestricheltem Schirm; aktives Signal hellt die Ader auf und pulsiert leicht (aus bei reduzierter
+  Bewegung)
+- Hover auf Gerät, Leitung oder Klemme hebt die ganze Strecke samt Gerät und Klemme hervor
+- Feldgeräte als Symbole statt Karten: Taster grün, Stopp/Öffner rot, Not-Halt mit Pilz,
+  Wahlschalter, Lichtschranke, Endlagen-/Näherungsschalter, Messumformer mit Messbereich, Motor
+  (M, 3~ bei Leistung), Ventil, Leuchtmelder, Stellglied; Kennzeichnung wie im Schaltplan,
+  Signalart darunter; Zustand live (Motor grün, Leuchte an, Ventil betätigt, Strahl unterbrochen)
+- Verdrahtung bleibt Aufgabe des Spielers (Gerät anklicken, dann Klemme)
+- Nicht umgesetzt: eigene 0-V-Rückleitung (das Modell kennt keine Bezugsleiter)
+- 496 Tests
+
 ## D2 – Hardware-Optik und Maßstab (2026-10-29)
 
 - Maßstab: ein Rasterschritt der Hutschiene sind 15 mm. CPU klein 90 mm, CPU mittel/schnell

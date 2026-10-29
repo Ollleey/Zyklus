@@ -2250,3 +2250,103 @@ code {
   font-weight: 500;
   color: var(--text);
 }
+
+/* ---------- D3: Leitungen und Feldgeräte ---------- */
+
+.wire-group {
+  cursor: pointer;
+}
+.wire-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 3;
+  pointer-events: stroke;
+}
+.wire {
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+.wire-dc {
+  stroke: #2d5fae;
+}
+.wire-analog {
+  stroke: #8e63cf;
+}
+.wire-shield {
+  fill: none;
+  stroke: #c3c9cf;
+  stroke-width: 1.8;
+  stroke-dasharray: 0.6 0.5;
+  pointer-events: none;
+}
+.wire-on {
+  stroke: #6ea2ef;
+  stroke-width: 1.1;
+  animation: wire-pulse 1.4s ease-in-out infinite;
+}
+.wire-analog.wire-on {
+  stroke: #b391ee;
+}
+@keyframes wire-pulse {
+  50% {
+    stroke-opacity: 0.65;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wire-on {
+    animation: none;
+  }
+}
+.wire-hot .wire {
+  stroke: var(--c-select);
+  stroke-width: 1.6;
+}
+.wire-hot .wire-shield {
+  stroke: #e4e7ea;
+}
+.hw-terminal-hot .hw-terminal-hit {
+  fill: rgba(110, 158, 230, 0.35);
+  stroke: var(--c-select);
+  stroke-width: 0.45;
+}
+
+.device-body {
+  fill: rgba(33, 38, 45, 0.85);
+}
+.device-hot .device-body {
+  stroke: var(--c-select);
+  stroke-width: 0.6;
+}
+.device-id {
+  font-family: var(--font-condensed) !important;
+  font-size: 3.4px;
+  font-weight: 600;
+  fill: var(--text) !important;
+}
+.device-name {
+  font-size: 3px;
+  fill: var(--muted) !important;
+}
+.device-signal {
+  font-family: var(--font-mono) !important;
+  font-size: 2.2px;
+  fill: var(--faint) !important;
+}
+.device-id.end,
+.device-name.end,
+.device-signal.end {
+  text-anchor: end;
+}
+.dev-tiny {
+  font-size: 2px;
+  fill: #c9ced3 !important;
+}
+.dev-center {
+  text-anchor: middle;
+}
+.dev-motor {
+  font-size: 4.4px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: #e4e7ea !important;
+}

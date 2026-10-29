@@ -11,7 +11,9 @@ import {
 } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import { connect, disconnect, moveModule, placeModule, removeModule } from '../state/edit';
+import { DeviceSymbol, signalLabel } from './cabinet/Devices';
 import { G, colX, layout, terminalPos } from './cabinet/geometry';
+import { roundedPath } from './cabinet/wires';
 import {
   CpuFront,
   Duct,
@@ -343,8 +345,9 @@ export function Cabinet({
               );
             })}
 
-            {/* Leitungen: vom Gerät zum Plattenrand, durch den unteren Kanal, von unten in die Baugruppe
-                (hinter der Front, damit sie nicht über fremde Klemmen laufen; Führung folgt in D3) */}
+            {/* Leitungen: vom Gerät zum Plattenrand, durch den unteren Kanal (unter dem Deckel) und von
+                unten in die Baugruppe; das letzte Stück liegt hinter der Front, an der Klemme sitzt
+                die Aderendhülse. Analogleitungen sind geschirmt. */}
             {solution.wires.map((w, i) => {
               const d = level.devices.find((x) => x.id === w.device);
               const m = solution.modules.find((x) => x.id === w.module);
@@ -352,16 +355,34 @@ export function Cabinet({
               const a = devicePos(d);
               const b = channelPos(m.id, w.channel);
               const lane = G.ductBottom.y + 6 + (i % 9) * 1.8;
-              const edge =
-                d.side === 'left' ? l.plateX + 3 + (i % 4) : l.plateX + l.plateW - 3 - (i % 4);
+              const trunk =
+                d.side === 'left'
+                  ? l.plateX + 2.5 + (i % 5) * 1.2
+                  : l.plateX + l.plateW - 2.5 - (i % 5) * 1.2;
+              const path = roundedPath([
+                a,
+                { x: trunk, y: a.y },
+                { x: trunk, y: lane },
+                { x: b.x, y: lane },
+                { x: b.x, y: b.y },
+              ]);
               const on = values?.get(d.id) === true;
               const analog = d.kind === 'AI' || d.kind === 'AO';
+              const hot = hoverWire === d.id;
               return (
-                <path
+                <g
                   key={`w${w.device}`}
-                  d={`M${a.x},${a.y} H${edge} V${lane} H${b.x} V${b.y}`}
-                  className={`wire ${analog ? 'wire-analog' : 'wire-dc'} ${on ? 'wire-on' : ''} ${hoverWire === d.id ? 'wire-hover' : ''}`}
-                />
+                  className={`wire-group ${hot ? 'wire-hot' : ''}`}
+                  onMouseEnter={() => setHoverWire(d.id)}
+                  onMouseLeave={() => setHoverWire(null)}
+                >
+                  {analog && <path d={path} className="wire-shield" />}
+                  <path
+                    d={path}
+                    className={`wire ${analog ? 'wire-analog' : 'wire-dc'} ${on ? 'wire-on' : ''}`}
+                  />
+                  <path d={path} className="wire-hit" />
+                </g>
               );
             })}
 
@@ -417,6 +438,18 @@ export function Cabinet({
                       wired={wired}
                       target={target}
                       onChannel={(ch) => clickChannel(m.id, ch)}
+                      onHoverChannel={(ch) =>
+                        setHoverWire(
+                          ch === null
+                            ? null
+                            : (solution.wires.find((w) => w.module === m.id && w.channel === ch)
+                                ?.device ?? null),
+                        )
+                      }
+                      hotChannel={
+                        solution.wires.find((w) => w.module === m.id && w.device === hoverWire)
+                          ?.channel
+                      }
                     />
                   )}
                   {isSel && (
@@ -451,18 +484,21 @@ export function Cabinet({
               label={t('cabinet.duct')}
             />
 
-            {/* Feldgeräte */}
+            {/* Feldgeräte als Symbole mit Kennzeichnung */}
             {[...left, ...right].map((d) => {
               const p = devicePos(d);
               const isLeft = d.side === 'left';
-              const x = isLeft ? 4 : l.plateX + l.plateW + 8;
+              const box = isLeft ? 2 : l.plateX + l.plateW + 10;
+              const symX = isLeft ? box + 1 : box + G.device.w - 13;
+              const textX = isLeft ? box + 16 : box + G.device.w - 16;
               const wired = solution.wires.some((w) => w.device === d.id);
               const active = tool?.kind === 'wire' && tool.device === d.id;
+              const hot = hoverWire === d.id;
               const v = values?.get(d.id);
               return (
                 <g
                   key={d.id}
-                  className={`device ${active ? 'device-active' : ''}`}
+                  className={`device ${active ? 'device-active' : ''} ${hot ? 'device-hot' : ''}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     clickDevice(d);
@@ -472,35 +508,32 @@ export function Cabinet({
                 >
                   <title>{tr(d.name)}</title>
                   <rect
-                    x={x}
+                    x={box}
                     y={p.y - G.device.h / 2}
                     width={G.device.w}
                     height={G.device.h}
                     rx={1.6}
                     className="device-body"
                   />
-                  <circle
-                    cx={isLeft ? x + 5 : x + G.device.w - 5}
-                    cy={p.y}
-                    r={1.8}
-                    className={`led ${v === true ? 'led-on' : ''}`}
-                  />
-                  <text x={isLeft ? x + 9 : x + 3} y={p.y - 1.4} className="device-id">
-                    {d.id} · {d.kind}
-                    {d.nc ? ' · Öffner' : ''}
+                  <DeviceSymbol d={d} on={v === true} x={symX} y={p.y} />
+                  <text x={textX} y={p.y - 2} className={`device-id ${isLeft ? '' : 'end'}`}>
+                    {d.id}
                   </text>
-                  <text x={isLeft ? x + 9 : x + 3} y={p.y + 4} className="device-name">
+                  <text x={textX} y={p.y + 2.6} className={`device-name ${isLeft ? '' : 'end'}`}>
                     {tr(d.name).replace(/\s*\([^)]*\)$/, '')}
+                  </text>
+                  <text x={textX} y={p.y + 6} className={`device-signal ${isLeft ? '' : 'end'}`}>
+                    {signalLabel(d)}
                   </text>
                   <circle
                     cx={p.x}
                     cy={p.y}
-                    r={1.6}
+                    r={1.4}
                     className={`terminal ${wired ? 'terminal-wired' : ''}`}
                   />
                   {wired && active && (
                     <text
-                      x={isLeft ? x + G.device.w - 2 : x + 2}
+                      x={isLeft ? box + G.device.w - 2 : box + 2}
                       y={p.y - G.device.h / 2 - 1.5}
                       className={`device-unwire ${isLeft ? 'end' : ''}`}
                       onClick={(e) => {

@@ -388,6 +388,8 @@ export function IoFront({
   target,
   onChannel,
   selectedChannel,
+  onHoverChannel,
+  hotChannel,
 }: {
   l: Layout;
   x: number;
@@ -401,6 +403,9 @@ export function IoFront({
   target: boolean;
   onChannel: (ch: number) => void;
   selectedChannel?: number;
+  onHoverChannel?: (ch: number | null) => void;
+  /** Klemme, deren Leitung gerade hervorgehoben ist */
+  hotChannel?: number;
 }) {
   const left = colX(l, x) + G.gap / 2;
   const w = t.width * G.te - G.gap;
@@ -493,11 +498,13 @@ export function IoFront({
         return (
           <g
             key={`t${ch}`}
-            className={`hw-terminal ${target ? 'hw-terminal-target' : ''} ${selectedChannel === ch ? 'hw-terminal-sel' : ''}`}
+            className={`hw-terminal ${target ? 'hw-terminal-target' : ''} ${selectedChannel === ch ? 'hw-terminal-sel' : ''} ${hotChannel === ch ? 'hw-terminal-hot' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               onChannel(ch);
             }}
+            onMouseEnter={() => onHoverChannel?.(ch)}
+            onMouseLeave={() => onHoverChannel?.(null)}
           >
             <title>
               Klemme {ch + 1}
@@ -521,6 +528,26 @@ export function IoFront({
               stroke="#80878E"
               strokeWidth={0.3}
             />
+            {wired[ch] && (
+              <g className="hw-ferrule">
+                <rect
+                  x={p.x - 0.65}
+                  y={p.y + 0.9}
+                  width={1.3}
+                  height={1.5}
+                  rx={0.2}
+                  fill="#C7CCD1"
+                />
+                <rect
+                  x={p.x - 0.75}
+                  y={p.y + 2.3}
+                  width={1.5}
+                  height={0.9}
+                  rx={0.2}
+                  fill={analog ? '#8E63CF' : '#2D5FAE'}
+                />
+              </g>
+            )}
             <text x={p.x + 2.4} y={p.y - 3.6} className="hw-term-no">
               {ch + 1}
             </text>
