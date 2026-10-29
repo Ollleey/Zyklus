@@ -2638,3 +2638,25 @@ code {
 .hw-io .hw-sym {
   fill: #4d5760 !important;
 }
+
+/* Beschriftung als Anzeige wie an der CPU */
+.hw-io .hw-name {
+  font-family: var(--font-condensed) !important;
+  font-size: 3.2px;
+  font-weight: 600;
+  fill: #b6f2e2 !important;
+}
+.hw-io .hw-sub {
+  font-family: var(--font-mono) !important;
+  font-size: 2.1px;
+  fill: #4e8f80 !important;
+}
+.hw-io .hw-sub-accent {
+  fill: #f4c443 !important;
+}
+.hw-io .hw-addr {
+  fill: #7fe0c8 !important;
+}
+.hw-io .hw-sym {
+  fill: #4e8f80 !important;
+}

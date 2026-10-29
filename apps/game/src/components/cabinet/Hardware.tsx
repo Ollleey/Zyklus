@@ -480,17 +480,23 @@ export function IoFront({
           <rect x={left + 0.5} y={termTop} width={w - 1} height={0.5} fill="#596169" />
         </g>
       )}
-      <text x={left + w / 2} y={y + 9.4} className="hw-name">
+      {/* Anzeige wie an der CPU: Typ und Kennung */}
+      <rect
+        x={left + 0.9}
+        y={y + 6}
+        width={w - 1.8}
+        height={10.6}
+        rx={0.6}
+        fill="#0F1A1E"
+        stroke="#26373C"
+        strokeWidth={0.3}
+      />
+      <text x={left + w / 2} y={y + 10.3} className="hw-name">
         {title ?? tr(t.name)}
       </text>
-      <text x={left + w / 2} y={y + 13.2} className="hw-sub">
-        {id}
+      <text x={left + w / 2} y={y + 14.6} className={`hw-sub ${t.alarms ? 'hw-sub-accent' : ''}`}>
+        {t.alarms ? `${id} · Alarm` : id}
       </text>
-      {t.alarms && (
-        <text x={left + w / 2} y={y + 16.2} className="hw-sub hw-sub-accent">
-          Alarm
-        </text>
-      )}
       {/* Beschriftungsstreifen */}
       {rows > 0 &&
         Array.from({ length: cols }, (_, col) => (
@@ -500,10 +506,10 @@ export function IoFront({
             y={y + 17.5}
             width={colW - 3.4}
             height={perCol * rowH + 1.5}
-            rx={0.4}
-            fill="#F2F3F4"
-            stroke="#15181B"
-            strokeWidth={0.35}
+            rx={0.6}
+            fill="#0F1A1E"
+            stroke="#26373C"
+            strokeWidth={0.3}
           />
         ))}
       {Array.from({ length: rows }, (_, ch) => {
@@ -531,13 +537,13 @@ export function IoFront({
             </text>
             {analog && (
               <g>
-                <rect x={cx0 + colW - 4.6} y={cy - 2.2} width={3.6} height={1.1} fill="#D5D9DD" />
+                <rect x={cx0 + colW - 4.6} y={cy - 2.2} width={3.6} height={1.1} fill="#1E3036" />
                 <rect
                   x={cx0 + colW - 4.6}
                   y={cy - 2.2}
                   width={Math.max(0, Math.min(1, raw / 27648)) * 3.6}
                   height={1.1}
-                  fill={fault ? '#E5484D' : '#8E63CF'}
+                  fill={fault ? '#E5484D' : '#7FE0C8'}
                 />
               </g>
             )}
