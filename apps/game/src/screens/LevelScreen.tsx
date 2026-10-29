@@ -18,7 +18,10 @@ import { LogicAnalyzer } from '../components/LogicAnalyzer';
 import { PlantView } from '../components/PlantView';
 import { ProgramPanel } from '../components/ProgramPanel';
 import { ResultDialog } from '../components/ResultDialog';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Markdown } from '../ui/Markdown';
+import { Menu } from '../ui/Menu';
+import { Splitter, useStoredNumber } from '../ui/Split';
 import {
   clearSolution,
   loadSolution,
@@ -43,6 +46,9 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
     solution.modules.length ? null : sandbox ? 'datasheet' : 'mail',
   );
   const [result, setResult] = useState<Verification | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [pendingImport, setPendingImport] = useState<Solution | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => saveSolution(level.id, solution), [level.id, solution]);
 
@@ -97,12 +103,17 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
   const importSolution = async (file: File) => {
     const parsed = parseSolutionFile(await file.text(), level.id);
     if (!parsed.ok) {
-      alert(`${t('level.import.failed')}: ${parsed.error}`);
+      setNotice(`${t('level.import.failed')}: ${parsed.error}`);
       return;
     }
-    if (solution.modules.length && !confirm(t('level.import.confirm'))) return;
-    setSolution(parsed.solution);
+    if (solution.modules.length) setPendingImport(parsed.solution);
+    else setSolution(parsed.solution);
   };
+
+  // Panelgrößen: Schrankbreite (Anteil), Simulationshöhe (px), Prozessansicht (Anteil)
+  const [splitX, setSplitX] = useStoredNumber('split.x', 0.55, [0.3, 0.75]);
+  const [simH, setSimH] = useStoredNumber('split.sim', 320, [200, 700]);
+  const [plantW, setPlantW] = useStoredNumber('split.plant', 0.34, [0.22, 0.6]);
 
   return (
     <div className="level">
@@ -111,43 +122,71 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
           ← {t('level.back')}
         </button>
         <div className="topbar-title">
-          {!sandbox && <span className="level-no">#{level.order}</span>} {tr(level.title)}
+          <span className="topbar-name">
+            {!sandbox && <span className="level-no">{level.order}</span>}
+            {tr(level.title)}
+          </span>
           <span className="customer">{tr(level.customer)}</span>
         </div>
-        <div className="topbar-actions">
+        <div className="segmented" role="group" aria-label={t('level.brief')}>
           <button
-            className={`btn ${brief === 'mail' ? 'btn-active' : ''}`}
+            className={`seg ${brief === 'mail' ? 'seg-active' : ''}`}
+            aria-pressed={brief === 'mail'}
             onClick={() => setBrief(brief === 'mail' ? null : 'mail')}
           >
             {t('level.mail')}
           </button>
           <button
-            className={`btn ${brief === 'datasheet' ? 'btn-active' : ''}`}
+            className={`seg ${brief === 'datasheet' ? 'seg-active' : ''}`}
+            aria-pressed={brief === 'datasheet'}
             onClick={() => setBrief(brief === 'datasheet' ? null : 'datasheet')}
           >
             {t('level.datasheet')}
           </button>
-          <button
-            className="btn"
-            onClick={() =>
-              download(
-                `${level.id}.zyklus.json`,
-                toSolutionFile(level.id, solution),
-                'application/json',
-              )
-            }
-            disabled={!solution.modules.length}
-            title={t('level.save.title')}
-          >
-            {t('level.save')}
-          </button>
-          <button
-            className="btn"
-            onClick={() => fileInput.current?.click()}
-            title={t('level.load.title')}
-          >
-            {t('level.load')}
-          </button>
+        </div>
+        <div className="topbar-actions">
+          <dl className="hdr-metrics">
+            <div>
+              <dt>{t('metrics.cost')}</dt>
+              <dd>¤{compiled.analysis.cost}</dd>
+            </div>
+            <div>
+              <dt>{t('metrics.size')}</dt>
+              <dd>{compiled.size}</dd>
+            </div>
+          </dl>
+          <Menu
+            label={t('level.more')}
+            items={[
+              {
+                label: t('level.save'),
+                title: t('level.save.title'),
+                disabled: !solution.modules.length,
+                onSelect: () =>
+                  download(
+                    `${level.id}.zyklus.json`,
+                    toSolutionFile(level.id, solution),
+                    'application/json',
+                  ),
+              },
+              {
+                label: t('level.load'),
+                title: t('level.load.title'),
+                onSelect: () => fileInput.current?.click(),
+              },
+              {
+                label: t('level.export'),
+                disabled: !solution.modules.length,
+                onSelect: exportScl,
+              },
+              {
+                label: t('level.reset'),
+                danger: true,
+                disabled: !solution.modules.length,
+                onSelect: () => setConfirmReset(true),
+              },
+            ]}
+          />
           <input
             ref={fileInput}
             type="file"
@@ -159,58 +198,64 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
               if (f) void importSolution(f);
             }}
           />
-          <button className="btn" onClick={exportScl} disabled={!solution.modules.length}>
-            {t('level.export')}
-          </button>
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              if (!confirm(t('level.reset.confirm'))) return;
-              clearSolution(level.id);
-              setSolution(emptySolution());
-            }}
-          >
-            {t('level.reset')}
-          </button>
-          <div className="live-metrics">
-            <span>
-              {t('metrics.cost')} <b>¤{compiled.analysis.cost}</b>
-            </span>
-            <span>
-              {t('metrics.size')} <b>{compiled.size}</b>
-            </span>
-          </div>
-          <button
-            className="btn btn-primary"
-            hidden={sandbox}
-            onClick={verify}
-            disabled={!compiled.ok}
-            title={compiled.ok ? '' : t('sim.notReady')}
-          >
-            ▶ {t('level.verify')}
-          </button>
+          {!sandbox && (
+            <button
+              className="btn btn-primary"
+              onClick={verify}
+              disabled={!compiled.ok}
+              title={compiled.ok ? '' : t('sim.notReady')}
+            >
+              ▶ {t('level.verify')}
+            </button>
+          )}
         </div>
       </header>
+      {notice && (
+        <div className="notice" role="alert">
+          {notice}
+          <button
+            className="icon-btn"
+            onClick={() => setNotice(null)}
+            aria-label={t('dialog.close')}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
-      <main
-        className={`workspace ${[...compiled.cpus.values()].some((c) => c.lang === 'FUP') ? 'workspace-fup' : ''}`}
-      >
-        <section className="pane pane-cabinet">
-          <h3 className="pane-title">{t('cabinet.title')}</h3>
-          <Cabinet
-            level={level}
-            solution={solution}
-            analysis={compiled.analysis}
-            onChange={setSolution}
-            values={run ? values : undefined}
-            cpuModes={run ? cpuModes : undefined}
+      <main className="workspace" style={{ gridTemplateRows: `minmax(0, 1fr) 6px ${simH}px` }}>
+        <div
+          className="ws-top"
+          style={{ gridTemplateColumns: `minmax(0, ${splitX}fr) 6px minmax(0, ${1 - splitX}fr)` }}
+        >
+          <section className="pane pane-cabinet">
+            <h3 className="pane-title">{t('cabinet.title')}</h3>
+            <Cabinet
+              level={level}
+              solution={solution}
+              analysis={compiled.analysis}
+              onChange={setSolution}
+              values={run ? values : undefined}
+              cpuModes={run ? cpuModes : undefined}
+            />
+          </section>
+          <Splitter
+            dir="x"
+            label={t('layout.splitX')}
+            onDrag={(p) => setSplitX(p.x / p.width)}
+            onStep={(d) => setSplitX(splitX + d * 0.02)}
           />
-        </section>
-
-        <section className="pane pane-program">
-          <h3 className="pane-title">{t('program.title')}</h3>
-          <ProgramPanel solution={solution} compiled={compiled.cpus} onChange={setSolution} />
-        </section>
+          <section className="pane pane-program">
+            <h3 className="pane-title">{t('program.title')}</h3>
+            <ProgramPanel solution={solution} compiled={compiled.cpus} onChange={setSolution} />
+          </section>
+        </div>
+        <Splitter
+          dir="y"
+          label={t('layout.splitY')}
+          onDrag={(p) => setSimH(p.height - p.y)}
+          onStep={(d) => setSimH(simH - d * 20)}
+        />
 
         <section className="pane pane-sim">
           <div className="simbar">
@@ -283,8 +328,17 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
               </span>
             )}
           </div>
-          <div className="sim-body">
+          <div
+            className="sim-body"
+            style={{ gridTemplateColumns: `minmax(0, ${1 - plantW}fr) 6px minmax(0, ${plantW}fr)` }}
+          >
             <LogicAnalyzer level={level} run={run} test={test} />
+            <Splitter
+              dir="x"
+              label={t('layout.splitPlant')}
+              onDrag={(p) => setPlantW(1 - p.x / p.width)}
+              onStep={(d) => setPlantW(plantW - d * 0.02)}
+            />
             <PlantView
               level={level}
               traces={run?.traces}
@@ -349,6 +403,33 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
             </div>
           )}
         </aside>
+      )}
+
+      {confirmReset && (
+        <ConfirmDialog
+          title={t('level.reset.title')}
+          text={t('level.reset.confirm')}
+          confirmLabel={t('level.reset')}
+          danger
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={() => {
+            setConfirmReset(false);
+            clearSolution(level.id);
+            setSolution(emptySolution());
+          }}
+        />
+      )}
+      {pendingImport && (
+        <ConfirmDialog
+          title={t('level.load')}
+          text={t('level.import.confirm')}
+          confirmLabel={t('level.import.replace')}
+          onCancel={() => setPendingImport(null)}
+          onConfirm={() => {
+            setSolution(pendingImport);
+            setPendingImport(null);
+          }}
+        />
       )}
 
       {result && (

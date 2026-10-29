@@ -100,6 +100,117 @@ Nach jedem Meilenstein: alle Tests grün, Git-Commit, Eintrag in `CHANGELOG.md`.
 - Polish: Sound optional, Tastenkürzel, Onboarding.
 - Stand: umgesetzt bis auf Sound und eigenes Onboarding; Tastenkürzel wie bisher (Esc, Entf).
 
+## Ausbau M8–M13: „wie an einer echten S7“ (Entwurf)
+
+Ziel: Nach M7 kann man Steuerungen bauen. Ab jetzt soll sich die Arbeit anfühlen wie im echten
+Projekt: strukturierte Daten statt Einzelvariablen, Gerätekonfiguration statt fester Module,
+Online-Funktionen zum Testen, Fehler-OBs statt hartem STOP, KOP als dritte Sprache,
+Technologiebausteine, Inbetriebnahme fremder Programme. Reihenfolge nach Abhängigkeit:
+Datentypen sind die Grundlage für fast alles danach.
+
+Was heute fehlt, im Vergleich zur Praxis:
+
+| Bereich         | Heute                              | In echten Projekten                                                        |
+| --------------- | ---------------------------------- | -------------------------------------------------------------------------- |
+| Daten           | 8 Elementartypen, keine Strukturen | ARRAY, STRUCT, PLC-Datentypen (UDT), STRING, USInt…LInt, LReal, DTL        |
+| Bausteine       | FB/FC ohne Rückgabewert, OB1/30/40 | FC mit Rückgabewert, Anlauf-OB100, Fehler-OBs, remanente Daten, Bibliothek |
+| Sprachen        | SCL, FUP (ohne eigene Bausteine)   | KOP am häufigsten, FUP/KOP rufen eigene FB/FC auf, GRAPH für Schrittketten |
+| Testen          | Logikanalysator, Handbetrieb       | Beobachten im Editor, Beobachtungs-/Forcetabelle, Trace mit Trigger        |
+| Hardware        | feste Module, feste Adressen       | Gerätekonfiguration: Adressen, Eingangsfilter, Diagnose, Ersatzwerte, TPA  |
+| Fehlerverhalten | jede Überschreitung → STOP         | OB80/OB82/OB121, Diagnosepuffer, RUN/STOP-Schalter, Neustart               |
+| Technologie     | alles selbst programmiert          | PID_Compact, schneller Zähler (HSC), PWM-Ausgang, Kommunikation PUT/GET    |
+| Aufgaben        | Neubau nach Datenblatt             | fremde Programme in Betrieb nehmen, Fehler suchen, Anlagen erweitern       |
+
+### M8 – Datentypen und Bausteine wie im Projekt
+
+- **ARRAY** (`Array[0..9] of Int`, auch mehrdimensional, Index variabel mit Bereichsprüfung →
+  Programmierfehler), **STRUCT**, **PLC-Datentypen** (eigener Projektbaum-Ordner, in DBs, Schnittstellen
+  und Tags verwendbar), `FOR` über Arrays.
+- Weitere Elementartypen: SInt/USInt/UInt/UDInt/LInt/ULInt, LReal, Char, **String** (mit `LEN`,
+  `CONCAT`, `LEFT`, `MID`, `FIND`, `INT_TO_STRING` …), LWord, Date/TOD/**DTL** mit `RD_SYS_T`/`RD_LOC_T`.
+- Typumwandlungen und Literale nach S7-1500-Tabelle für alle neuen Typen; `MOVE_BLK`, `FILL_BLK`,
+  `SWAP`, Slice-Zugriff `%X3` / `.%B1`, `AT`-freie Sichten.
+- **FC mit Rückgabewert** (`Ret_Val`), Aufruf im Ausdruck; benannte und unbenannte Parameter.
+- **Anlauf-OB100**, **remanente** Variablen (Retain-Spalte in DBs und FB-Statics), Startwerte vs.
+  Istwerte, „Neustart“ im Simulator (Spannung aus/ein als Testschritt).
+- IR: Speichermodell für zusammengesetzte Daten (flache Slots mit Offset, Array-Index als Operand).
+- Speichergrenzen der CPU zusätzlich in Byte Arbeitsspeicher (Datenmenge wird zur Designfrage).
+- Level 16–17: Rezepturverwaltung (Array of UDT, Rezeptwahl), Schichtprotokoll (String + DTL,
+  Ringpuffer).
+
+### M9 – Online-Funktionen (Testen wie am Gerät)
+
+- **Beobachten** im SCL-Editor (Werte neben den Zeilen, Bedingungen grün/blau) und im FUP-Editor
+  (Signalfluss farbig, Werte an Pins), angehalten bei Pause.
+- **Beobachtungstabelle**: Operanden/Symbole mit Anzeigeformat (dez., hex, bin, Zeit), Steuern von
+  Werten einmalig oder zyklisch; **Forcetabelle** für Ein-/Ausgänge an der Peripherie
+  (Force-LED an der CPU, Forcen zählt bei der Prüfung als Fehler).
+- **Trace** wie in TIA: Signale wählen, Trigger (Flanke, Wert, Bitmuster), Vor-/Nachlauf,
+  Aufzeichnungstakt (OB1 / Weckalarm) – der Logikanalysator wird zu diesem Werkzeug.
+- **Querverweisliste** (wo wird `"Motor"` geschrieben/gelesen), **Aufrufstruktur**, **Zuordnungsliste**
+  (belegte E/A/M-Bits), Warnung bei Mehrfachzuweisung.
+- **Übersetzen / Laden**: getrennt wie in TIA; „Laden in RUN“ nur bei kompatiblen Änderungen,
+  sonst STOP nötig; Istwerte bleiben erhalten oder werden zurückgesetzt (bewusste Wahl).
+- Schrittbetrieb pro Zyklus und Haltepunkte in SCL (Testpunkt, nur Simulator).
+
+### M10 – Gerätekonfiguration und Fehlerbehandlung
+
+- **Gerätesicht**: Baugruppe anklicken → Eigenschaften: Anfangsadresse ändern, **Eingangsverzögerung**
+  (0,05 … 20 ms – Hardwareentprellung als Alternative zum Programm), Diagnose freigeben
+  (Drahtbruch, fehlende Lastspannung), Messart/Messbereich bei AI (z. B. 4…20 mA mit Drahtbruch-
+  erkennung), **Ersatzwert / letzten Wert halten** bei STOP für Ausgänge, Teilprozessabbild (TPA) für
+  Alarm-OBs, Systemmerker und Taktmerker (`%M0.5` 1 Hz) wie in den CPU-Eigenschaften.
+- **Fehler-OBs**: OB80 (Zykluszeitüberschreitung, einmal toleriert), OB82 (Diagnosealarm,
+  z. B. Drahtbruch), OB86 (Baugruppenausfall), OB121 (Programmierfehler, z. B. Arrayindex) –
+  fehlt der OB, geht die CPU wie echt in STOP; `GET_ERR_ID`, `RUNTIME`.
+- **Diagnosepuffer** mit Zeitstempel und Klartext; CPU-LEDs RUN/ERROR/MAINT; **RUN/STOP-Schalter**
+  und Neustart im Simulator.
+- Störungsszenarien in Testfällen: Lastspannung weg, Baugruppe gezogen, Drahtbruch erst zur Laufzeit.
+- Level 18–19: Anlage muss bei Drahtbruch geordnet weiterlaufen (OB82 + Ersatzwert), Zykluszeit-
+  überwachung mit OB80 und Lastverteilung auf Weckalarm.
+
+### M11 – KOP und eigene Bausteine in FUP/KOP
+
+- **KOP-Editor** (Kontaktplan): Kontakte (Schließer/Öffner, P/N), Spulen (=, S, R, P/N-Spule),
+  Parallelzweige, Boxen wie in FUP; Absenkung über dasselbe Netzwerkmodell nach SCL.
+  Umschalten KOP ↔ FUP pro Baustein, wo darstellbar (wie in TIA).
+- **Eigene FB/FC als Boxen** in FUP und KOP (Instanz wählen bzw. Multiinstanz), EN/ENO.
+- Netzwerktitel und -kommentare, Baustein-Kommentare, Bausteinschutz für vorgegebene Bausteine.
+- Optional **GRAPH-light**: Schrittkette als Diagramm (Schritt, Transition, Aktionen N/S/R/D),
+  abgesenkt auf CASE-Code – Level 10 neu lösbar.
+
+### M12 – Technologie und Kommunikation
+
+- Technologieobjekte mit Konfigurationsdialog statt Selbstbau: **PID_Compact** (mit Selbstoptimierung
+  als Spielmechanik), **High-Speed-Counter** auf DI 8 HF (Alternative zu OB40), **PWM-/PTO-Ausgang**
+  auf DQ HF, Skalierung mit `NORM_X/SCALE_X` als Box-Paar.
+- **Dezentrale Peripherie**: ET-200-Station hinter einem Interfacemodul, PROFINET-Aktualisierungszeit
+  (1 … 16 ms) als zusätzliche Latenz, Stationsausfall → OB86.
+- **CPU-CPU-Kommunikation** mit `PUT`/`GET` bzw. `TSEND_C`/`TRCV_C` (Auftragsstatus DONE/BUSY/ERROR,
+  Laufzeit über mehrere Zyklen) statt fester Koppelwörter.
+- Einfaches **Bedienpanel**: Bildeditor mit Taster, Lampe, E/A-Feld, Meldeanzeige; Meldungen aus dem
+  Programm (`Program_Alarm`) – ersetzt in passenden Leveln die festen Bedientaster.
+- Level 20–22: Temperaturregelung mit PID_Compact und Störgrößenaufschaltung, Positionieren mit
+  HSC, verteilte Anlage mit zwei Stationen und Panel.
+
+### M13 – Inbetriebnahme und Instandhaltung
+
+- Neue Auftragsart **„Bestandsanlage“**: Projekt mit fremdem Programm wird geliefert (bewusst mit
+  Schwächen: Mehrfachzuweisung, fehlende Verriegelung, prellende Eingänge, Überlauf), Ziel ist
+  Fehler finden und minimal ändern; Bewertung zusätzlich nach **Änderungsumfang**.
+- Auftragsart **„Erweiterung“**: laufende Anlage um eine Station erweitern, ohne bestehende Tests
+  zu brechen (Regressionstests aus dem Vorgängerlevel).
+- **Bibliothek**: eigene FBs/UDTs aus gelösten Aufträgen als Typen mit Version speichern und in späteren
+  Aufträgen einsetzen (Kosten für Wiederverwendung sinken).
+- Level 23–26 plus Kampagnenabschluss; Onboarding-Auftrag 0 mit geführten Schritten; Englisch.
+
+### Querschnitt (laufend)
+
+- Jede neue Anweisung mit Unit-Tests und Eintrag in Handbuch und `docs/`.
+- Jeder neue Level mit Referenzlösung, Richtwerten und Tests typischer Fehllösungen.
+- Rückwärtskompatibilität der Lösungsdateien (Formatversion, Migration).
+- Performance: Simulationsläufe bleiben unter 1 s je Testfall (Profiling ab M8).
+
 ## Risiken / bewusste Vereinfachungen
 
 - Keine vollständige TIA-Kompatibilität (bewusst: Spielsemantik, dokumentiert).

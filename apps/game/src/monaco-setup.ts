@@ -2,6 +2,7 @@ import * as monaco from 'monaco-editor';
 // Exportpfad von monaco-editor ≥ 0.5x: "monaco-editor/<pfad>" → esm/vs/<pfad>.js
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { loader } from '@monaco-editor/react';
+import { TOKENS } from './theme';
 import {
   KEYWORDS,
   SCL_FB_TYPES,
@@ -25,30 +26,38 @@ monaco.languages.setLanguageConfiguration(
   sclLanguageConfiguration as unknown as monaco.languages.LanguageConfiguration,
 );
 
+// Editorfarben aus den Design-Tokens: Schlüsselwörter im Auswahlblau, Literale gelb,
+// Symbole cyan wie Signale, Absolutadressen violett wie im Schrank die Analogadern
+const c = TOKENS.color;
+const hex = (v: string) => v.replace('#', '');
 monaco.editor.defineTheme('zyklus', {
   base: 'vs-dark',
   inherit: true,
   rules: [
-    { token: 'keyword', foreground: 'f2b84b', fontStyle: 'bold' },
-    { token: 'keyword.operator', foreground: 'f2b84b' },
-    { token: 'type', foreground: '7fd1c7' },
-    { token: 'predefined', foreground: '9ecbff' },
-    { token: 'constant', foreground: 'd6a0ff' },
-    { token: 'number', foreground: 'd6a0ff' },
-    { token: 'number.time', foreground: 'd6a0ff' },
-    { token: 'number.hex', foreground: 'd6a0ff' },
-    { token: 'number.float', foreground: 'd6a0ff' },
-    { token: 'variable.local', foreground: 'e6e6e6' },
-    { token: 'variable.global', foreground: '8fd694' },
-    { token: 'variable.address', foreground: 'ff9d7a' },
-    { token: 'comment', foreground: '6f7a86', fontStyle: 'italic' },
-    { token: 'string', foreground: 'c3e88d' },
+    { token: 'keyword', foreground: hex(c.select), fontStyle: 'bold' },
+    { token: 'keyword.operator', foreground: hex(c.select) },
+    { token: 'type', foreground: hex(c.signal) },
+    { token: 'predefined', foreground: 'A9C4EE' },
+    { token: 'constant', foreground: hex(c.ledYellow) },
+    { token: 'number', foreground: hex(c.ledYellow) },
+    { token: 'number.time', foreground: hex(c.ledYellow) },
+    { token: 'number.hex', foreground: hex(c.ledYellow) },
+    { token: 'number.float', foreground: hex(c.ledYellow) },
+    { token: 'variable.local', foreground: hex(c.text) },
+    { token: 'variable.global', foreground: hex(c.signal) },
+    { token: 'variable.address', foreground: 'B79BE6' },
+    { token: 'comment', foreground: hex(c.textFaint), fontStyle: 'italic' },
+    { token: 'string', foreground: '9FD8A8' },
   ],
   colors: {
-    'editor.background': '#171a1e',
-    'editor.lineHighlightBackground': '#1f2329',
-    'editorLineNumber.foreground': '#4a525c',
-    'editorGutter.background': '#171a1e',
+    'editor.background': c.bgDeep,
+    'editor.foreground': c.text,
+    'editor.lineHighlightBackground': c.surface,
+    'editor.selectionBackground': c.selectDim,
+    'editorLineNumber.foreground': c.textFaint,
+    'editorLineNumber.activeForeground': c.text,
+    'editorGutter.background': c.bgDeep,
+    'editorCursor.foreground': c.select,
   },
 });
 

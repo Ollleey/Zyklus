@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { SCL_LANGUAGE_ID, toMonacoMarkers, type ProjectDiagnostic } from '@zyklus/scl-compiler';
 import { monaco } from '../monaco-setup';
+import { TOKENS } from '../theme';
 
 interface Props {
   value: string;
@@ -46,7 +47,7 @@ export function SclEditor({ value, onChange, diagnostics, jump }: Props) {
         onMount={onMount}
         options={{
           fontSize: 13,
-          fontFamily: 'JetBrains Mono, Consolas, monospace',
+          fontFamily: TOKENS.font.mono,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
           tabSize: 4,

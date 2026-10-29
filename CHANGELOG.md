@@ -1,5 +1,25 @@
 # Changelog
 
+## D1 – Designsystem und Grundlayout (2026-10-29)
+
+- Plan für die Design-Überarbeitung D1–D6 (`docs/design/PLAN.md`) und Ausbauplan M8–M13 (`PLAN.md`)
+- Screenshots per Playwright über das installierte Edge (`scripts/screenshots.mjs`), Ist-Stand in
+  `docs/design/before/`, aktueller Stand in `docs/design/after/`
+- Design-Tokens in `apps/game/src/theme.ts` (Farben, 4-px-Abstände, Radien, Schatten, Schrift), als
+  CSS-Variablen gesetzt; Light-Palette vorbereitet. Bestehende Styles laufen über die Tokens,
+  Monaco-Theme und Editor-Schrift ebenfalls
+- Schriften IBM Plex Sans, Plex Sans Condensed und Plex Mono lokal gebündelt
+- Kopfzeile neu: Auftrag und Kunde, Auftrag/Datenblatt als Umschalter, Kosten und Größe gruppiert,
+  Speichern/Laden/Export im Menü „Mehr“, „Lösung verwerfen“ dort abgesetzt mit eigenem
+  Bestätigungsdialog; „Prüfen“ ist die einzige Primäraktion (Federzug-Orange)
+- Eigene Dialoge statt Browser-`confirm`/`alert` (Verwerfen, Import ersetzen, Baustein löschen)
+- Verstellbare Bereiche: Schrank/Programm, Höhe der Simulation, Prozessansicht; Größen werden
+  gespeichert, Trenner auch per Tastatur bedienbar; Mindestbreite 1280 px
+- Anweisungszähler als Balken; Überschriften in Satzschreibung statt gesperrter Großbuchstaben;
+  Datenblatt- und Handbuchpapier kühl statt cremefarben; Favicon
+- Testzeitlimit für die Level-Tests auf 60 s (unter Last liefen zwei Determinismus-Tests in das
+  Standardlimit von 5 s)
+
 ## M7 – Alarme, eigene Bausteine, mehrere CPUs, Level 10–15, Werkstatt (2026-10-29)
 
 - Engine:

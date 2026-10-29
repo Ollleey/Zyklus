@@ -22,6 +22,7 @@ import { FupEditor } from './FupEditor';
 import { SclEditor } from './SclEditor';
 import { TagTable } from './TagTable';
 import { ELEMENTARY_TYPES, VarTable } from './VarTable';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 type Tab = 'main' | 'tags' | 'dbs';
 
@@ -65,6 +66,7 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
   const [tab, setTab] = useState<Tab>('main');
   const [blockName, setBlockName] = useState<string>(MAIN_OB);
   const [showIface, setShowIface] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [jump, setJump] = useState<{ line: number; col: number; nonce: number }>();
   const [fupFocus, setFupFocus] = useState<{ network?: number; box?: string; nonce: number }>();
 
@@ -154,7 +156,8 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
     setTab('main');
   };
   const removeBlock = () => {
-    if (!block || block.name === MAIN_OB || !confirm(t('block.delete.confirm'))) return;
+    setConfirmDelete(false);
+    if (!block || block.name === MAIN_OB) return;
     change((p) => ({
       ...p,
       blocks: p.blocks.filter((b) => !(isCode(b) && b.name === block.name)),
@@ -205,10 +208,21 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
         </button>
         <span className="tab-spacer" />
         {result && (
-          <span className={`size ${result.used > result.limit ? 'size-over' : ''}`}>
-            {result.lang === 'FUP'
-              ? `${result.size} Boxen · ${result.used} / ${result.limit} Netzwerke`
-              : `${result.used} / ${result.limit} ${t('program.statements')}`}
+          <span
+            className={`size-meter ${result.used > result.limit ? 'size-over' : ''}`}
+            title={
+              result.lang === 'FUP' ? `${result.size} ${t('program.boxes')}` : t('program.memory')
+            }
+          >
+            <span className="size-bar" aria-hidden="true">
+              <span style={{ width: `${Math.min(100, (100 * result.used) / result.limit)}%` }} />
+            </span>
+            <span>
+              <b>
+                {result.used} / {result.limit}
+              </b>{' '}
+              {result.lang === 'FUP' ? t('program.networks') : t('program.statements')}
+            </span>
           </span>
         )}
       </div>
@@ -255,7 +269,11 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
                   spellCheck={false}
                   aria-label={t('table.name')}
                 />
-                <button className="icon-btn" title={t('db.delete')} onClick={removeBlock}>
+                <button
+                  className="icon-btn"
+                  title={t('db.delete')}
+                  onClick={() => setConfirmDelete(true)}
+                >
                   ✕
                 </button>
               </>
@@ -351,6 +369,16 @@ export function ProgramPanel({ solution, compiled, onChange }: Props) {
         </div>
       )}
 
+      {confirmDelete && block && (
+        <ConfirmDialog
+          title={t('block.delete.title', { name: block.name })}
+          text={t('block.delete.confirm')}
+          confirmLabel={t('db.delete')}
+          danger
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={removeBlock}
+        />
+      )}
       <Problems
         diagnostics={diagnostics}
         onJump={(d) => {
