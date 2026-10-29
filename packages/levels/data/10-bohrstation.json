@@ -22,7 +22,7 @@
     "de": "# Bohrstation BS-2\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Start-Taster |\n| B1 | DI | Bohrer oben (Endlage) |\n| B2 | DI | Bohrer unten (Bohrtiefe erreicht) |\n| B3 | DI | Werkstück gespannt |\n| Y1 | DO | Spannzylinder (1 = spannen) |\n| M1 | DO | Bohrmotor – **Leistungsausgang** (über REL 4) |\n| Y2 | DO | Vorschub senken |\n| Y3 | DO | Vorschub heben |\n\n## Ablauf\n\n| Schritt | Tätigkeit | weiter, wenn |\n|---|---|---|\n| 0 Grundstellung | alles aus | Start **gedrückt** (Flanke) und Bohrer oben |\n| 1 Spannen | Y1 | Werkstück gespannt (B3) |\n| 2 Bohren | Y1, M1, Y2 | Bohrtiefe erreicht (B2) |\n| 3 Verweilen | Y1, M1 | mindestens **250 ms** unten |\n| 4 Heben | Y1, M1, Y3 | Bohrer oben (B1) |\n| 5 Lösen | alles aus | Werkstück nicht mehr gespannt (B3 = 0) |\n\n## Mechanik\n\nSpannen dauert 150 ms, Senken 1 s, Heben 0,5 s. Ab 60 % Tiefe steckt der Bohrer im Werkstück: Dort muss das Werkstück gespannt sein und der Motor laufen, sonst gibt es **Schaden**. Senken und Heben gleichzeitig verkantet den Vorschub.\n\n## Hinweis\n\nSchrittnummer in einem Datenbaustein (Int), Weiterschalten mit `CASE … OF`, Ausgänge danach aus der Schrittnummer bilden."
   },
   "board": {
-    "width": 10,
+    "width": 20,
     "ductCapacity": 8
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "rel4"],

@@ -297,20 +297,19 @@ code {
   flex-direction: column;
   min-height: 0;
   flex: 1;
-  overflow: auto;
-  padding: 0 12px 12px;
+  padding: 0 var(--s-3) var(--s-2);
 }
 .palette {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--s-1) 6px;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: var(--s-2);
 }
 .palette-title {
   color: var(--muted);
-  font-size: 12px;
-  margin-right: 4px;
+  font-size: var(--t-xs);
+  margin-right: var(--s-1);
 }
 .palette-item {
   display: flex;
@@ -318,9 +317,13 @@ code {
   align-items: center;
   background: var(--panel-2);
   border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 4px 10px;
+  border-radius: var(--r-md);
+  padding: 3px 9px;
   cursor: pointer;
+  font-size: var(--t-sm);
+}
+.palette-item:hover {
+  border-color: var(--line-strong);
 }
 .palette-item.active {
   border-color: var(--amber);
@@ -328,17 +331,18 @@ code {
 }
 .palette-meta {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--t-xs);
   font-family: var(--mono);
 }
 .chip {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 14px;
   border-radius: 2px;
   background: var(--muted);
 }
 .chip-cpu {
-  background: #8d7cf2;
+  background: #3a4047;
+  box-shadow: inset 0 0 0 1px #6b737b;
 }
 .chip-di,
 .chip-ai {
@@ -349,177 +353,264 @@ code {
   background: var(--do);
 }
 
-.cabinet-svg {
-  width: 100%;
-  min-width: 760px;
-  background: #15181c;
+.cabinet-view {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--r-md);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.03), transparent 70%), var(--bg-deep);
+}
+.cabinet-svg {
+  display: block;
   user-select: none;
+  touch-action: none;
 }
+.cabinet-zoom {
+  position: absolute;
+  top: var(--s-2);
+  right: var(--s-2);
+  display: flex;
+  gap: var(--s-1);
+}
+.cabinet-zoom .btn {
+  background: rgba(33, 38, 45, 0.9);
+  min-width: 28px;
+}
+
+/* SVG-Text in mm (1 Einheit = 1 mm) */
 .cabinet-svg text {
+  font-family: var(--font-condensed);
   fill: var(--text);
-  font-size: 11px;
 }
-.duct {
-  fill: #2b3037;
-  stroke: var(--line-strong);
-}
-.duct-over {
-  fill: #4a2224;
-  stroke: var(--red);
-}
-.duct-label {
+.hw-name {
+  font-size: 3.4px;
+  font-weight: 600;
+  fill: #1e2328 !important;
   text-anchor: middle;
-  fill: var(--muted) !important;
-  font-family: var(--mono);
-  font-size: 10px !important;
 }
-.label-right {
+.hw-sub {
+  font-size: 2.3px;
+  fill: #5a636c !important;
+  text-anchor: middle;
+}
+.hw-sub-accent {
+  fill: #b5530a !important;
+  font-weight: 600;
+}
+.hw-addr {
+  font-family: var(--font-mono) !important;
+  font-size: 2.1px;
+  fill: #2a3036 !important;
+}
+.hw-sym {
+  font-size: 2.2px;
+  fill: #4d5760 !important;
   text-anchor: end;
-  fill: var(--muted) !important;
 }
+.hw-sym-under {
+  text-anchor: start;
+  font-size: 2px;
+}
+.hw-term-no {
+  font-size: 1.8px;
+  fill: #6a737c !important;
+}
+.hw-label-dark {
+  font-size: 2.1px;
+  fill: #aab2ba !important;
+}
+.hw-display {
+  font-family: var(--font-mono) !important;
+  font-size: 2.6px;
+  fill: #7fe0c8 !important;
+}
+.hw-display-strong {
+  font-family: var(--font-condensed) !important;
+  font-size: 3.2px;
+  font-weight: 600;
+  fill: #b6f2e2 !important;
+}
+.hw-display-dim {
+  font-size: 2.1px;
+  fill: #4e8f80 !important;
+}
+.hw-duct-tag {
+  fill: rgba(30, 35, 40, 0.82);
+}
+.hw-duct-tag-over {
+  fill: #7d2327;
+}
+.hw-duct-text {
+  font-size: 2.8px;
+  fill: #e4e7ea !important;
+  text-anchor: end;
+}
+.hw-duct-over {
+  fill: rgba(229, 72, 77, 0.35);
+}
+.hw-wall-text {
+  font-size: 3.4px;
+  font-weight: 600;
+  fill: #f4d9cf !important;
+  text-anchor: middle;
+  letter-spacing: 0.3px;
+}
+
 .slot {
   fill: transparent;
-  cursor: default;
 }
-.slot-ok {
-  fill: rgba(242, 184, 75, 0.06);
+.slot-active {
   cursor: pointer;
 }
-.slot-target {
-  fill: rgba(242, 184, 75, 0.22);
+.hw-ghost {
+  fill: rgba(110, 158, 230, 0.18);
+  stroke: var(--c-select);
+  stroke-width: 0.6;
+  stroke-dasharray: 2 1.4;
+  pointer-events: none;
+}
+.hw-ghost-bad {
+  fill: rgba(229, 72, 77, 0.14);
+  stroke: var(--red);
 }
 .module {
   cursor: pointer;
 }
-.module-body {
-  fill: var(--panel-2);
-  stroke: var(--line-strong);
+.hw-selection {
+  fill: none;
+  stroke: var(--c-select);
+  stroke-width: 0.8;
+  pointer-events: none;
 }
-.module-selected .module-body {
-  stroke: var(--amber);
-  stroke-width: 2;
+.hw-snap {
+  animation: hw-snap 300ms cubic-bezier(0.2, 0.9, 0.3, 1.25);
 }
-.module-stripe {
-  fill: #8d7cf2;
+@keyframes hw-snap {
+  from {
+    transform: translateY(-6px);
+    opacity: 0.6;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
 }
-.module-di .module-stripe,
-.module-ai .module-stripe {
-  fill: var(--di);
+@media (prefers-reduced-motion: reduce) {
+  .hw-snap {
+    animation: none;
+  }
 }
-.module-do .module-stripe,
-.module-ao .module-stripe {
-  fill: var(--do);
+
+.hw-terminal {
+  cursor: pointer;
 }
-.module-name {
-  text-anchor: middle;
-  font-weight: 700;
-  font-size: 12px !important;
-}
-.module-id,
-.module-detail {
-  text-anchor: middle;
-  fill: var(--muted) !important;
-  font-family: var(--mono);
-  font-size: 10px !important;
-}
-.module-detail-left {
-  fill: var(--muted) !important;
-  font-size: 10px !important;
-}
-.channel-hit {
+.hw-terminal-hit {
   fill: transparent;
 }
-.channel-target .channel-hit {
-  fill: rgba(95, 208, 194, 0.12);
-  cursor: crosshair;
+.hw-terminal:hover .hw-terminal-hit,
+.hw-terminal-target .hw-terminal-hit {
+  fill: rgba(110, 158, 230, 0.22);
+  stroke: var(--c-select);
+  stroke-width: 0.35;
 }
-.channel-label {
-  font-family: var(--mono);
-  font-size: 10px !important;
+.hw-switch-live {
+  cursor: pointer;
 }
-.terminal {
-  fill: #11151a;
-  stroke: #7a838e;
-}
-.terminal-wired {
-  fill: #7a838e;
-}
-.terminal-on {
-  fill: var(--green);
-  stroke: var(--green);
-}
-.led {
-  fill: var(--panel-2);
-  stroke: #4d555f;
-}
-.led-on,
-.led-run {
-  fill: var(--green);
-  stroke: var(--green);
-}
-.led-stop {
-  fill: var(--red);
-  stroke: var(--red);
-}
+
 .wire {
   fill: none;
-  stroke-width: 2;
-  opacity: 0.85;
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+  pointer-events: none;
 }
-.wire-di,
-.wire-ai {
-  stroke: var(--di);
+.wire-dc {
+  stroke: var(--c-wire-dc);
 }
-.wire-do,
-.wire-ao {
-  stroke: var(--do);
+.wire-analog {
+  stroke: var(--c-analog);
 }
 .wire-on {
-  stroke-width: 3;
-  filter: drop-shadow(0 0 3px var(--green));
+  stroke: #5f93e0;
+  stroke-width: 1.4;
+}
+.wire-hover {
+  stroke-width: 1.8;
+  stroke: var(--c-select);
 }
 .device {
   cursor: pointer;
 }
 .device-body {
-  fill: var(--bg-deep);
-  stroke: #3a424c;
+  fill: var(--panel);
+  stroke: var(--line-strong);
+  stroke-width: 0.4;
+}
+.device:hover .device-body {
+  stroke: var(--muted);
 }
 .device-active .device-body {
-  stroke: var(--teal);
-  stroke-width: 2;
+  stroke: var(--c-select);
+  stroke-width: 0.8;
 }
 .device-id {
-  font-family: var(--mono);
-  font-size: 10px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 3px;
   fill: var(--muted) !important;
 }
 .device-name {
-  font-size: 11px !important;
+  font-size: 4px;
 }
 .device-unwire {
   fill: var(--red) !important;
-  font-size: 10px !important;
+  font-size: 2.6px;
   cursor: pointer;
 }
+.device-unwire.end {
+  text-anchor: end;
+}
+.cabinet-svg .led {
+  fill: var(--bg-deep);
+  stroke: var(--line-strong);
+  stroke-width: 0.3;
+}
+.cabinet-svg .led-on {
+  fill: var(--green);
+  stroke: var(--green);
+}
+.cabinet-svg .terminal {
+  fill: #1e2226;
+  stroke: #80878e;
+  stroke-width: 0.35;
+}
+.cabinet-svg .terminal-wired {
+  fill: var(--c-wire-dc);
+}
+.bus-link {
+  fill: none;
+  stroke: #9b7ae0;
+  stroke-width: 1.2;
+  stroke-dasharray: 1.6 1;
+}
+
 .cabinet-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 6px;
-  gap: 8px;
+  gap: var(--s-2);
 }
 .hint {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--t-xs);
 }
 .issues {
   margin: 6px 0 0;
   padding-left: 18px;
   color: var(--red);
-  font-size: 12px;
+  font-size: var(--t-xs);
 }
 
 /* ---------- Programm ---------- */
@@ -1570,12 +1661,6 @@ code {
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-}
-.bus-link {
-  fill: none;
-  stroke: #b58cf2;
-  stroke-width: 3;
-  stroke-dasharray: 2 3;
 }
 .chip-cp,
 .module-cp .module-stripe {

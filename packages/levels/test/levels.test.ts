@@ -33,7 +33,7 @@ function solutionFor(
   scl: string | Record<string, string>,
   board = BOARDS[level.id]!,
 ): Solution {
-  const base: Solution = { version: 1, ...board, projects: {} };
+  const base: Solution = { version: 2, ...board, projects: {} };
   const analysis = analyzeBoard(level, base);
   const cpus = cpusOf(board);
   const sources = typeof scl === 'string' ? { [cpus[0]!]: scl } : scl;
@@ -109,7 +109,7 @@ describe('Kampagne', () => {
 function fupReference(level: Level): Solution {
   const board = BOARDS[level.id]!;
   const ref = FUP_REFERENCES[level.id]!;
-  const base: Solution = { version: 1, ...board, projects: {} };
+  const base: Solution = { version: 2, ...board, projects: {} };
   const analysis = analyzeBoard(level, base);
   const cpu = board.modules.find((m) => m.type.startsWith('cpu'))!.id;
   const project: PlcProject = {
@@ -198,8 +198,8 @@ describe('Typische Fehllösungen fallen durch', () => {
     const board = {
       modules: [
         { id: 'cpu1', type: 'cpu-klein', x: 0 },
-        { id: 'di1', type: 'di8', x: 2 },
-        { id: 'do1', type: 'do8', x: 3 },
+        { id: 'di1', type: 'di8', x: 6 },
+        { id: 'do1', type: 'do8', x: 7 },
       ],
       wires: BOARDS['06-stern-dreieck']!.wires.map((w) =>
         w.module === 'rel1' ? { ...w, module: 'do1' } : w,

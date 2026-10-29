@@ -37,7 +37,7 @@ export const SANDBOX: Level = validateLevel({
       '| P1 | AO | Zeigerinstrument 0…100 % |\n\n' +
       'Es gibt keine Bewertung. Speichern und Export funktionieren wie in jedem Auftrag.',
   ),
-  board: { width: 16, ductCapacity: 12 },
+  board: { width: 48, ductCapacity: 12 },
   allowedModules: Object.keys(MODULE_TYPES),
   toleranceMs: 0,
   plant: { type: 'panel' },

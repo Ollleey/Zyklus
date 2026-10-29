@@ -22,7 +22,7 @@
     "de": "# Sortierstrecke SW-1\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | DI | Lichtschranke Messstelle (1 = Paket da) |\n| B2 | AI | Höhensensor über B1, 0…300 mm → 0…27648, leicht verrauscht |\n| B3 | DI | Lichtschranke vor der Weiche |\n| Y1 | DO | Weiche (1 = hohe Pakete zur Seite) |\n\n## Strecke\n\nDas Band läuft immer. Ein Paket braucht von B1 bis B3 **900 ms** und belegt eine Lichtschranke 250 ms. Pakete folgen in mindestens 350 ms Abstand – es können also drei oder mehr gleichzeitig unterwegs sein.\n\n## Funktion\n\n- Pakete **höher als 120 mm** gehen zur Seite (Y1 = 1), niedrigere geradeaus (Y1 = 0).\n- Entscheidend ist die Stellung der Weiche in dem Moment, in dem das Paket B3 **verlässt**.\n- Gemessen wird, während das Paket in B1 steht.\n\n## Hinweis\n\nDie Pakete überholen sich nicht. Eine Warteschlange aus Bits lässt sich in einem Word halten: `SHL`/`SHR` schieben, `AND`/`OR` setzen und lesen."
   },
   "board": {
-    "width": 8,
+    "width": 15,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "ai2"],

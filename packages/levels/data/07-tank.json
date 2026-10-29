@@ -22,7 +22,7 @@
     "de": "# Hochbehälter Talgrund\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Füllstandssonde 0…100 % → 0…27648, **verrauscht** (± ca. 0,3 %) |\n| P1 | DO | Brunnenpumpe – **Leistungsausgang** (über REL 4) |\n\n## Anlage\n\nDie Pumpe füllt mit 12 %/s, der Verbrauch entnimmt je nach Tageszeit 2 bis 9 %/s. Startfüllstand 50 %.\n\n## Funktion (Zweipunktregelung mit Hysterese)\n\n1. Füllstand **unter 40 %** → Pumpe ein.\n2. Füllstand **über 80 %** → Pumpe aus.\n3. Dazwischen behält die Pumpe ihren Zustand.\n\n## Prüfung\n\n- Füllstand bleibt zwischen 35 % und 85 %.\n- Die Pumpe schaltet höchstens 10-mal je Test.\n\n## Hinweis\n\nRohwert in Prozent: `NORM_X(MIN := 0, VALUE := \"Fuellstand\", MAX := 27648)` liefert 0.0…1.0, `SCALE_X` skaliert auf 0.0…100.0."
   },
   "board": {
-    "width": 10,
+    "width": 23,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "di8", "do8", "rel4"],

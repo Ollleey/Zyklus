@@ -22,7 +22,7 @@
     "de": "# Sudhaus – Durchflussanzeige\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Durchflussmesser 0…100 m³/h → 0…27648, **stark verrauscht** (Standardabweichung ca. 900 Digits) |\n| A1 | AO | Anzeige 0…100 m³/h ← 0…27648 |\n\n## Funktion\n\nA1 zeigt den **geglätteten** Messwert. Die Anzeige darf vom wahren Durchfluss höchstens um **±1200 Digits** (ca. 4 m³/h) abweichen – ab 0,5 s nach dem Start.\n\n## Hinweise\n\n- **Gleitender Mittelwert:** Mittel der letzten n Messwerte.\n- **Exponentieller Mittelwert** (einfacher, ohne Puffer): `y := y + (x − y) / n` in jedem Zyklus. Größeres n glättet stärker, reagiert aber träger.\n- Zwischenwerte als `Real` in einem Global-DB halten; zur Ausgabe `REAL_TO_INT`."
   },
   "board": {
-    "width": 10,
+    "width": 20,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "ao2"],

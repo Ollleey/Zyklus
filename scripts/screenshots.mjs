@@ -33,7 +33,7 @@ async function prepare(solutions, solvedUpTo = 14) {
       for (const s of solutions) {
         const level = s.id === 'sandbox' ? SANDBOX : lv.levelById(s.id);
         const board = s.board ?? boards[s.id];
-        const sol = { version: 1, ...board, projects: {} };
+        const sol = { version: 2, ...board, projects: {} };
         const a = core.analyzeBoard(level, sol);
         for (const m of board.modules) {
           if (!m.type.startsWith('cpu')) continue;
@@ -45,7 +45,7 @@ async function prepare(solutions, solvedUpTo = 14) {
         localStorage.setItem(`zyklus.loesung.${s.id}`, JSON.stringify(sol));
       }
       localStorage.setItem('zyklus.fortschritt', JSON.stringify(progress));
-      localStorage.setItem('zyklus.version', '2');
+      localStorage.setItem('zyklus.version', '3');
     },
     { ROOT, solutions, solvedUpTo },
   );
@@ -95,7 +95,7 @@ const types = ['cpu-klein', 'di8', 'di8hf', 'do8', 'rel4', 'ai2', 'ao2', 'kop'];
 let x = 0;
 const modules = types.map((type, i) => {
   const m = { id: `m${i}`, type, x };
-  x += type.startsWith('cpu') ? 2 : 1;
+  x += type.startsWith('cpu') ? 6 : type === 'rel4' || type === 'kop' ? 2 : 1;
   return m;
 });
 await prepare([

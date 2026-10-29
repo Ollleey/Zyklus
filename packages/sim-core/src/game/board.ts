@@ -2,6 +2,7 @@ import { formatAddress } from '../address';
 import type { PlcProject } from '../project';
 import type { DataType } from '../types';
 import type { Device, Level } from './level';
+import { SOLUTION_VERSION, wallRange } from './migrate';
 import { MODULE_TYPES, channelKind, type ModuleType } from './modules';
 
 /** Ein Modul auf der Hutschiene; `x` = linker Steckplatz. */
@@ -18,9 +19,9 @@ export interface Wire {
   channel: number;
 }
 
-/** Lösung eines Levels: Aufbau, Verdrahtung und je CPU ein PLC-Projekt. */
+/** Lösung eines Levels: Aufbau, Verdrahtung und je CPU ein PLC-Projekt. Positionen in TE (15 mm). */
 export interface Solution {
-  version: 1;
+  version: 2;
   modules: PlacedModule[];
   wires: Wire[];
   /** PLC-Projekt je CPU-Modul (Schlüssel = Modul-id) */
@@ -28,7 +29,7 @@ export interface Solution {
 }
 
 export function emptySolution(): Solution {
-  return { version: 1, modules: [], wires: [], projects: {} };
+  return { version: SOLUTION_VERSION, modules: [], wires: [], projects: {} };
 }
 
 export type BoardIssueCode =
@@ -120,8 +121,8 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       });
       continue;
     }
-    const wall = level.board.wall;
-    if (wall !== undefined && m.x <= wall && wall < m.x + t.width) {
+    const wr = wallRange(level.board);
+    if (wr && m.x < wr[1] && wr[0] < m.x + t.width) {
       err({ code: 'wall', message: `${t.name.de} steht auf der Trennwand`, module: m.id });
       continue;
     }
@@ -145,11 +146,12 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
   let cpu: string | undefined;
   let counters = { di: 0, do: 0, ai: ANALOG_BASE, ao: ANALOG_BASE };
   const wall = level.board.wall;
+  const wr = wallRange(level.board);
   let pastWall = false;
   const couplers: { module: string; cpu: string }[] = [];
   for (const m of sorted) {
     const t = types.get(m.id)!;
-    if (wall !== undefined && !pastWall && m.x > wall) {
+    if (wr && !pastWall && m.x >= wr[1]) {
       // Module rechts der Trennwand gehören nicht zur CPU links davon
       pastWall = true;
       cpu = undefined;

@@ -22,7 +22,7 @@
     "de": "# Band 3 – Ansteuerung\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster „Start“, Schließer |\n| S2 | DI | Taster „Stopp“, **Öffner** (Signal 1 = nicht gedrückt) |\n| M1 | DO | Bandmotor, 1 = läuft |\n\n## Funktion\n\n1. Ein Druck auf **S1** startet das Band. Es läuft weiter, wenn S1 losgelassen wird (Selbsthaltung).\n2. Ein Druck auf **S2** stoppt das Band.\n3. **Stopp hat Vorrang:** Solange S2 gedrückt ist, darf das Band nicht laufen – auch wenn S1 gedrückt wird.\n4. Drahtbruch an S2 wirkt wie ein gedrückter Stopp-Taster.\n\n## Zeitverhalten\n\nDer Motor muss spätestens 15 ms nach dem Tastendruck reagieren.\n\n## Hinweis\n\nIn der Variablentabelle erscheinen angeschlossene Geräte automatisch unter ihrem Namen (z. B. `\"Start\"`)."
   },
   "board": {
-    "width": 10,
+    "width": 20,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8"],

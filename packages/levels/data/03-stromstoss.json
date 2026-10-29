@@ -22,7 +22,7 @@
     "de": "# Flurlicht Am Wehr\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Lichttaster, Schließer, **prellt** |\n| H1 | DO | Flurbeleuchtung, 1 = an |\n\n## Prellverhalten S1\n\nBeim Drücken und Loslassen schaltet der Kontakt 2 bis 6 Mal zusätzlich um, jeweils im Abstand von 1 bis 5 ms. Danach ist das Signal stabil.\n\n## Funktion\n\n1. Jeder Druck auf **S1** schaltet **H1** um (an → aus → an …).\n2. Das Loslassen des Tasters ändert nichts.\n3. Ein Druck muss **genau einmal** umschalten – Prellen darf kein zusätzliches Umschalten auslösen.\n\n## Zeitverhalten\n\nDie Lampe soll **15 bis 65 ms** nach dem Drücken umschalten. Schneller ist nicht möglich, ohne auf Prellen hereinzufallen.\n\n## Hinweis\n\nBewährt hat sich: Signal erst als gedrückt werten, wenn es eine gewisse Zeit stabil anliegt (Einschaltverzögerung), dann die steigende Flanke auswerten (`R_TRIG`)."
   },
   "board": {
-    "width": 10,
+    "width": 20,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "cpu-schnell", "di8", "do8"],

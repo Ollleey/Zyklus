@@ -12,10 +12,12 @@ import { applyTheme } from './theme';
 import './monaco-setup';
 import './styles.css';
 import { App } from './App';
+import { LEVELS } from '@zyklus/levels';
+import { SANDBOX } from './sandbox';
 import { migrate } from './state/persistence';
 
 applyTheme();
-migrate();
+migrate([...LEVELS, SANDBOX]);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -23,10 +23,10 @@
   "metrics.size": "Größe",
   "cabinet.title": "Schaltschrank",
   "cabinet.palette": "Baugruppen",
-  "cabinet.duct": "Kabelkanal",
+  "cabinet.duct": "Kanal",
   "cabinet.hint.place": "Steckplatz auf der Hutschiene wählen",
-  "cabinet.hint.wire": "Kanal einer passenden Baugruppe wählen",
-  "cabinet.hint.idle": "Baugruppe wählen und stecken · Gerät anklicken, dann Kanal anklicken",
+  "cabinet.hint.wire": "Klemme einer passenden Baugruppe wählen",
+  "cabinet.hint.idle": "Baugruppe wählen und auf die Schiene stecken · Gerät anklicken, dann Klemme anklicken · Mausrad zoomt, Ziehen verschiebt",
   "cabinet.remove": "Entfernen",
   "cabinet.price": "Preis",
   "cabinet.width": "Breite",
@@ -114,5 +114,10 @@
   "program.boxes": "FUP-Boxen",
   "program.networks": "Netzwerke",
   "program.memory": "Programmspeicher der CPU",
-  "block.delete.title": "Baustein „{name}“ löschen?"
+  "block.delete.title": "Baustein „{name}“ löschen?",
+  "cabinet.ductTop": "Kanal oben (Versorgung, Bus)",
+  "cabinet.unwire": "trennen",
+  "cabinet.zoomIn": "Vergrößern",
+  "cabinet.zoomOut": "Verkleinern",
+  "cabinet.fit": "Einpassen"
 }

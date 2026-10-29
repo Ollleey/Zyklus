@@ -22,7 +22,7 @@
     "de": "# Düsenheizung DH-3\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Freigabe (Schalter) |\n| B1 | AI | Leistungs-Poti 0…100 % → 0…27648 |\n| E1 | DO | Halbleiterrelais Heizband |\n\n## Funktion (Pulsweitenmodulation)\n\n- Periode **1 s**.\n- In jeder Periode ist E1 so lange ein, wie es dem Sollwert entspricht: 30 % → 300 ms ein, 700 ms aus.\n- Ohne Freigabe bleibt E1 aus.\n\n## Prüfung\n\nIn jedem Sekundenfenster muss der Einschaltanteil auf **3 Prozentpunkte** genau stimmen. Das Fenster direkt nach einer Sollwertänderung wird nicht bewertet.\n\n## Hinweis\n\nEin Zeitglied, das sich selbst neu startet (`IN := NOT Q`), liefert mit `ET` eine laufende Zeit innerhalb der Periode. `TIME_TO_DINT` wandelt sie in Millisekunden."
   },
   "board": {
-    "width": 8,
+    "width": 15,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "ai2"],

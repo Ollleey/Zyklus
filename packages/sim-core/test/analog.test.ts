@@ -85,7 +85,7 @@ const TANK: Level = validateLevel({
   customer: { de: 'k' },
   mail: { from: { de: 'a' }, subject: { de: 'b' }, body: { de: 'c' } },
   datasheet: { de: 'd' },
-  board: { width: 8, ductCapacity: 4 },
+  board: { width: 10, ductCapacity: 4 },
   allowedModules: ['cpu-klein', 'ai2', 'rel4', 'do8'],
   toleranceMs: 10,
   plant: {
@@ -128,11 +128,11 @@ const TANK: Level = validateLevel({
 });
 
 const SOL: Solution = {
-  version: 1,
+  version: 2,
   modules: [
     { id: 'cpu', type: 'cpu-klein', x: 0 },
-    { id: 'ai', type: 'ai2', x: 2 },
-    { id: 'rel', type: 'rel4', x: 3 },
+    { id: 'ai', type: 'ai2', x: 6 },
+    { id: 'rel', type: 'rel4', x: 7 },
   ],
   wires: [
     { device: 'B1', module: 'ai', channel: 0 },
@@ -171,7 +171,7 @@ describe('Relais, Anlage, Kriterien', () => {
   it('Schütz am DO-Kanal wird abgewiesen', () => {
     const a = analyzeBoard(TANK, {
       ...SOL,
-      modules: [...SOL.modules, { id: 'do', type: 'do8', x: 4 }],
+      modules: [...SOL.modules, { id: 'do', type: 'do8', x: 9 }],
       wires: [SOL.wires[0]!, { device: 'P1', module: 'do', channel: 0 }],
     });
     expect(a.issues.map((i) => i.code)).toContain('needs-relay');

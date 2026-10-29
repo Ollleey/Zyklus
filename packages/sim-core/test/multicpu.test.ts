@@ -18,7 +18,7 @@ const LEVEL: Level = validateLevel({
   customer: { de: 'Test' },
   mail: { from: { de: 'a' }, subject: { de: 'b' }, body: { de: 'c' } },
   datasheet: { de: 'd' },
-  board: { width: 10, ductCapacity: 4, wall: 4 },
+  board: { width: 21, ductCapacity: 4, wall: 9 },
   allowedModules: ['cpu-klein', 'di8', 'do8', 'kop'],
   toleranceMs: 30,
   devices: [
@@ -38,14 +38,14 @@ const LEVEL: Level = validateLevel({
 });
 
 const SOLUTION: Solution = {
-  version: 1,
+  version: 2,
   modules: [
     { id: 'A', type: 'cpu-klein', x: 0 },
-    { id: 'di', type: 'di8', x: 2 },
-    { id: 'kA', type: 'kop', x: 3 },
-    { id: 'B', type: 'cpu-klein', x: 5 },
-    { id: 'kB', type: 'kop', x: 7 },
-    { id: 'do', type: 'do8', x: 8 },
+    { id: 'di', type: 'di8', x: 6 },
+    { id: 'kA', type: 'kop', x: 7 },
+    { id: 'B', type: 'cpu-klein', x: 11 },
+    { id: 'kB', type: 'kop', x: 17 },
+    { id: 'do', type: 'do8', x: 19 },
   ],
   wires: [
     { device: 'S1', module: 'di', channel: 0 },
@@ -98,7 +98,7 @@ describe('Trennwand und Koppelmodul', () => {
   it('Leitungen kreuzen die Trennwand nicht', () => {
     const a = analyzeBoard(LEVEL, {
       ...SOLUTION,
-      modules: [...SOLUTION.modules, { id: 'di2', type: 'di8', x: 9 }],
+      modules: [...SOLUTION.modules, { id: 'di2', type: 'di8', x: 20 }],
       wires: [{ device: 'S1', module: 'di2', channel: 0 }],
     });
     expect(a.issues.some((i) => i.code === 'wall')).toBe(true);
@@ -112,20 +112,20 @@ describe('Trennwand und Koppelmodul', () => {
     expect(a.issues.find((i) => i.module === 'do')?.code).toBe('io-without-cpu');
     const onWall = analyzeBoard(LEVEL, {
       ...SOLUTION,
-      modules: [...SOLUTION.modules.filter((m) => m.id !== 'kB'), { id: 'kB', type: 'kop', x: 4 }],
+      modules: [...SOLUTION.modules.filter((m) => m.id !== 'kB'), { id: 'kB', type: 'kop', x: 10 }],
     });
     expect(onWall.issues.some((i) => i.code === 'wall' && i.module === 'kB')).toBe(true);
   });
 
   it('ein Koppelmodul je CPU, einzelnes Koppelmodul ist eine Warnung', () => {
     const two = analyzeBoard(
-      { ...LEVEL, board: { width: 9, ductCapacity: 4 } },
+      { ...LEVEL, board: { width: 10, ductCapacity: 4 } },
       {
         ...SOLUTION,
         modules: [
           { id: 'A', type: 'cpu-klein', x: 0 },
-          { id: 'k1', type: 'kop', x: 2 },
-          { id: 'k2', type: 'kop', x: 3 },
+          { id: 'k1', type: 'kop', x: 6 },
+          { id: 'k2', type: 'kop', x: 8 },
         ],
         wires: [],
       },

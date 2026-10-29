@@ -1,5 +1,32 @@
 # Changelog
 
+## D2 – Hardware-Optik und Maßstab (2026-10-29)
+
+- Maßstab: ein Rasterschritt der Hutschiene sind 15 mm. CPU klein 90 mm, CPU mittel/schnell
+  105 mm, DI 8/DO 8/DI 8 HF/AI 2/AO 2 je 15 mm, REL 4 und KOP je 30 mm, Trennwand 30 mm.
+  Schrankbreiten der Level und Referenzaufbauten umgerechnet; Preise und Richtwerte unverändert
+- Lösungsformat Version 2 mit Migration: alte Stände werden beim Start (localStorage, Version 3) und
+  beim Import von Lösungsdateien umgerechnet, Reihenfolge und Lücken bleiben erhalten, Level 13 je
+  Seite der Trennwand. Was nicht mehr passt, lädt und wird als „ragt über die Hutschiene“ gemeldet.
+  Tests mit dem alten Referenzaufbau jedes Levels
+- Engine: Betriebsartenschalter RUN/STOP (Neustart mit erhaltenen Merkern und Datenbausteinen),
+  mittlere Auslastung des Befehlsbudgets je CPU
+- Schaltschrank maßstäblich in mm gezeichnet: verzinkte Montageplatte, 35-mm-Hutschiene mit
+  Langlöchern und Lichtkante, Verdrahtungskanäle oben und unten mit Fingern, Deckel und
+  Belegungsschild (überfüllte Spalten rot), Trennwand als Schottblech, Buskabel der Koppelmodule
+  im oberen Kanal
+- CPU: Gehäuse mit Lüftungsschlitzen und Fronttür, LEDs RUN/STOP/ERROR/MAINT mit Leuchten aus der
+  Simulation, Anzeige mit Typ, Name, Zykluszeit und Last, Betriebsartenschalter (bedienbar im
+  Sandkasten), Kartenschacht, RJ45 mit Link-LED
+- E/A-Baugruppen: Beschriftungsstreifen mit LED, Adresse und Symbolname je Kanal (Tooltip mit vollem
+  Namen), Analogbalken, Federzugklemmen mit orangen Betätigern als Verdrahtungsziel
+- Zoom mit Mausrad um den Zeiger, Verschieben durch Ziehen, „Einpassen“, Vorschau beim Stecken,
+  Einrast-Animation (aus bei reduzierter Bewegung); Leitungen laufen unter dem Kanaldeckel und
+  hinter den Fronten
+- Noch offen für D3: Leitungsführung mit Biegeradius und Aderendhülsen, Gerätesymbole; bei
+  „Einpassen“ ist die Modulbeschriftung klein, lesbar mit Zoom
+- 493 Tests
+
 ## D1 – Designsystem und Grundlayout (2026-10-29)
 
 - Plan für die Design-Überarbeitung D1–D6 (`docs/design/PLAN.md`) und Ausbauplan M8–M13 (`PLAN.md`)

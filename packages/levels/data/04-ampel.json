@@ -22,7 +22,7 @@
     "de": "# Baustellenampel\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Schlüsselschalter „Betrieb“ (1 = ein) |\n| H1 | DO | Rot |\n| H2 | DO | Gelb |\n| H3 | DO | Grün |\n\n## Ablauf (wiederholt sich, solange S1 = 1)\n\n| Phase | Dauer | Rot | Gelb | Grün |\n|---|---|---|---|---|\n| Rot | 3 s | 1 | 0 | 0 |\n| Rot-Gelb | 1 s | 1 | 1 | 0 |\n| Grün | 3 s | 0 | 0 | 1 |\n| Gelb | 1 s | 0 | 1 | 0 |\n\n## Funktion\n\n1. Mit S1 = 1 beginnt der Ablauf mit der Phase **Rot**.\n2. Mit S1 = 0 sind sofort alle Lampen aus.\n3. Erneutes Einschalten beginnt wieder bei Rot.\n\n## Zeitverhalten\n\nUmschaltzeitpunkte dürfen um höchstens ±60 ms abweichen.\n\n## Hinweis\n\nEin einziges Zeitglied für den ganzen Umlauf genügt: Die abgelaufene Zeit `ET` lässt sich mit Zeitkonstanten vergleichen, z. B. `\"Takt\".ET < T#3s`."
   },
   "board": {
-    "width": 10,
+    "width": 20,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8"],

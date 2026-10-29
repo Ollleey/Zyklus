@@ -159,6 +159,11 @@ export class LevelRun {
     while (!this.done) this.sim.tick();
   }
 
+  /** Betriebsartenschalter einer CPU (Sandkasten) */
+  setCpuSwitch(cpuId: string, mode: 'RUN' | 'STOP'): void {
+    this.cpus.get(cpuId)?.setSwitch(mode, this.sim.time);
+  }
+
   /** bis einschließlich des nächsten Zyklus einer CPU */
   stepCycle(cpuId?: string): void {
     const cpu = cpuId ? this.cpus.get(cpuId)! : [...this.cpus.values()][0]!;

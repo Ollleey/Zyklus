@@ -22,7 +22,7 @@
     "de": "# Anlassofen AO-200\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Ofentemperatur 0…200 °C → 0…27648, verrauscht |\n| B2 | AI | Sollwertsteller 0…200 °C |\n| E1 | AO | Heizleistung 0…100 % → 0…27648 |\n\n## Strecke\n\nPT1 mit Totzeit: 100 % Heizleistung ergeben im Endzustand 20 °C + 180 °C. Zeitkonstante **6 s**, Totzeit **1,5 s**. Ohne Heizung kühlt der Ofen auf 20 °C ab. Beim Öffnen der Tür gehen bis zu 25 °C verloren.\n\n## Anforderung\n\n- Nach dem Einschwingen **± 2 °C** um den Sollwert.\n- Höchstens 8 °C Überschwingen.\n\n## Hinweis (PI-Regler)\n\n`y = Kp · (e + 1/Ti · ∫e dt)` mit e = Soll − Ist. Werte zum Anfangen: Kp = 1,5 %/°C, Ti = 5 s. Gleichmäßig abtasten: ein **Weckalarm-OB** (z. B. OB30, alle 100 ms) ruft den Regler auf; ein eigener **FB** „PI“ hält das Integral in seinen statischen Daten. Den Stellwert auf 0…100 % begrenzen und dann nicht weiter integrieren (Anti-Windup)."
   },
   "board": {
-    "width": 8,
+    "width": 15,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "ao2"],

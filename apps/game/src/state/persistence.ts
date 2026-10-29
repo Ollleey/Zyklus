@@ -1,11 +1,17 @@
-import { emptySolution, type Metrics, type Solution } from '@zyklus/sim-core';
+import {
+  emptySolution,
+  upgradeSolution,
+  type Level,
+  type Metrics,
+  type Solution,
+} from '@zyklus/sim-core';
 
 const SOLUTION_KEY = (levelId: string) => `zyklus.loesung.${levelId}`;
 const PROGRESS_KEY = 'zyklus.fortschritt';
 const VERSION_KEY = 'zyklus.version';
 
 /** Version des Speicherformats im localStorage. Bei Änderungen erhöhen und in `migrate` umbauen. */
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
 
 export type Best = Metrics;
 
@@ -44,20 +50,30 @@ function write(key: string, value: unknown): void {
 
 /**
  * Hebt ältere Spielstände auf das aktuelle Format.
- * Version 1 (ohne Versionsschlüssel): Fortschritt ohne Verlauf – bleibt lesbar, Verlauf entsteht neu.
+ * - Version 1 (ohne Versionsschlüssel): Fortschritt ohne Verlauf – Verlauf entsteht neu.
+ * - Version 2 → 3: gespeicherte Lösungen vom groben Raster auf 15-mm-Rasterschritte umrechnen.
  */
-export function migrate(): void {
+export function migrate(levels: Pick<Level, 'id' | 'board'>[]): void {
   const v = read<number>(VERSION_KEY) ?? 1;
   if (v >= STORAGE_VERSION) return;
-  const progress = read<Record<string, LevelProgress>>(PROGRESS_KEY) ?? {};
-  for (const p of Object.values(progress)) p.history ??= [];
-  write(PROGRESS_KEY, progress);
+  if (v < 2) {
+    const progress = read<Record<string, LevelProgress>>(PROGRESS_KEY) ?? {};
+    for (const p of Object.values(progress)) p.history ??= [];
+    write(PROGRESS_KEY, progress);
+  }
+  for (const level of levels) {
+    const s = read<{ version?: unknown }>(SOLUTION_KEY(level.id));
+    if (s?.version !== 1) continue;
+    const up = upgradeSolution(level, s);
+    if (up) write(SOLUTION_KEY(level.id), up);
+  }
   write(VERSION_KEY, STORAGE_VERSION);
 }
 
-export function loadSolution(levelId: string): Solution {
-  const s = read<Solution>(SOLUTION_KEY(levelId));
-  return s?.version === 1 ? s : emptySolution();
+export function loadSolution(level: Pick<Level, 'id' | 'board'>): Solution {
+  return (
+    upgradeSolution(level, read<{ version?: unknown }>(SOLUTION_KEY(level.id))) ?? emptySolution()
+  );
 }
 
 export function saveSolution(levelId: string, s: Solution): void {

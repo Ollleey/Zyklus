@@ -22,7 +22,7 @@
     "de": "# Presse 7 – Zweihandschaltung\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster links, Schließer |\n| S2 | DI | Taster rechts, Schließer |\n| Y1 | DO | Pressenventil, 1 = Stempel fährt |\n\n## Funktion\n\n1. **Y1** darf nur angesteuert werden, solange **beide** Taster gedrückt sind.\n2. Der zweite Taster muss **innerhalb von 0,5 s** nach dem ersten gedrückt werden. Sonst bleibt die Presse aus, bis beide Taster losgelassen wurden.\n3. Wird ein Taster losgelassen, fällt Y1 sofort ab. Erneutes Drücken nur dieses Tasters startet die Presse **nicht** wieder – zuerst müssen **beide** Taster losgelassen werden.\n4. Die Reihenfolge der Taster ist egal.\n\n## Zeitverhalten\n\nY1 muss spätestens 15 ms nach dem zweiten Tastendruck bzw. nach dem Loslassen reagieren.\n\n## Hinweis\n\nZeitglieder brauchen einen Instanz-DB, z. B. `\"Fenster\"` vom Typ `IEC_TIMER`, Aufruf mit `\"Fenster\".TON(IN := …, PT := T#500ms);`. Zustände, die über mehrere Zyklen erhalten bleiben müssen, gehören in einen Global-DB."
   },
   "board": {
-    "width": 10,
+    "width": 20,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8"],

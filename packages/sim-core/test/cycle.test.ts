@@ -267,3 +267,25 @@ describe('Validierung', () => {
     }
   });
 });
+
+describe('Betriebsartenschalter', () => {
+  it('STOP schaltet Ausgänge ab, RUN läuft mit erhaltenen Merkern weiter', () => {
+    const b = new ProgramBuilder();
+    b.emit({ op: 'bin', fn: 'add', t: 'INT', dst: io('%MW0'), a: io('%MW0'), b: c.int(1) });
+    b.emit({ op: 'mov', dst: io('%Q0.0'), src: c.bool(true) });
+    const cpu = new Cpu({ name: 'A', cycleMs: 1, maxOpsPerCycle: 100 }, b.build());
+    const sim = new Simulation([cpu]);
+    sim.run(3);
+    expect(cpu.read('%Q0.0')).toBe(true);
+    cpu.setSwitch('STOP', sim.time);
+    expect(cpu.stopInfo?.reason).toBe('SWITCH');
+    expect(cpu.read('%Q0.0')).toBe(false);
+    sim.run(5);
+    expect(cpu.read('%MW0')).toBe(3);
+    cpu.setSwitch('RUN', sim.time);
+    sim.run(2);
+    expect(cpu.read('%MW0')).toBe(5);
+    expect(cpu.read('%Q0.0')).toBe(true);
+    expect(cpu.load).toBeCloseTo(2 / 100);
+  });
+});

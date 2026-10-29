@@ -51,7 +51,7 @@ describe('Vergleichsverteilungen', () => {
 
 describe('Lösungsdatei', () => {
   const sol: Solution = {
-    version: 1,
+    version: 2,
     modules: [{ id: 'cpu1', type: 'cpu-klein', x: 0 }],
     wires: [{ device: 'S1', module: 'di1', channel: 0 }],
     projects: { cpu1: emptyProject() },
@@ -61,7 +61,7 @@ describe('Lösungsdatei', () => {
     const text = toSolutionFile('01-foerderband', sol, new Date('2026-10-29T10:00:00Z'));
     expect(JSON.parse(text)).toMatchObject({
       format: 'zyklus-loesung',
-      version: 1,
+      version: 2,
       level: '01-foerderband',
     });
     const r = parseSolutionFile(text, '01-foerderband');

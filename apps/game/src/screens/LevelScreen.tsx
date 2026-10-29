@@ -13,7 +13,7 @@ import {
 import { projectToSource } from '@zyklus/scl-compiler';
 import { compileSolution } from '@zyklus/levels';
 import { t } from '../i18n';
-import { Cabinet } from '../components/Cabinet';
+import { Cabinet, type CpuStatus } from '../components/Cabinet';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
 import { PlantView } from '../components/PlantView';
 import { ProgramPanel } from '../components/ProgramPanel';
@@ -41,7 +41,7 @@ interface Props {
 }
 
 export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Props) {
-  const [solution, setSolution] = useState<Solution>(() => loadSolution(level.id));
+  const [solution, setSolution] = useState<Solution>(() => loadSolution(level));
   const [brief, setBrief] = useState<'mail' | 'datasheet' | null>(() =>
     solution.modules.length ? null : sandbox ? 'datasheet' : 'mail',
   );
@@ -63,11 +63,22 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
     return m;
   }, [run, sim.frame]);
 
-  const cpuModes = useMemo(() => {
-    const m = new Map<string, 'RUN' | 'STOP'>();
-    if (run) for (const [id, c] of run.cpus) m.set(id, c.mode);
+  const cpuStatus = useMemo(() => {
+    const m = new Map<string, CpuStatus>();
+    if (run) {
+      for (const [id, c] of run.cpus) {
+        m.set(id, { mode: c.mode, error: c.stopInfo?.reason === 'CYCLE_OVERRUN', load: c.load });
+      }
+    }
     return m;
   }, [run, sim.frame]);
+  const readIo = (cpu: string, address: string) => {
+    try {
+      return run?.cpus.get(cpu)?.read(address) as boolean | number | undefined;
+    } catch {
+      return undefined;
+    }
+  };
 
   const stopped = run && [...run.cpus.values()].find((c) => c.mode === 'STOP');
   const test = sim.mode === 'test' ? level.tests[sim.testIdx] : undefined;
@@ -101,7 +112,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
 
   const fileInput = useRef<HTMLInputElement>(null);
   const importSolution = async (file: File) => {
-    const parsed = parseSolutionFile(await file.text(), level.id);
+    const parsed = parseSolutionFile(await file.text(), level.id, () => level);
     if (!parsed.ok) {
       setNotice(`${t('level.import.failed')}: ${parsed.error}`);
       return;
@@ -236,7 +247,13 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
               analysis={compiled.analysis}
               onChange={setSolution}
               values={run ? values : undefined}
-              cpuModes={run ? cpuModes : undefined}
+              cpuStatus={run ? cpuStatus : undefined}
+              readIo={run ? readIo : undefined}
+              canSwitch={sandbox}
+              onCpuSwitch={(cpu, mode) => {
+                run?.setCpuSwitch(cpu, mode);
+                if (!sim.running) sim.play();
+              }}
             />
           </section>
           <Splitter

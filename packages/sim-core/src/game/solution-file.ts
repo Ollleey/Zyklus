@@ -1,11 +1,14 @@
 import type { Solution } from './board';
+import type { Level } from './level';
+import { SOLUTION_VERSION, upgradeSolution } from './migrate';
 
 /**
  * Austauschformat für Lösungen (Export/Import als JSON-Datei).
  * Versioniert, damit spätere Spielstände alte Dateien weiter lesen können.
  */
 export const SOLUTION_FORMAT = 'zyklus-loesung';
-export const SOLUTION_FILE_VERSION = 1;
+/** Version 2: Positionen im 15-mm-Raster (Version 1 wird beim Lesen umgerechnet) */
+export const SOLUTION_FILE_VERSION = 2;
 
 export interface SolutionFile {
   format: typeof SOLUTION_FORMAT;
@@ -35,7 +38,9 @@ const isObj = (x: unknown): x is Record<string, unknown> =>
 /** Prüft die Grobstruktur einer Lösung (Details meldet später die Schaltschrankprüfung). */
 function checkSolution(s: unknown): string | undefined {
   if (!isObj(s)) return 'Lösung fehlt';
-  if (s.version !== 1) return `Unbekannte Lösungsversion ${String(s.version)}`;
+  if (s.version !== 1 && s.version !== SOLUTION_VERSION) {
+    return `Unbekannte Lösungsversion ${String(s.version)}`;
+  }
   if (!Array.isArray(s.modules)) return 'Baugruppenliste fehlt';
   for (const m of s.modules) {
     if (
@@ -66,8 +71,15 @@ function checkSolution(s: unknown): string | undefined {
   return undefined;
 }
 
-/** Liest eine Lösungsdatei; bei `expectedLevel` muss sie zu diesem Auftrag gehören. */
-export function parseSolutionFile(text: string, expectedLevel?: string): ParsedSolutionFile {
+/**
+ * Liest eine Lösungsdatei; bei `expectedLevel` muss sie zu diesem Auftrag gehören.
+ * Ältere Lösungen werden mit dem Auftrag aus `levelOf` auf das aktuelle Raster umgerechnet.
+ */
+export function parseSolutionFile(
+  text: string,
+  expectedLevel?: string,
+  levelOf?: (id: string) => Pick<Level, 'id' | 'board'> | undefined,
+): ParsedSolutionFile {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -89,10 +101,13 @@ export function parseSolutionFile(text: string, expectedLevel?: string): ParsedS
   }
   const problem = checkSolution(data.solution);
   if (problem) return { ok: false, error: problem };
+  const level = levelOf?.(data.level) ?? { id: data.level, board: { width: 0, ductCapacity: 0 } };
+  const solution = upgradeSolution(level, data.solution as { version: number });
+  if (!solution) return { ok: false, error: 'Lösung konnte nicht umgerechnet werden' };
   return {
     ok: true,
     level: data.level,
-    solution: data.solution as Solution,
+    solution,
     savedAt: typeof data.savedAt === 'string' ? data.savedAt : undefined,
   };
 }

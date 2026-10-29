@@ -22,7 +22,7 @@
     "de": "# Linie 2 – Kartonzähler\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | DI | Lichtschranke, 1 = Teil im Strahl (ca. 100 ms je Teil), **flattert** an den Kanten |\n| S1 | DI | Taster „Quittieren“, Schließer |\n| H1 | DO | Lampe „Karton voll“ |\n\n## Flattern B1\n\nBeim Eintritt und Austritt eines Teils schaltet das Signal 2 bis 8 Mal zusätzlich um, im Abstand von 1 bis 3 ms.\n\n## Funktion\n\n1. Jedes Teil zählt genau einmal.\n2. Nach dem **5. Teil** leuchtet H1.\n3. **S1** setzt den Zähler auf 0 zurück und löscht H1 – auch wenn der Karton noch nicht voll war.\n\n## Zeitverhalten\n\nH1 soll **0 bis 70 ms** nach dem Eintritt des 5. Teils angehen; nach S1 sofort aus.\n\n## Hinweis\n\nZähler brauchen einen Instanz-DB, z. B. vom Typ `CTU_INT` oder `IEC_COUNTER`."
   },
   "board": {
-    "width": 10,
+    "width": 20,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8"],

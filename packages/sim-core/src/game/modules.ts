@@ -8,7 +8,7 @@ export interface ModuleType {
   id: string;
   name: Text;
   kind: ModuleKind;
-  /** Breite in Steckplätzen der Hutschiene */
+  /** Breite auf der Hutschiene in Rasterschritten (TE) zu 15 mm */
   width: number;
   price: number;
   /** Anzahl E/A-Kanäle (CPU: 0) */
@@ -24,6 +24,9 @@ export interface ModuleType {
 /** Koppelmodul: Sende-/Empfangswörter je CPU (wie PUT/GET, 1 Zyklus Latenz) */
 export const COUPLER_WORDS = 2;
 export const COUPLER_BASE = 100;
+
+/** Rasterschritt der Hutschiene in mm */
+export const TE_MM = 15;
 
 const cpu = (key: keyof typeof CPU_TYPES, description: string): ModuleType => {
   const c = CPU_TYPES[key];
@@ -59,7 +62,7 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
     id: 'kop',
     name: { de: 'KOP' },
     kind: 'cp',
-    width: 1,
+    width: 2,
     price: 3,
     channels: 0,
     description: {
@@ -97,7 +100,7 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
     id: 'rel4',
     name: { de: 'REL 4' },
     kind: 'rel',
-    width: 1,
+    width: 2,
     price: 3,
     channels: 4,
     delay: { on: 15, off: 30 },

@@ -22,7 +22,8 @@ export type CpuMode = 'RUN' | 'STOP';
 
 export interface StopInfo {
   time: number;
-  reason: 'CYCLE_OVERRUN';
+  /** Zykluszeitüberschreitung (Fehler) oder Betriebsartenschalter */
+  reason: 'CYCLE_OVERRUN' | 'SWITCH';
   message: string;
 }
 
@@ -159,11 +160,34 @@ export class Cpu {
   }
 
   /** CPU geht in STOP: Ausgänge werden abgeschaltet. */
-  stop(time: number, message: string): void {
+  stop(time: number, message: string, reason: StopInfo['reason'] = 'CYCLE_OVERRUN'): void {
     this.mode = 'STOP';
-    this.stopInfo = { time, reason: 'CYCLE_OVERRUN', message };
+    this.stopInfo = { time, reason, message };
     this.paa.clear();
     this.outputs.clear();
+  }
+
+  /**
+   * Betriebsartenschalter. STOP → RUN ist ein Neustart: Prozessabbilder und Temp-Variablen
+   * beginnen neu, Merker, Datenbausteine und Instanzen behalten ihre Werte.
+   */
+  setSwitch(mode: CpuMode, time: number): void {
+    if (mode === this.mode) return;
+    if (mode === 'STOP') {
+      this.stop(time, 'Betriebsartenschalter auf STOP', 'SWITCH');
+      return;
+    }
+    this.mode = 'RUN';
+    this.stopInfo = undefined;
+    this.pae.clear();
+    this.paa.clear();
+    this.lastInputs.clear();
+  }
+
+  /** Mittlere Auslastung des Befehlsbudgets je Zyklus (0…1) */
+  get load(): number {
+    if (!this.metrics.cycles) return 0;
+    return this.metrics.ops / this.metrics.cycles / this.config.maxOpsPerCycle;
   }
 
   private area(area: Area, which: 'peripheral' | 'image'): ByteArea {

@@ -22,7 +22,7 @@
     "de": "# Trockenofen – Temperaturregelung\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Temperaturfühler 0…150 °C → 0…27648 |\n| S1 | DI | Taster „Quittieren“, Schließer |\n| K1 | DO | Heizschütz – **Leistungsausgang** (über REL 4) |\n| H1 | DO | Störleuchte |\n\n## Geberfehler\n\nBei **Drahtbruch** oder **Überlauf** liefert die Baugruppe den Rohwert **32767**, bei **Unterlauf** **−32768**. Gültige Werte liegen zwischen −4864 und 32511.\n\n## Funktion\n\n1. **Regelung:** unter 60 °C Heizung ein, über 65 °C Heizung aus, dazwischen unverändert.\n2. **Geberfehler:** Ersatzreaktion „Heizung **aus**“ (sicherer Zustand), **H1 an**.\n3. Nach dem Ende des Fehlers regelt die Heizung sofort wieder normal.\n4. **H1** bleibt an, bis **S1** gedrückt wird **und** kein Fehler mehr ansteht.\n\n## Zeitverhalten\n\nAbweichung höchstens ±40 ms. Beachte die Schaltzeiten des Relais (ein 15 ms, aus 30 ms)."
   },
   "board": {
-    "width": 10,
+    "width": 19,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "di8", "do8", "rel4"],

@@ -22,7 +22,7 @@
     "de": "# Abfüllung AF-120\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Start Abfüllung (Taster) |\n| B1 | DI | Durchflussmesser: **2-ms-Impuls** je 0,1 l, Abstand 9…22 ms |\n| Y1 | DO | Füllventil |\n\n## Funktion\n\n1. Start öffnet das Ventil und beginnt die Zählung bei 0.\n2. Beim **120. Impuls** schließt das Ventil (spätestens 30 ms danach).\n\n## Hardware\n\nNur die **CPU mittel** (5 ms Zyklus) ist zugelassen – ein Impuls ist kürzer als ihr Zyklus. Die Eingangskarte **DI 8 HF** kann bei jeder Flanke einen **Prozessalarm** auslösen: Die CPU unterbricht dann sofort und führt einen Alarm-OB (OB40) aus.\n\n## Hinweis\n\nIm Bausteinbaum einen OB vom Typ *Prozessalarm* anlegen, Eingang und Flanke einstellen. Der Alarm-OB zählt, OB1 steuert das Ventil. Beide teilen sich einen Datenbaustein."
   },
   "board": {
-    "width": 8,
+    "width": 15,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-mittel", "di8", "di8hf", "do8"],

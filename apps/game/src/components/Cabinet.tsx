@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   MODULE_TYPES,
   channelKind,
   tr,
+  wallRange,
   type BoardAnalysis,
   type Device,
   type Level,
@@ -10,17 +11,19 @@ import {
 } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import { connect, disconnect, moveModule, placeModule, removeModule } from '../state/edit';
+import { G, colX, layout, terminalPos } from './cabinet/geometry';
+import {
+  CpuFront,
+  Duct,
+  HardwareDefs,
+  IoFront,
+  Plate,
+  Rail,
+  WallPart,
+  type CpuStatus,
+} from './cabinet/Hardware';
 
-const CW = 62; // Spaltenbreite
-const STRIP = 170; // Breite der Klemmleisten links/rechts
-const DUCT_Y = 28;
-const DUCT_H = 34;
-const MOD_Y = 96;
-const MOD_H = 232;
-const CH_Y = MOD_Y + 52;
-const CH_STEP = 21;
-const DEV_Y = MOD_Y + 6;
-const DEV_STEP = 44;
+export type { CpuStatus } from './cabinet/Hardware';
 
 type Tool = { kind: 'place'; type: string } | { kind: 'wire'; device: string } | null;
 
@@ -29,26 +32,115 @@ interface Props {
   solution: Solution;
   analysis: BoardAnalysis;
   onChange: (s: Solution) => void;
-  /** Live-Werte während der Simulation */
+  /** Live-Werte der Feldgeräte während der Simulation */
   values?: Map<string, boolean | number>;
-  cpuModes?: Map<string, 'RUN' | 'STOP'>;
+  /** Zustand je CPU während der Simulation */
+  cpuStatus?: Map<string, CpuStatus>;
+  /** Peripheriewert einer Adresse (Kanal-LEDs, Analogbalken) */
+  readIo?: (cpu: string, address: string) => boolean | number | undefined;
+  /** Betriebsartenschalter bedienbar (Sandkasten) */
+  canSwitch?: boolean;
+  onCpuSwitch?: (cpu: string, mode: 'RUN' | 'STOP') => void;
 }
 
-export function Cabinet({ level, solution, analysis, onChange, values, cpuModes }: Props) {
+interface View {
+  z: number;
+  x: number;
+  y: number;
+}
+
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 12;
+
+export function Cabinet({
+  level,
+  solution,
+  analysis,
+  onChange,
+  values,
+  cpuStatus,
+  readIo,
+  canSwitch = false,
+  onCpuSwitch,
+}: Props) {
   const [tool, setTool] = useState<Tool>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [hoverCol, setHoverCol] = useState<number | null>(null);
+  const [hoverWire, setHoverWire] = useState<string | null>(null);
   const width = level.board.width;
-  const boardLeft = STRIP;
-  const boardRight = STRIP + width * CW;
-  const svgW = boardRight + STRIP;
+  const l = useMemo(() => layout(level), [level]);
   const left = level.devices.filter((d) => d.side === 'left');
   const right = level.devices.filter((d) => d.side === 'right');
-  const svgH = Math.max(
-    MOD_Y + MOD_H + 24,
-    DEV_Y + Math.max(left.length, right.length) * DEV_STEP + 20,
-  );
+  const wr = wallRange(level.board);
 
+  // ---------- Zoom und Verschieben ----------
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 800, h: 300 });
+  const [view, setView] = useState<View>({ z: 1, x: 0, y: 0 });
+  const autoFit = useRef(true);
+
+  const fit = useCallback(() => {
+    const z = Math.max(ZOOM_MIN, Math.min((size.w - 16) / l.width, (size.h - 16) / l.height));
+    setView({ z, x: (size.w - l.width * z) / 2, y: (size.h - l.height * z) / 2 });
+    autoFit.current = true;
+  }, [size, l]);
+
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => {
+      const r = e!.contentRect;
+      setSize({ w: Math.max(200, r.width), h: Math.max(160, r.height) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    if (autoFit.current) fit();
+  }, [fit]);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const px = e.clientX - r.left;
+      const py = e.clientY - r.top;
+      setView((v) => {
+        const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, v.z * Math.exp(-e.deltaY * 0.0015)));
+        // Punkt unter dem Mauszeiger bleibt stehen
+        return { z, x: px - ((px - v.x) * z) / v.z, y: py - ((py - v.y) * z) / v.z };
+      });
+      autoFit.current = false;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const drag = useRef<{ id: number; sx: number; sy: number; vx: number; vy: number } | null>(null);
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    const background = (e.target as Element).closest('.hw-pan') !== null;
+    if (e.button === 1 || (e.button === 0 && background && !tool)) {
+      drag.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  };
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    setView((v) => ({ ...v, x: d.vx + e.clientX - d.sx, y: d.vy + e.clientY - d.sy }));
+    autoFit.current = false;
+  };
+  const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    // kleiner Weg = Klick auf den Hintergrund: Auswahl aufheben
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 3) setSelected(null);
+  };
+
+  // ---------- Tastatur ----------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -69,6 +161,19 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
     return () => window.removeEventListener('keydown', onKey);
   }, [selected, level, solution, onChange]);
 
+  // ---------- Einrasten frisch gesteckter Baugruppen ----------
+  const known = useRef(new Set(solution.modules.map((m) => m.id)));
+  const [snapping, setSnapping] = useState<string[]>([]);
+  useEffect(() => {
+    const fresh = solution.modules.filter((m) => !known.current.has(m.id)).map((m) => m.id);
+    known.current = new Set(solution.modules.map((m) => m.id));
+    if (!fresh.length) return;
+    setSnapping(fresh);
+    const timer = setTimeout(() => setSnapping([]), 320);
+    return () => clearTimeout(timer);
+  }, [solution.modules]);
+
+  // ---------- Belegung ----------
   const occupied = useMemo(() => {
     const occ: (string | undefined)[] = new Array(width).fill(undefined);
     for (const m of solution.modules) {
@@ -78,11 +183,10 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
     return occ;
   }, [solution.modules, width]);
 
-  const wall = level.board.wall;
   const fits = (type: string, x: number, ignore?: string) => {
     const w = MODULE_TYPES[type]!.width;
     if (x < 0 || x + w > width) return false;
-    if (wall !== undefined && x <= wall && wall < x + w) return false;
+    if (wr && x < wr[1] && wr[0] < x + w) return false;
     for (let c = x; c < x + w; c++) if (occupied[c] && occupied[c] !== ignore) return false;
     return true;
   };
@@ -90,12 +194,13 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
   const devicePos = (d: Device) => {
     const list = d.side === 'left' ? left : right;
     const i = list.indexOf(d);
-    const y = DEV_Y + i * DEV_STEP + 16;
-    return { x: d.side === 'left' ? STRIP - 14 : boardRight + 14, y };
+    const y = G.device.y + i * G.device.step + G.device.h / 2;
+    return { x: d.side === 'left' ? G.side - 6 : l.plateX + l.plateW + 6, y };
   };
   const channelPos = (moduleId: string, ch: number) => {
     const m = solution.modules.find((x) => x.id === moduleId)!;
-    return { x: boardLeft + m.x * CW + 14, y: CH_Y + ch * CH_STEP };
+    const mt = MODULE_TYPES[m.type]!;
+    return terminalPos(l, m, mt.width, mt.channels, ch);
   };
 
   const clickSlot = (col: number) => {
@@ -108,7 +213,6 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
       if (fits(m.type, col, m.id)) onChange(moveModule(level, solution, m.id, col));
     }
   };
-
   const clickDevice = (d: Device) => {
     if (tool?.kind === 'wire' && tool.device === d.id) {
       setTool(null);
@@ -117,9 +221,11 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
     setSelected(null);
     setTool({ kind: 'wire', device: d.id });
   };
-
   const clickChannel = (moduleId: string, ch: number) => {
-    if (tool?.kind !== 'wire') return;
+    if (tool?.kind !== 'wire') {
+      setSelected(moduleId);
+      return;
+    }
     onChange(connect(level, solution, tool.device, moduleId, ch));
     setTool(null);
   };
@@ -132,9 +238,13 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
       : tool?.kind === 'wire'
         ? `${tr(wireDevice?.name)}: ${t('cabinet.hint.wire')}`
         : t('cabinet.hint.idle');
-
   const selectedModule = solution.modules.find((m) => m.id === selected);
   const errors = analysis.issues.filter((i) => i.severity === 'error');
+  const ghostType = tool?.kind === 'place' ? tool.type : selectedModule?.type;
+  const ghostOk =
+    ghostType !== undefined &&
+    hoverCol !== null &&
+    fits(ghostType, hoverCol, selected ?? undefined);
 
   return (
     <div className="cabinet">
@@ -148,6 +258,7 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
               key={id}
               className={`palette-item ${active ? 'active' : ''}`}
               title={tr(mt.description)}
+              aria-pressed={active}
               onClick={() => {
                 setSelected(null);
                 setTool(active ? null : { kind: 'place', type: id });
@@ -156,320 +267,296 @@ export function Cabinet({ level, solution, analysis, onChange, values, cpuModes 
               <span className={`chip chip-${mt.kind}`} />
               <span className="palette-name">{tr(mt.name)}</span>
               <span className="palette-meta">
-                ¤{mt.price} · {mt.width}
+                ¤{mt.price} · {mt.width * G.te} mm
               </span>
             </button>
           );
         })}
       </div>
 
-      <svg
-        className="cabinet-svg"
-        viewBox={`0 0 ${svgW} ${svgH}`}
-        onMouseLeave={() => setHoverCol(null)}
-        role="img"
-        aria-label={t('cabinet.title')}
-      >
-        <defs>
-          <pattern id="rail" width="8" height="8" patternUnits="userSpaceOnUse">
-            <rect width="8" height="8" fill="var(--rail)" />
-            <rect x="0" y="3" width="8" height="2" fill="var(--rail-slot)" />
-          </pattern>
-        </defs>
-
-        {/* Kabelkanal */}
-        {analysis.ductLoad.map((n, c) => {
-          const over = n > level.board.ductCapacity;
-          return (
-            <g key={`duct${c}`}>
-              <rect
-                x={boardLeft + c * CW + 1}
-                y={DUCT_Y}
-                width={CW - 2}
-                height={DUCT_H}
-                className={`duct ${over ? 'duct-over' : ''}`}
-              />
-              <text x={boardLeft + c * CW + CW / 2} y={DUCT_Y - 8} className="duct-label">
-                {n}/{level.board.ductCapacity}
-              </text>
+      <div className="cabinet-view" ref={box}>
+        <svg
+          className={`cabinet-svg ${tool?.kind === 'wire' ? 'cabinet-wiring' : ''}`}
+          width={size.w}
+          height={size.h}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onMouseLeave={() => setHoverCol(null)}
+          role="img"
+          aria-label={t('cabinet.title')}
+        >
+          <HardwareDefs />
+          <rect className="hw-pan" width={size.w} height={size.h} fill="transparent" />
+          <g transform={`translate(${view.x} ${view.y}) scale(${view.z})`}>
+            <g className="hw-pan">
+              <Plate l={l} />
             </g>
-          );
-        })}
-        <text x={boardLeft - 8} y={DUCT_Y + DUCT_H / 2 + 4} className="label-right">
-          {t('cabinet.duct')}
-        </text>
+            <Duct l={l} y={G.ductTop.y} h={G.ductTop.h} layer="base" label="" />
+            <Duct l={l} y={G.ductBottom.y} h={G.ductBottom.h} layer="base" label="" />
+            <Rail l={l} />
+            {wr && <WallPart l={l} from={wr[0]} to={wr[1]} />}
 
-        {/* Hutschiene und Steckplätze */}
-        <rect
-          x={boardLeft}
-          y={MOD_Y + MOD_H / 2 - 14}
-          width={width * CW}
-          height={28}
-          fill="url(#rail)"
-        />
-        {Array.from({ length: width }, (_, c) => {
-          const free = !occupied[c];
-          const placeable =
-            tool?.kind === 'place'
-              ? fits(tool.type, c)
-              : selectedModule
-                ? fits(selectedModule.type, c, selectedModule.id)
-                : false;
-          return (
-            <rect
-              key={`slot${c}`}
-              x={boardLeft + c * CW + 1}
-              y={MOD_Y}
-              width={CW - 2}
-              height={MOD_H}
-              className={`slot ${free ? 'slot-free' : ''} ${placeable && hoverCol === c ? 'slot-target' : ''} ${placeable ? 'slot-ok' : ''}`}
-              onMouseEnter={() => setHoverCol(c)}
-              onClick={() => clickSlot(c)}
-            />
-          );
-        })}
-
-        {/* Trennwand: kein Modul, keine Leitung */}
-        {wall !== undefined && (
-          <g className="wall">
-            <rect
-              x={boardLeft + wall * CW + 6}
-              y={DUCT_Y - 16}
-              width={CW - 12}
-              height={MOD_Y + MOD_H - DUCT_Y + 16}
-              className="wall-body"
-            />
-            <text
-              x={boardLeft + wall * CW + CW / 2}
-              y={MOD_Y + MOD_H / 2}
-              className="wall-label"
-              transform={`rotate(-90 ${boardLeft + wall * CW + CW / 2} ${MOD_Y + MOD_H / 2})`}
-            >
-              {t('cabinet.wall')}
-            </text>
-          </g>
-        )}
-
-        {/* Buskabel zwischen gekoppelten Koppelmodulen */}
-        {analysis.links.map(([a, b]) => {
-          const ka = solution.modules.find(
-            (m) => MODULE_TYPES[m.type]?.kind === 'cp' && analysis.cpuOf.get(m.id) === a,
-          );
-          const kb = solution.modules.find(
-            (m) => MODULE_TYPES[m.type]?.kind === 'cp' && analysis.cpuOf.get(m.id) === b,
-          );
-          if (!ka || !kb) return null;
-          const xa = boardLeft + ka.x * CW + CW / 2;
-          const xb = boardLeft + kb.x * CW + CW / 2;
-          const y = MOD_Y + MOD_H + 10;
-          return (
-            <path
-              key={`bus${a}${b}`}
-              d={`M${xa},${MOD_Y + MOD_H - 30} V${y} H${xb} V${MOD_Y + MOD_H - 30}`}
-              className="bus-link"
-            />
-          );
-        })}
-
-        {/* Baugruppen */}
-        {solution.modules.map((m) => {
-          const mt = MODULE_TYPES[m.type];
-          if (!mt) return null;
-          const x = boardLeft + m.x * CW + 3;
-          const w = mt.width * CW - 6;
-          const isSel = selected === m.id;
-          const mode = cpuModes?.get(m.id);
-          const kind = channelKind(mt.kind);
-          return (
-            <g
-              key={m.id}
-              className={`module module-${mt.kind} ${isSel ? 'module-selected' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (tool?.kind === 'wire') return;
-                setTool(null);
-                setSelected(isSel ? null : m.id);
-              }}
-            >
+            {/* Steckplätze */}
+            {Array.from({ length: width }, (_, c) => (
               <rect
-                x={x}
-                y={MOD_Y + 4}
-                width={w}
-                height={MOD_H - 8}
-                rx={4}
-                className="module-body"
+                key={`slot${c}`}
+                x={colX(l, c)}
+                y={G.module.y}
+                width={G.te}
+                height={G.module.h}
+                className={`slot ${ghostType ? 'slot-active' : ''}`}
+                onMouseEnter={() => setHoverCol(c)}
+                onClick={() => clickSlot(c)}
               />
-              <rect x={x} y={MOD_Y + 4} width={w} height={8} rx={2} className="module-stripe" />
-              <text x={x + w / 2} y={MOD_Y + 30} className="module-name">
-                {tr(mt.name)}
-              </text>
-              <text x={x + w / 2} y={MOD_Y + 44} className="module-id">
-                {m.id}
-              </text>
-              {mt.kind === 'cpu' && (
-                <>
-                  <text x={x + w / 2} y={MOD_Y + 80} className="module-detail">
-                    {mt.cpu!.cycleMs} ms
-                  </text>
-                  <circle
-                    cx={x + 16}
-                    cy={MOD_Y + 110}
-                    r={5}
-                    className={`led ${mode === 'RUN' ? 'led-run' : mode === 'STOP' ? 'led-stop' : ''}`}
-                  />
-                  <text x={x + 26} y={MOD_Y + 114} className="module-detail-left">
-                    RUN
-                  </text>
-                  <circle
-                    cx={x + 16}
-                    cy={MOD_Y + 128}
-                    r={5}
-                    className={`led ${mode === 'STOP' ? 'led-stop' : ''}`}
-                  />
-                  <text x={x + 26} y={MOD_Y + 132} className="module-detail-left">
-                    STOP
-                  </text>
-                </>
-              )}
-              {mt.kind === 'cp' && (
-                <>
-                  <text x={x + w / 2} y={MOD_Y + 80} className="module-detail">
-                    ⇄ QW100
-                  </text>
-                  <text x={x + w / 2} y={MOD_Y + 96} className="module-detail">
-                    IW100
-                  </text>
-                  <circle
-                    cx={x + w / 2}
-                    cy={MOD_Y + 120}
-                    r={5}
-                    className={`led ${analysis.links.some((l) => l.includes(analysis.cpuOf.get(m.id) ?? '')) ? 'led-run' : ''}`}
-                  />
-                </>
-              )}
-              {mt.alarms && (
-                <text x={x + w / 2} y={MOD_Y + MOD_H - 14} className="module-detail">
-                  ⚡ Alarm
-                </text>
-              )}
-              {kind &&
-                Array.from({ length: mt.channels }, (_, ch) => {
-                  const p = channelPos(m.id, ch);
-                  const addr = analysis.channelAddress.get(`${m.id}:${ch}`);
-                  const wire = solution.wires.find((wi) => wi.module === m.id && wi.channel === ch);
-                  const v = wire ? values?.get(wire.device) : undefined;
-                  const target = wireDevice && wireDevice.kind === kind;
-                  return (
-                    <g
-                      key={ch}
-                      className={`channel ${target ? 'channel-target' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clickChannel(m.id, ch);
-                      }}
-                    >
-                      <rect
-                        x={p.x - 10}
-                        y={p.y - 9}
-                        width={w - 2}
-                        height={18}
-                        className="channel-hit"
-                      />
-                      <circle
-                        cx={p.x}
-                        cy={p.y}
-                        r={5}
-                        className={`terminal ${v === true ? 'terminal-on' : ''}`}
-                      />
-                      <text x={p.x + 10} y={p.y + 4} className="channel-label">
-                        {addr?.replace('%', '') ?? ch}
-                      </text>
-                    </g>
-                  );
-                })}
-            </g>
-          );
-        })}
-
-        {/* Leitungen */}
-        {solution.wires.map((w, i) => {
-          const d = level.devices.find((x) => x.id === w.device);
-          const m = solution.modules.find((x) => x.id === w.module);
-          if (!d || !m || !MODULE_TYPES[m.type]) return null;
-          const a = devicePos(d);
-          const b = channelPos(m.id, w.channel);
-          const dy = DUCT_Y + 6 + (i % 6) * 4;
-          const edgeX =
-            d.side === 'left' ? boardLeft - 6 - (i % 4) * 3 : boardRight + 6 + (i % 4) * 3;
-          const on = values?.get(d.id) === true;
-          return (
-            <path
-              key={`w${i}`}
-              d={`M${a.x},${a.y} H${edgeX} V${dy} H${b.x - 8} V${b.y} H${b.x - 5}`}
-              className={`wire wire-${d.kind.toLowerCase()} ${on ? 'wire-on' : ''}`}
-            />
-          );
-        })}
-
-        {/* Feldgeräte */}
-        {[...left, ...right].map((d) => {
-          const p = devicePos(d);
-          const isLeft = d.side === 'left';
-          const x = isLeft ? 8 : boardRight + 22;
-          const wired = solution.wires.some((w) => w.device === d.id);
-          const active = tool?.kind === 'wire' && tool.device === d.id;
-          const v = values?.get(d.id);
-          return (
-            <g
-              key={d.id}
-              className={`device ${active ? 'device-active' : ''}`}
-              onClick={() => clickDevice(d)}
-            >
+            ))}
+            {ghostType && hoverCol !== null && (
               <rect
-                x={x}
-                y={p.y - 17}
-                width={STRIP - 30}
-                height={34}
-                rx={4}
-                className="device-body"
+                x={colX(l, hoverCol) + G.gap / 2}
+                y={G.module.y}
+                width={MODULE_TYPES[ghostType]!.width * G.te - G.gap}
+                height={G.module.h}
+                rx={2}
+                className={`hw-ghost ${ghostOk ? '' : 'hw-ghost-bad'}`}
               />
-              <circle
-                cx={isLeft ? x + 14 : x + STRIP - 44}
-                cy={p.y}
-                r={6}
-                className={`led ${v === true ? 'led-on' : ''}`}
-              />
-              <text x={isLeft ? x + 26 : x + 8} y={p.y - 2} className="device-id">
-                {d.id} · {d.kind}
-                {d.nc ? ' · Öffner' : ''}
-              </text>
-              <text x={isLeft ? x + 26 : x + 8} y={p.y + 11} className="device-name">
-                {tr(d.name).replace(/\s*\([^)]*\)$/, '')}
-              </text>
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={5}
-                className={`terminal ${wired ? 'terminal-wired' : ''}`}
-              />
-              {wired && active && (
-                <text
-                  x={isLeft ? x + STRIP - 40 : x + STRIP - 70}
-                  y={p.y - 20}
-                  className="device-unwire"
+            )}
+
+            {/* Buskabel zwischen gekoppelten Koppelmodulen (oberer Kanal) */}
+            {analysis.links.map(([a, b]) => {
+              const k = (cpu: string) =>
+                solution.modules.find(
+                  (m) => MODULE_TYPES[m.type]?.kind === 'cp' && analysis.cpuOf.get(m.id) === cpu,
+                );
+              const ka = k(a);
+              const kb = k(b);
+              if (!ka || !kb) return null;
+              const xa = colX(l, ka.x) + G.te;
+              const xb = colX(l, kb.x) + G.te;
+              const yTop = G.module.y + 34;
+              const yd = G.ductTop.y + G.ductTop.h / 2;
+              return (
+                <path
+                  key={`bus${a}${b}`}
+                  d={`M${xa},${yTop} V${yd} H${xb} V${yTop}`}
+                  className="bus-link"
+                />
+              );
+            })}
+
+            {/* Leitungen: vom Gerät zum Plattenrand, durch den unteren Kanal, von unten in die Baugruppe
+                (hinter der Front, damit sie nicht über fremde Klemmen laufen; Führung folgt in D3) */}
+            {solution.wires.map((w, i) => {
+              const d = level.devices.find((x) => x.id === w.device);
+              const m = solution.modules.find((x) => x.id === w.module);
+              if (!d || !m || !MODULE_TYPES[m.type]) return null;
+              const a = devicePos(d);
+              const b = channelPos(m.id, w.channel);
+              const lane = G.ductBottom.y + 6 + (i % 9) * 1.8;
+              const edge =
+                d.side === 'left' ? l.plateX + 3 + (i % 4) : l.plateX + l.plateW - 3 - (i % 4);
+              const on = values?.get(d.id) === true;
+              const analog = d.kind === 'AI' || d.kind === 'AO';
+              return (
+                <path
+                  key={`w${w.device}`}
+                  d={`M${a.x},${a.y} H${edge} V${lane} H${b.x} V${b.y}`}
+                  className={`wire ${analog ? 'wire-analog' : 'wire-dc'} ${on ? 'wire-on' : ''} ${hoverWire === d.id ? 'wire-hover' : ''}`}
+                />
+              );
+            })}
+
+            {/* Baugruppen */}
+            {solution.modules.map((m) => {
+              const mt = MODULE_TYPES[m.type];
+              if (!mt) return null;
+              const isSel = selected === m.id;
+              const cpu = analysis.cpuOf.get(m.id);
+              const kind = channelKind(mt.kind);
+              const addresses = Array.from({ length: mt.channels }, (_, ch) =>
+                analysis.channelAddress.get(`${m.id}:${ch}`),
+              );
+              const tags = cpu ? solution.projects[cpu]?.tags : undefined;
+              const symbols = addresses.map((a) => tags?.find((tg) => tg.address === a)?.name);
+              const states = addresses.map((a) => (cpu && a ? readIo?.(cpu, a) : undefined));
+              const wired = addresses.map((_, ch) =>
+                solution.wires.some((w) => w.module === m.id && w.channel === ch),
+              );
+              const target = !!wireDevice && wireDevice.kind === kind;
+              return (
+                <g
+                  key={m.id}
+                  className={`module module-${mt.kind} ${isSel ? 'module-selected' : ''} ${snapping.includes(m.id) ? 'hw-snap' : ''}`}
+                  filter="url(#hw-shadow)"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onChange(disconnect(level, solution, d.id));
+                    if (tool?.kind === 'wire') return;
                     setTool(null);
+                    setSelected(isSel ? null : m.id);
                   }}
                 >
-                  ✕ trennen
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
+                  {mt.kind === 'cpu' ? (
+                    <CpuFront
+                      l={l}
+                      x={m.x}
+                      t={mt}
+                      id={m.id}
+                      status={cpuStatus?.get(m.id)}
+                      powered={!!cpuStatus}
+                      canSwitch={canSwitch && !!cpuStatus}
+                      onSwitch={(mode) => onCpuSwitch?.(m.id, mode)}
+                    />
+                  ) : (
+                    <IoFront
+                      l={l}
+                      x={m.x}
+                      t={mt}
+                      id={m.id}
+                      addresses={addresses}
+                      symbols={symbols}
+                      states={states}
+                      wired={wired}
+                      target={target}
+                      onChannel={(ch) => clickChannel(m.id, ch)}
+                    />
+                  )}
+                  {isSel && (
+                    <rect
+                      x={colX(l, m.x) - 0.4}
+                      y={G.module.y - 0.8}
+                      width={mt.width * G.te + 0.2}
+                      height={G.module.h + 1.6}
+                      rx={2.6}
+                      className="hw-selection"
+                    />
+                  )}
+                </g>
+              );
+            })}
+
+            {/* Kanaldeckel über den Leitungen */}
+            <Duct
+              l={l}
+              y={G.ductTop.y}
+              h={G.ductTop.h}
+              layer="cover"
+              label={t('cabinet.ductTop')}
+            />
+            <Duct
+              l={l}
+              y={G.ductBottom.y}
+              h={G.ductBottom.h}
+              layer="cover"
+              load={analysis.ductLoad}
+              capacity={level.board.ductCapacity}
+              label={t('cabinet.duct')}
+            />
+
+            {/* Feldgeräte */}
+            {[...left, ...right].map((d) => {
+              const p = devicePos(d);
+              const isLeft = d.side === 'left';
+              const x = isLeft ? 4 : l.plateX + l.plateW + 8;
+              const wired = solution.wires.some((w) => w.device === d.id);
+              const active = tool?.kind === 'wire' && tool.device === d.id;
+              const v = values?.get(d.id);
+              return (
+                <g
+                  key={d.id}
+                  className={`device ${active ? 'device-active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clickDevice(d);
+                  }}
+                  onMouseEnter={() => setHoverWire(d.id)}
+                  onMouseLeave={() => setHoverWire(null)}
+                >
+                  <title>{tr(d.name)}</title>
+                  <rect
+                    x={x}
+                    y={p.y - G.device.h / 2}
+                    width={G.device.w}
+                    height={G.device.h}
+                    rx={1.6}
+                    className="device-body"
+                  />
+                  <circle
+                    cx={isLeft ? x + 5 : x + G.device.w - 5}
+                    cy={p.y}
+                    r={1.8}
+                    className={`led ${v === true ? 'led-on' : ''}`}
+                  />
+                  <text x={isLeft ? x + 9 : x + 3} y={p.y - 1.4} className="device-id">
+                    {d.id} · {d.kind}
+                    {d.nc ? ' · Öffner' : ''}
+                  </text>
+                  <text x={isLeft ? x + 9 : x + 3} y={p.y + 4} className="device-name">
+                    {tr(d.name).replace(/\s*\([^)]*\)$/, '')}
+                  </text>
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={1.6}
+                    className={`terminal ${wired ? 'terminal-wired' : ''}`}
+                  />
+                  {wired && active && (
+                    <text
+                      x={isLeft ? x + G.device.w - 2 : x + 2}
+                      y={p.y - G.device.h / 2 - 1.5}
+                      className={`device-unwire ${isLeft ? 'end' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onChange(disconnect(level, solution, d.id));
+                        setTool(null);
+                      }}
+                    >
+                      ✕ {t('cabinet.unwire')}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </g>
+        </svg>
+        <div className="cabinet-zoom">
+          <button
+            className="btn btn-small"
+            onClick={() =>
+              setView((v) => {
+                autoFit.current = false;
+                const z = Math.min(ZOOM_MAX, v.z * 1.25);
+                return {
+                  z,
+                  x: size.w / 2 - ((size.w / 2 - v.x) * z) / v.z,
+                  y: size.h / 2 - ((size.h / 2 - v.y) * z) / v.z,
+                };
+              })
+            }
+            aria-label={t('cabinet.zoomIn')}
+          >
+            +
+          </button>
+          <button
+            className="btn btn-small"
+            onClick={() =>
+              setView((v) => {
+                autoFit.current = false;
+                const z = Math.max(ZOOM_MIN, v.z / 1.25);
+                return {
+                  z,
+                  x: size.w / 2 - ((size.w / 2 - v.x) * z) / v.z,
+                  y: size.h / 2 - ((size.h / 2 - v.y) * z) / v.z,
+                };
+              })
+            }
+            aria-label={t('cabinet.zoomOut')}
+          >
+            −
+          </button>
+          <button className="btn btn-small" onClick={fit}>
+            {t('cabinet.fit')}
+          </button>
+        </div>
+      </div>
 
       <div className="cabinet-info">
         <span className="hint">{hint}</span>

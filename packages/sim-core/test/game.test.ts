@@ -24,7 +24,7 @@ const LEVEL: Level = validateLevel({
   customer: { de: 'Testfirma' },
   mail: { from: { de: 'a' }, subject: { de: 'b' }, body: { de: 'c' } },
   datasheet: { de: 'd' },
-  board: { width: 8, ductCapacity: 2 },
+  board: { width: 10, ductCapacity: 2 },
   allowedModules: ['cpu-klein', 'cpu-schnell', 'di8', 'do8', 'ai2'],
   toleranceMs: 10,
   devices: [
@@ -67,11 +67,11 @@ const LEVEL: Level = validateLevel({
 });
 
 const SOLUTION: Solution = {
-  version: 1,
+  version: 2,
   modules: [
     { id: 'cpu', type: 'cpu-klein', x: 0 },
-    { id: 'di', type: 'di8', x: 2 },
-    { id: 'do', type: 'do8', x: 3 },
+    { id: 'di', type: 'di8', x: 6 },
+    { id: 'do', type: 'do8', x: 7 },
   ],
   wires: [
     { device: 'S1', module: 'di', channel: 0 },
@@ -125,8 +125,8 @@ describe('Schaltschrank', () => {
       ...SOLUTION,
       modules: [
         ...SOLUTION.modules,
-        { id: 'di2', type: 'di8', x: 4 },
-        { id: 'ai', type: 'ai2', x: 5 },
+        { id: 'di2', type: 'di8', x: 8 },
+        { id: 'ai', type: 'ai2', x: 9 },
       ],
       wires: [],
     });
@@ -136,20 +136,20 @@ describe('Schaltschrank', () => {
 
   it('Kabelkanal: Leitungen von links belasten die Spalten bis zum Modul', () => {
     const a = analyzeBoard(LEVEL, SOLUTION);
-    // S1, S2 von links bis Spalte 2; M1 von rechts ab Spalte 3
-    expect(a.ductLoad).toEqual([2, 2, 2, 1, 1, 1, 1, 1]);
+    // S1, S2 von links bis Spalte 6 (DI); M1 von rechts ab Spalte 7 (DO)
+    expect(a.ductLoad).toEqual([2, 2, 2, 2, 2, 2, 2, 1, 1, 1]);
     // DI ganz rechts, DO links: alle Leitungen kreuzen den ganzen Kanal → überfüllt
     const far = analyzeBoard(LEVEL, {
       ...SOLUTION,
       modules: [
         { id: 'cpu', type: 'cpu-klein', x: 0 },
-        { id: 'do', type: 'do8', x: 2 },
-        { id: 'di', type: 'di8', x: 7 },
+        { id: 'do', type: 'do8', x: 6 },
+        { id: 'di', type: 'di8', x: 9 },
       ],
     });
-    expect(far.ductLoad).toEqual([2, 2, 3, 3, 3, 3, 3, 3]);
+    expect(far.ductLoad).toEqual([2, 2, 2, 2, 2, 2, 3, 3, 3, 3]);
     expect(far.issues.filter((i) => i.code === 'duct-full').map((i) => i.column)).toEqual([
-      2, 3, 4, 5, 6, 7,
+      6, 7, 8, 9,
     ]);
   });
 
@@ -202,7 +202,7 @@ describe('Schaltschrank', () => {
   });
 
   it('überfüllter Kabelkanal', () => {
-    const a = analyzeBoard({ ...LEVEL, board: { width: 8, ductCapacity: 1 } }, SOLUTION);
+    const a = analyzeBoard({ ...LEVEL, board: { width: 10, ductCapacity: 1 } }, SOLUTION);
     expect(a.issues.find((i) => i.code === 'duct-full')?.message).toMatch(
       /Spalte 1 ist überfüllt \(2 von 1/,
     );

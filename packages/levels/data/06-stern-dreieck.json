@@ -22,7 +22,7 @@
     "de": "# Lüfter – Stern-Dreieck-Anlauf\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster „Start“, Schließer |\n| S2 | DI | Taster „Stopp“, **Öffner** |\n| K1 | DO | Netzschütz – **Leistungsausgang** |\n| K2 | DO | Sternschütz – **Leistungsausgang** |\n| K3 | DO | Dreieckschütz – **Leistungsausgang** |\n\nSchütze müssen über eine **Relaisbaugruppe (REL 4)** angesteuert werden. Deren Kontakte schließen 15 ms nach dem Befehl und öffnen erst 30 ms danach.\n\n## Ablauf\n\n1. **Start:** K1 und K2 ein (Sternbetrieb).\n2. Nach **2 s**: K2 aus.\n3. **Umschaltpause** von mindestens 50 ms, höchstens 200 ms.\n4. K3 ein (Dreieckbetrieb), K1 bleibt ein.\n5. **Stopp** (oder Drahtbruch an S2) schaltet sofort alles ab. Stopp hat Vorrang vor Start.\n\n## Sicherheit\n\n**K2 und K3 dürfen niemals gleichzeitig geschlossen sein** – auch nicht für eine Millisekunde."
   },
   "board": {
-    "width": 10,
+    "width": 23,
     "ductCapacity": 4
   },
   "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "rel4"],

@@ -8,7 +8,7 @@ export interface CpuType {
   maxOpsPerCycle: number;
   maxNetworks: number;
   maxStatements: number;
-  /** Steckplätze auf der Hutschiene */
+  /** Breite auf der Hutschiene in Rasterschritten zu 15 mm */
   width: number;
   price: number;
   cyclicInterrupt: boolean;
@@ -23,7 +23,7 @@ export const CPU_TYPES: Record<'klein' | 'mittel' | 'schnell', CpuType> = {
     maxOpsPerCycle: 1000,
     maxNetworks: 10,
     maxStatements: 40,
-    width: 2,
+    width: 6,
     price: 4,
     cyclicInterrupt: false,
     processInterrupt: false,
@@ -35,7 +35,7 @@ export const CPU_TYPES: Record<'klein' | 'mittel' | 'schnell', CpuType> = {
     maxOpsPerCycle: 2000,
     maxNetworks: 30,
     maxStatements: 120,
-    width: 3,
+    width: 7,
     price: 8,
     cyclicInterrupt: true,
     processInterrupt: true,
@@ -47,7 +47,7 @@ export const CPU_TYPES: Record<'klein' | 'mittel' | 'schnell', CpuType> = {
     maxOpsPerCycle: 500,
     maxNetworks: 20,
     maxStatements: 80,
-    width: 3,
+    width: 7,
     price: 10,
     cyclicInterrupt: true,
     processInterrupt: true,
