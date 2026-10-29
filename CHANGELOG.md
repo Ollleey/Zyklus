@@ -1,5 +1,23 @@
 # Changelog
 
+## S2 – Sandkasten: Sensor-Physik (2026-10-29)
+
+- Alle Sensoren als reine Funktion `detect(sensor, szene, vorher)`:
+  - induktiv mit Reduktionsfaktor (Stahl 1, Messing 0,5, Aluminium 0,4; Holz, Kunststoff und Glas
+    nie)
+  - kapazitiv nach Dielektrizitätszahl, auch Flüssigkeit durch die Tankwand
+  - optischer Taster nach Reflexionsgrad (schwarz nur nah, Glas kaum)
+  - Einweg-Lichtschranke (Glas geht durch) und Reflexions-Lichtschranke mit Polfilter (ohne Filter
+    täuscht glänzendes Metall einen freien Strahl vor)
+  - Farbsensor als DI je eingelernter Farbe oder Farbcode, nur auf kurzen Abstand
+  - Ultraschall waagrecht oder von oben (Flüssigkeitsspiegel, Werkstücke, Bänder) mit Blindzone
+  - Endschalter (betätigt durch Werkstück oder Zylinder), Zylinderschalter, Wägezelle,
+    Füllstand analog und Grenzwertschalter
+- Schaltabstand mit Hysterese, Ansprechzeit je Sensor, Prellen des Endschalters nach Seed;
+  Öffner, Rauschen und Normbereich 0…27648 über die bestehende Signalverarbeitung
+- Erfassungszonen (`zoneOf`) für die Darstellung
+- Pflichttests aus der Anweisung und Grenzfälle; 567 Tests
+
 ## S1 – Sandkasten: Anlagenmodell und Physik-Core (2026-10-29)
 
 - Neues Paket `packages/plant-sim` ohne UI: Datenmodell einer frei gebauten Anlage (Bauteile mit

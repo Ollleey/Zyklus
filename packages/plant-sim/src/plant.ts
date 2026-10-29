@@ -1,12 +1,15 @@
 import {
   MODULE_TYPES,
+  Rng,
+  deriveSeed,
   registerPlantModel,
   type Level,
   type Plant,
   type Value,
 } from '@zyklus/sim-core';
 import { connectionsOf, identifier, type Connection } from './devices';
-import type { Layout, Part } from './model';
+import { bool, num, type Layout, type Part } from './model';
+import { SENSOR_TYPES, detect } from './sensors';
 import { STEP_MS, World } from './world';
 
 /**
@@ -18,6 +21,9 @@ export class SandboxPlant implements Plant {
   private readonly conns: Connection[];
   private cache: Record<string, number | boolean> = {};
   private ms = 0;
+  /** Rohwert (ohne Ansprechzeit) und Ausgang je Sensor */
+  private readonly raw = new Map<string, boolean | number>();
+  private readonly filters = new Map<string, DiFilter>();
 
   constructor(
     readonly layout: Layout,
@@ -25,6 +31,18 @@ export class SandboxPlant implements Plant {
   ) {
     this.world = new World(layout, seed);
     this.conns = connectionsOf(layout).filter((c) => c.io.kind === 'DI' || c.io.kind === 'AI');
+    for (const p of layout.parts) {
+      if (!SENSOR_TYPES.has(p.type)) continue;
+      const bounce = p.type === 'limit' && bool(p.params, 'bounce', true);
+      this.filters.set(
+        p.id,
+        new DiFilter(
+          num(p.params, 'responseMs'),
+          bounce ? new Rng(deriveSeed(seed, `prellen:${p.id}`)) : undefined,
+        ),
+      );
+    }
+    this.sense();
     this.refresh();
   }
 
@@ -35,7 +53,26 @@ export class SandboxPlant implements Plant {
   step(_t: number, outputs: Record<string, Value>): void {
     this.world.setOutputs(outputs);
     if (++this.ms % STEP_MS === 0) this.world.step();
+    this.sense();
     this.refresh();
+  }
+
+  /** aktueller Wert eines Sensors nach Ansprechzeit und Prellen (für die LED am Sensor) */
+  sensed(partId: string): boolean | number | undefined {
+    const f = this.filters.get(partId);
+    const r = this.raw.get(partId);
+    return typeof r === 'number' ? r : f?.value(this.ms);
+  }
+
+  private sense(): void {
+    for (const p of this.world.parts) {
+      const f = this.filters.get(p.id);
+      if (!f) continue;
+      const prev = this.raw.get(p.id) ?? false;
+      const v = detect(p, this.world, prev);
+      this.raw.set(p.id, v);
+      if (typeof v === 'boolean') f.update(v, this.ms);
+    }
   }
 
   state(): Record<string, number> {
@@ -84,7 +121,47 @@ export class SandboxPlant implements Plant {
       case 'magazine':
         return w.remaining(p) <= 0;
     }
+    if (SENSOR_TYPES.has(p.type)) return this.sensed(p.id);
     return undefined;
+  }
+}
+
+/**
+ * Schaltausgang eines Sensors: folgt dem Rohwert erst, wenn er `responseMs` lang ansteht;
+ * mechanische Kontakte prellen nach jeder Flanke 2…6-mal im Abstand von 1…3 ms.
+ */
+class DiFilter {
+  private out = false;
+  private target = false;
+  private since = 0;
+  private toggles: number[] = [];
+
+  constructor(
+    private readonly responseMs: number,
+    private readonly rng?: Rng,
+  ) {}
+
+  update(raw: boolean, t: number): void {
+    if (raw !== this.target) {
+      this.target = raw;
+      this.since = t;
+    }
+    if (this.out !== this.target && t - this.since >= this.responseMs) {
+      this.out = this.target;
+      if (this.rng) {
+        const n = 2 * this.rng.int(1, 3);
+        let at = t;
+        this.toggles = [];
+        for (let i = 0; i < n; i++) this.toggles.push((at += this.rng.int(1, 3)));
+      }
+    }
+  }
+
+  value(t: number): boolean {
+    let flips = 0;
+    for (const at of this.toggles) if (at <= t) flips++;
+    if (flips === this.toggles.length) this.toggles = [];
+    return flips % 2 ? !this.out : this.out;
   }
 }
 

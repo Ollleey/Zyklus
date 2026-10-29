@@ -393,7 +393,7 @@ export const CATALOG: Record<PartType, PartInfo> = {
               kind: 'AI',
               label: 'Farbcode',
               role: 'sensor',
-              analog: { unit: 'Code', min: 0, max: 27.648 },
+              analog: { unit: 'Code', min: 0, max: 27648 },
               signal: '0-10V',
             },
           ]
@@ -404,7 +404,7 @@ export const CATALOG: Record<PartType, PartInfo> = {
     name: 'Ultraschallsensor',
     category: 'sensor',
     prefix: 'B',
-    defaults: { range: 400, blind: 30 },
+    defaults: { range: 400, blind: 30, facing: 'unten' },
     size: () => SENSOR,
     io: (part) => [
       {
