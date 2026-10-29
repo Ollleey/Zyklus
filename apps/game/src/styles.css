@@ -1374,6 +1374,60 @@ code {
   fill: var(--do);
 }
 
+/* ---------- Histogramme ---------- */
+
+.histo {
+  margin: 0;
+}
+.histo figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.histo-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.histo-value {
+  font-family: var(--mono);
+  font-size: 20px;
+  color: var(--amber);
+}
+.histo svg {
+  width: 100%;
+  display: block;
+}
+.histo-bar {
+  fill: #3a414b;
+}
+.histo-bar-mine {
+  fill: var(--amber-dim);
+}
+.histo-axis {
+  stroke: #4a525c;
+}
+.histo-mine {
+  stroke: var(--amber);
+  stroke-width: 2;
+}
+.histo-best {
+  stroke: var(--green);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+.histo-tick {
+  fill: var(--muted);
+  font-size: 9px;
+  font-family: var(--mono);
+}
+.histo-tick-end {
+  text-anchor: end;
+}
+.histo-share {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 /* ---------- Auftrag / Datenblatt ---------- */
 
 .brief {
@@ -1459,7 +1513,7 @@ code {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 20px 24px;
-  width: min(640px, calc(100vw - 32px));
+  width: min(760px, calc(100vw - 32px));
 }
 .dialog h2 {
   margin-top: 0;

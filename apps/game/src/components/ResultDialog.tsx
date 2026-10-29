@@ -1,6 +1,7 @@
 import { tr, type Level, type Verification } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import type { Best } from '../state/persistence';
+import { HistogramChart } from './HistogramChart';
 
 interface Props {
   level: Level;
@@ -64,17 +65,30 @@ export function ResultDialog({ level, result, best, onClose, onInspect }: Props)
                 ['energy', t('metrics.energy'), result.metrics.energy],
                 ['size', t('metrics.size'), result.metrics.size],
               ] as const
-            ).map(([key, label, value]) => (
-              <div key={key} className="metric">
-                <div className="metric-value">{value}</div>
-                <div className="metric-label">{label}</div>
-                {best && (
-                  <div className="metric-best">
-                    {t('result.best')}: {best[key]}
-                  </div>
-                )}
-              </div>
-            ))}
+            ).map(([key, label, value]) =>
+              level.par ? (
+                <div key={key} className="metric">
+                  <HistogramChart
+                    levelId={level.id}
+                    metric={key}
+                    label={label}
+                    par={level.par[key]}
+                    value={value}
+                    best={best?.[key]}
+                  />
+                  {best && (
+                    <div className="metric-best">
+                      {t('result.best')}: {best[key]}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div key={key} className="metric">
+                  <div className="metric-value">{value}</div>
+                  <div className="metric-label">{label}</div>
+                </div>
+              ),
+            )}
           </div>
         )}
         <div className="dialog-actions">

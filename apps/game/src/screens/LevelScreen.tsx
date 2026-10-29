@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   emptySolution,
   moduleType,
+  parseSolutionFile,
+  toSolutionFile,
   tr,
   verifySolution,
   type Level,
@@ -69,16 +71,30 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
     if (v.passed) onProgress(recordSolved(level.id, v.metrics));
   };
 
+  const download = (name: string, text: string, type: string) => {
+    const blob = new Blob([text], { type: `${type};charset=utf-8` });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const exportScl = () => {
     const cpu = solution.modules.find((m) => moduleType(m.type).kind === 'cpu');
     const project = cpu && solution.projects[cpu.id];
-    if (!project) return;
-    const blob = new Blob([projectToSource(project)], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${level.id}.scl`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    if (project) download(`${level.id}.scl`, projectToSource(project), 'text/plain');
+  };
+
+  const fileInput = useRef<HTMLInputElement>(null);
+  const importSolution = async (file: File) => {
+    const parsed = parseSolutionFile(await file.text(), level.id);
+    if (!parsed.ok) {
+      alert(`${t('level.import.failed')}: ${parsed.error}`);
+      return;
+    }
+    if (solution.modules.length && !confirm(t('level.import.confirm'))) return;
+    setSolution(parsed.solution);
   };
 
   return (
@@ -104,6 +120,38 @@ export function LevelScreen({ level, progress, onBack, onProgress }: Props) {
           >
             {t('level.datasheet')}
           </button>
+          <button
+            className="btn"
+            onClick={() =>
+              download(
+                `${level.id}.zyklus.json`,
+                toSolutionFile(level.id, solution),
+                'application/json',
+              )
+            }
+            disabled={!solution.modules.length}
+            title={t('level.save.title')}
+          >
+            {t('level.save')}
+          </button>
+          <button
+            className="btn"
+            onClick={() => fileInput.current?.click()}
+            title={t('level.load.title')}
+          >
+            {t('level.load')}
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void importSolution(f);
+            }}
+          />
           <button className="btn" onClick={exportScl} disabled={!solution.modules.length}>
             {t('level.export')}
           </button>

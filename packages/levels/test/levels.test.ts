@@ -68,6 +68,8 @@ describe('Kampagne', () => {
         );
       expect(failed).toEqual([]);
       expect(v.passed).toBe(true);
+      // Richtwerte im Level entsprechen der Referenzlösung
+      expect(v.metrics).toEqual(level.par);
     },
   );
 

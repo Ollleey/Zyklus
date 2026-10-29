@@ -6,3 +6,5 @@ export * from './signals';
 export * from './plants';
 export * from './run';
 export * from './verify';
+export * from './histogram';
+export * from './solution-file';

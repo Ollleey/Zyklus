@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import './monaco-setup';
 import './styles.css';
 import { App } from './App';
+import { migrate } from './state/persistence';
+
+migrate();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

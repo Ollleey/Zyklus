@@ -1,6 +1,17 @@
 import { MODULE_TYPES, type ChannelKind } from './modules';
 import type { Text } from './text';
 
+/** Die drei Bewertungsgrößen einer Lösung. */
+export interface Metrics {
+  cost: number;
+  /** gewichtete Operationen, gemittelt über alle Testläufe */
+  energy: number;
+  /** SCL-Anweisungen bzw. FUP-Boxen */
+  size: number;
+}
+
+export type MetricKey = keyof Metrics;
+
 /** Zeitpunkt und Wert: ab `t` (ms) gilt `v`. */
 export type Edge = [t: number, v: boolean | number];
 
@@ -109,6 +120,8 @@ export interface Level {
   plant?: { type: string; params?: Record<string, unknown> };
   /** Zeitliche Toleranz um jede Soll-Flanke in ms */
   toleranceMs: number;
+  /** Richtwerte (Metriken der Referenzlösung) – Mittelpunkt der Vergleichsverteilungen */
+  par?: Metrics;
   tests: TestCase[];
 }
 

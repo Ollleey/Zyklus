@@ -1,11 +1,19 @@
 {
   "id": "09-mittelwert",
   "order": 9,
-  "title": { "de": "Ruhige Anzeige für einen unruhigen Messwert" },
-  "customer": { "de": "Brauerei Kranz" },
+  "title": {
+    "de": "Ruhige Anzeige für einen unruhigen Messwert"
+  },
+  "customer": {
+    "de": "Brauerei Kranz"
+  },
   "mail": {
-    "from": { "de": "Lena Kranz <lena@brauerei-kranz.example>" },
-    "subject": { "de": "Durchflussanzeige zappelt" },
+    "from": {
+      "de": "Lena Kranz <lena@brauerei-kranz.example>"
+    },
+    "subject": {
+      "de": "Durchflussanzeige zappelt"
+    },
     "body": {
       "de": "Hallo,\n\nim Sudhaus zeigt die Durchflussanzeige am Würzekühler so wild, dass niemand ablesen kann, was wirklich durchläuft. Der Hersteller sagt, das Rauschen kommt von der Strömung und ist normal – man müsse den Wert eben glätten.\n\nKönnt ihr das Analogsignal so aufbereiten, dass die Anzeige ruhig ist, aber trotzdem dem echten Durchfluss folgt?\n\nProst und danke!\nLena Kranz"
     }
@@ -13,34 +21,63 @@
   "datasheet": {
     "de": "# Sudhaus – Durchflussanzeige\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Durchflussmesser 0…100 m³/h → 0…27648, **stark verrauscht** (Standardabweichung ca. 900 Digits) |\n| A1 | AO | Anzeige 0…100 m³/h ← 0…27648 |\n\n## Funktion\n\nA1 zeigt den **geglätteten** Messwert. Die Anzeige darf vom wahren Durchfluss höchstens um **±1200 Digits** (ca. 4 m³/h) abweichen – ab 0,5 s nach dem Start.\n\n## Hinweise\n\n- **Gleitender Mittelwert:** Mittel der letzten n Messwerte.\n- **Exponentieller Mittelwert** (einfacher, ohne Puffer): `y := y + (x − y) / n` in jedem Zyklus. Größeres n glättet stärker, reagiert aber träger.\n- Zwischenwerte als `Real` in einem Global-DB halten; zur Ausgabe `REAL_TO_INT`."
   },
-  "board": { "width": 10, "ductCapacity": 4 },
+  "board": {
+    "width": 10,
+    "ductCapacity": 4
+  },
   "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "ao2"],
   "toleranceMs": 0,
-  "plant": { "type": "flow", "params": { "sensor": "B1", "display": "A1" } },
+  "par": {
+    "cost": 10,
+    "energy": 11317,
+    "size": 5
+  },
+  "plant": {
+    "type": "flow",
+    "params": {
+      "sensor": "B1",
+      "display": "A1"
+    }
+  },
   "devices": [
     {
       "id": "B1",
       "tag": "Durchfluss",
-      "name": { "de": "Durchflussmesser (B1)" },
+      "name": {
+        "de": "Durchflussmesser (B1)"
+      },
       "kind": "AI",
       "side": "left",
       "role": "sensor",
-      "analog": { "unit": "m³/h", "min": 0, "max": 100, "noise": 900 }
+      "analog": {
+        "unit": "m³/h",
+        "min": 0,
+        "max": 100,
+        "noise": 900
+      }
     },
     {
       "id": "A1",
       "tag": "Anzeige",
-      "name": { "de": "Anzeige (A1)" },
+      "name": {
+        "de": "Anzeige (A1)"
+      },
       "kind": "AO",
       "side": "right",
       "role": "actuator",
-      "analog": { "unit": "m³/h", "min": 0, "max": 100 }
+      "analog": {
+        "unit": "m³/h",
+        "min": 0,
+        "max": 100
+      }
     }
   ],
   "tests": [
     {
       "id": "rampe",
-      "name": { "de": "Durchfluss steigt langsam" },
+      "name": {
+        "de": "Durchfluss steigt langsam"
+      },
       "durationMs": 8000,
       "seeds": [1, 2, 3, 4],
       "stimuli": {
@@ -53,7 +90,9 @@
       "checks": [
         {
           "kind": "track",
-          "name": { "de": "Anzeige folgt dem Durchfluss (±1200)" },
+          "name": {
+            "de": "Anzeige folgt dem Durchfluss (±1200)"
+          },
           "signal": "A1",
           "reference": "true.B1",
           "tolerance": 1200,
@@ -63,14 +102,20 @@
     },
     {
       "id": "konstant",
-      "name": { "de": "Konstanter Durchfluss" },
+      "name": {
+        "de": "Konstanter Durchfluss"
+      },
       "durationMs": 4000,
       "seeds": [5, 6, 7],
-      "stimuli": { "B1": [[0, 50]] },
+      "stimuli": {
+        "B1": [[0, 50]]
+      },
       "checks": [
         {
           "kind": "track",
-          "name": { "de": "Anzeige ruhig (±1200)" },
+          "name": {
+            "de": "Anzeige ruhig (±1200)"
+          },
           "signal": "A1",
           "reference": "true.B1",
           "tolerance": 1200,

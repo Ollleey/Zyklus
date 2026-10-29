@@ -1,5 +1,18 @@
 # Changelog
 
+## M6 – Metriken, Histogramme, Speichern (2026-10-29)
+
+- Richtwerte (`par`) je Level aus den Metriken der Referenzlösungen; ein Test hält beides synchron
+- Vergleichsverteilungen: lokal und deterministisch aus Level-id und Richtwert erzeugt
+  (die meisten Lösungen etwas schlechter, langer Schwanz, wenige besser); Histogramm-Klassen,
+  „besser als x %“
+- Lösungsdatei `*.zyklus.json` (Format `zyklus-loesung`, Version 1): Export, Import mit Prüfung von
+  Format, Version, Auftrag und Grobstruktur, deutsche Fehlermeldungen
+- Spielstand mit Versionsschlüssel und Migration, Verlauf der letzten 10 bestandenen Prüfungen
+- App: Histogramme für Kosten, Energie und Größe im Prüfdialog (eigener Wert und Bestwert),
+  Knöpfe „Lösung speichern“ / „Lösung laden“
+- 411 Tests
+
 ## M5 – Signalstörungen und Analogtechnik (2026-10-28)
 
 - Engine:
