@@ -79,7 +79,17 @@ export interface CompileResult {
   diagnostics: ProjectDiagnostic[];
   /** Programmgröße: Anzahl Anweisungen (nicht Zeilen) */
   statementCount: number;
+  /** Ganzzahl-Literale 0/1, die als BOOL gelesen wurden (für den Export als TRUE/FALSE) */
+  boolLiterals?: BoolLiteral[];
 }
+
+export interface BoolLiteral {
+  block: string;
+  start: Span['start'];
+  value: boolean;
+}
+
+export const BOOL_LITERAL_ERROR = 'BOOL erwartet: nur 0, 1, TRUE oder FALSE erlaubt.';
 
 const DEFAULT_AREAS: Record<Area, number> = { I: 128, Q: 128, M: 256 };
 const NO_SPAN: Span = { start: { line: 1, col: 1 }, end: { line: 1, col: 1 } };
@@ -308,7 +318,13 @@ function compileUnits(units: Unit[], tags: Tag[], opts: CompileOptions): Compile
   const program = gen.run(units, tags);
   const diagnostics = gen.diagnostics;
   const ok = !diagnostics.some((d) => d.severity === 'error');
-  return { ok, program: ok ? program : undefined, diagnostics, statementCount: gen.statementCount };
+  return {
+    ok,
+    program: ok ? program : undefined,
+    diagnostics,
+    statementCount: gen.statementCount,
+    boolLiterals: gen.boolLiterals,
+  };
 }
 
 type Sym =
@@ -374,6 +390,7 @@ interface Loop {
 class CodeGen {
   readonly diagnostics: ProjectDiagnostic[] = [];
   statementCount = 0;
+  readonly boolLiterals: BoolLiteral[] = [];
   private readonly b = new ProgramBuilder();
   private tags = new TagTable();
   private locals = new Map<string, Sym>();
@@ -1753,6 +1770,22 @@ class CodeGen {
 
   /** Literal im gewünschten Typ (mit Bereichsprüfung). */
   private literal(e: Extract<Expr, { k: 'lit' }>, want?: DataType): { v: Value; t: DataType } {
+    if (want === 'BOOL' && e.t === 'ANY_INT') {
+      // 0/1 statt FALSE/TRUE – nur als Literal, Variablen bleiben typstreng
+      if (e.v !== 0 && e.v !== 1) this.fail(BOOL_LITERAL_ERROR, e.span);
+      const block = this.where.block ?? '';
+      if (
+        !this.boolLiterals.some(
+          (b) =>
+            b.block === block &&
+            b.start.line === e.span.start.line &&
+            b.start.col === e.span.start.col,
+        )
+      ) {
+        this.boolLiterals.push({ block, start: e.span.start, value: e.v === 1 });
+      }
+      return { v: e.v === 1, t: 'BOOL' };
+    }
     let t: DataType;
     if (e.t === 'ANY_INT') {
       if (want && acceptsIntLiteral(want)) t = want;

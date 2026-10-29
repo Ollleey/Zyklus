@@ -209,7 +209,19 @@ export function lowerFupBlock(block: CodeBlock, project: PlcProject): Lowered {
           `Eingang ${pin} ist verbunden und hat zusätzlich einen Operanden`,
           pin,
         );
-      let e = sources.length ? outExpr.get(sources[0]!) : operandOf(op, pin);
+      // Konstanten an Bool-Pins: 0/1/TRUE/FALSE (Schreibweise egal)
+      if (!sources.length && op && /^[+-]?\d+$/.test(op)) {
+        if (op !== '0' && op !== '1') {
+          throw new LoweringError('BOOL erwartet: nur 0, 1, TRUE oder FALSE erlaubt.', pin);
+        }
+      }
+      const constant =
+        op && /^(0|1|true|false)$/i.test(op)
+          ? op === '1' || op.toLowerCase() === 'true'
+            ? 'TRUE'
+            : 'FALSE'
+          : undefined;
+      let e = sources.length ? outExpr.get(sources[0]!) : (constant ?? operandOf(op, pin));
       if (e === undefined) {
         if (optional) return undefined;
         throw new LoweringError(`Eingang ${pin} ist offen`, pin);

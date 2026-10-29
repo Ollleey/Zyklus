@@ -2378,3 +2378,18 @@ code {
 .inspector-field select {
   font-family: var(--font-ui);
 }
+
+/* ---------- D5: BOOL-Anzeige ---------- */
+
+.bool-format {
+  margin-left: auto;
+}
+.bool-format .seg {
+  padding: 3px var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+}
+.row-value-bool {
+  text-anchor: end;
+  font-family: var(--font-mono);
+}

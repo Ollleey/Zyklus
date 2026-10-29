@@ -445,7 +445,7 @@ describe('Fehler werden der Box zugeordnet', () => {
       ),
     ]);
     const d = first(r);
-    expect(d.message).toMatch(/nicht auf Bool/);
+    expect(d.message).toMatch(/auf Bool nicht anwendbar/);
     expect(d.location).toMatchObject({ network: 1, box: 'q' });
   });
 
@@ -476,5 +476,42 @@ describe('Programmgröße', () => {
     expect(r.networks).toBe(2);
     expect(r.lang).toBe('FUP');
     expect(countBoxes({ networks: [selfHold()] })).toBe(3);
+  });
+});
+
+describe('Konstanten an Bool-Pins', () => {
+  it('0/1/TRUE/FALSE in beliebiger Schreibweise, auch negiert', () => {
+    const nw = net(
+      [
+        box('AND', { id: 'and', inputs: { IN1: '1', IN2: 'true' } }),
+        box('ASSIGN', { id: 'q', operand: '"Motor"' }),
+        box('OR', { id: 'or', inputs: { IN1: '0', IN2: 'FALSE' }, negated: ['IN2'] }),
+        box('ASSIGN', { id: 'q2', operand: '"Lampe"' }),
+      ],
+      [
+        ['and', 'OUT', 'q', 'IN'],
+        ['or', 'OUT', 'q2', 'IN'],
+      ],
+    );
+    const cpu = cpuFor([nw]);
+    scan(cpu, 0);
+    expect(cpu.read('%Q0.0')).toBe(true);
+    expect(cpu.read('%Q0.1')).toBe(true);
+  });
+
+  it('andere Zahlen werden am Pin gemeldet', () => {
+    const nw = net(
+      [
+        box('AND', { id: 'and', inputs: { IN1: '2', IN2: '1' } }),
+        box('ASSIGN', { id: 'q', operand: '"Motor"' }),
+      ],
+      [['and', 'OUT', 'q', 'IN']],
+    );
+    const r = compile([nw]);
+    expect(r.ok).toBe(false);
+    expect(r.diagnostics[0]).toMatchObject({
+      message: 'BOOL erwartet: nur 0, 1, TRUE oder FALSE erlaubt.',
+      location: { box: 'and', pin: 'IN1' },
+    });
   });
 });

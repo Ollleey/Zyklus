@@ -122,5 +122,6 @@
   "cabinet.fit": "Einpassen",
   "cabinet.onboard": "E/A",
   "cabinet.inspector": "Eigenschaften der Baugruppe",
-  "cabinet.range": "Messbereich"
+  "cabinet.range": "Messbereich",
+  "sim.boolFormat": "BOOL anzeigen als"
 }

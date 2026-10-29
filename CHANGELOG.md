@@ -1,5 +1,19 @@
 # Changelog
 
+## D5 – BOOL-Literale 0/1 (2026-10-29)
+
+- SCL: `0` und `1` gelten überall als Bool, wo ein Bool erwartet wird – Zuweisung (`"Motor" := 1;`),
+  Vergleich und Verknüpfung (`IF "Start" = 1 THEN`, `"Stopp" <> 0`), Parameter (`IN := 1`),
+  Startwerte in Datenbausteinen und Schnittstellen; `TRUE`/`FALSE` in jeder Schreibweise
+- Andere Zahlen an Bool: „BOOL erwartet: nur 0, 1, TRUE oder FALSE erlaubt.“ mit Zeile und
+  Spalte; Int-Variablen werden weiterhin nicht zu Bool
+- `.scl`-Export schreibt an diesen Stellen `TRUE`/`FALSE` (auch Bool-Startwerte), Zahlen an Int
+  bleiben stehen
+- FUP: Konstanten `0/1/TRUE/FALSE` an Bool-Pins, auch negiert; andere Zahlen werden am Pin gemeldet
+- Einstellung „BOOL als 0/1 oder TRUE/FALSE“ (Standard 0/1) in der Simulationsleiste, gilt für
+  alle Ansichten; Zeitdiagramm zeigt den aktuellen Bool-Wert je Spur
+- 524 Tests
+
 ## D4 – Neue Baugruppen, Analogtechnik, Level 16–17 (2026-10-29)
 
 - Baugruppen mit Kanalgruppen: DI 4, DO 4 (je 15 mm), DI 8/DO 8 (30 mm), AI 4 (30 mm) und CPU kompakt

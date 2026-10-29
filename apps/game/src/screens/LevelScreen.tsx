@@ -29,6 +29,7 @@ import {
   saveSolution,
   type LevelProgress,
 } from '../state/persistence';
+import { setBoolFormat, useBoolFormat } from '../state/prefs';
 import { useSimulation } from '../state/useSimulation';
 
 interface Props {
@@ -339,6 +340,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
               {test && <> / {(test.durationMs / 1000).toFixed(1)} s</>}
             </span>
             {!sim.ready && <span className="sim-warn">{t('sim.notReady')}</span>}
+            <BoolFormatSwitch />
             {stopped && (
               <span className="sim-stop">
                 {t('sim.stopped')}: {stopped.stopInfo?.message}
@@ -461,6 +463,25 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox }: Pr
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** Umschalter für die Anzeige von BOOL-Werten (gilt für alle Ansichten) */
+function BoolFormatSwitch() {
+  const f = useBoolFormat();
+  return (
+    <div className="segmented bool-format" role="group" aria-label={t('sim.boolFormat')}>
+      {(['01', 'text'] as const).map((v) => (
+        <button
+          key={v}
+          className={`seg ${f === v ? 'seg-active' : ''}`}
+          aria-pressed={f === v}
+          onClick={() => setBoolFormat(v)}
+        >
+          {v === '01' ? '0/1' : 'TRUE/FALSE'}
+        </button>
+      ))}
     </div>
   );
 }

@@ -79,7 +79,9 @@ Namen dürfen Umlaute enthalten (`#Zähler`).
 
 `Bool, Byte, Word, DWord, Int, DInt, Real, Time`
 
-- `TRUE`, `FALSE`, `BOOL#1`
+- `TRUE`, `FALSE` (Schreibweise egal), `BOOL#1`; wo ein Bool erwartet wird, auch `0` und `1`
+  (`"Motor" := 1;`, `IF "Start" = 1 THEN`, `IN := 1`). Andere Zahlen sind ein Fehler, Int-Variablen
+  werden nicht zu Bool. Der `.scl`-Export schreibt dort `TRUE`/`FALSE`.
 - `42`, `1_000`, `-5`, `16#FF`, `2#1010`, `8#17`, `INT#5`, `DINT#100000`
 - `B#16#0F`, `W#16#F0F0`, `DW#16#FFFF_0000`, `WORD#16#FF`
 - `1.5`, `2.5E3`, `REAL#1`

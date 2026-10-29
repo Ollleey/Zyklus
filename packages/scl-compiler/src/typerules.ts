@@ -58,6 +58,8 @@ export function unify(
     const o = a === 'ANY_INT' ? b : a;
     if (o === 'ANY_REAL') return 'ANY_REAL';
     if (o === 'ANY_INT') return o;
+    // 0 und 1 sind als BOOL zulässig; der Wert wird beim Übersetzen des Literals geprüft
+    if (o === 'BOOL') return 'BOOL';
     return acceptsIntLiteral(o) ? o : undefined;
   }
   if (a === 'ANY_REAL' || b === 'ANY_REAL') {

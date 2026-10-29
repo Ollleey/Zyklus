@@ -8,6 +8,7 @@ import {
   type LevelRun,
   type TestCase,
 } from '@zyklus/sim-core';
+import { formatBool, useBoolFormat } from '../state/prefs';
 
 const LABEL_W = 170;
 const ROW_H = 30;
@@ -43,6 +44,7 @@ interface Props {
 /** Zeitdiagramm: Soll grau, Ist farbig, Abweichungen rot. */
 export function LogicAnalyzer({ level, run, test }: Props) {
   const [box, W] = useWidth<HTMLDivElement>();
+  const boolFormat = useBoolFormat();
   const now = run?.time ?? 0;
   const t0 = test ? 0 : Math.max(0, now - 5000);
   const t1 = test ? test.durationMs : Math.max(5000, now);
@@ -174,6 +176,11 @@ export function LogicAnalyzer({ level, run, test }: Props) {
               <text x={8} y={y + 19} className="row-label">
                 {r.label}
               </text>
+              {actual.length > 0 && (
+                <text x={LABEL_W - 8} y={y + 19} className="row-value row-value-bool">
+                  {formatBool(actual[actual.length - 1]![1] === true, boolFormat)}
+                </text>
+              )}
               {check?.mismatches.map(([a, b], k) => (
                 <rect
                   key={k}

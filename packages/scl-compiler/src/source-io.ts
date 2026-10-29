@@ -9,6 +9,7 @@ import {
   type VarDecl,
 } from '@zyklus/sim-core';
 import type { Diagnostic } from './diagnostics';
+import { compileProject, type BoolLiteral } from './compiler';
 import { parseSource } from './parser';
 
 /**
@@ -50,9 +51,38 @@ function parseEvent(header: string[]): ObEvent | undefined {
   return undefined;
 }
 
+/** Startwert für die Quelle: 0/1 an Bool als FALSE/TRUE (TIA erwartet Bool-Literale) */
+function initText(v: VarDecl): string | undefined {
+  if (v.init === undefined || v.init.trim() === '') return undefined;
+  const t = v.init.trim();
+  if (v.type.trim().toLowerCase() === 'bool' && (t === '0' || t === '1')) {
+    return t === '1' ? 'TRUE' : 'FALSE';
+  }
+  return v.init;
+}
+
+/** Ersetzt 0/1-Literale, die der Compiler als BOOL gelesen hat, durch FALSE/TRUE. */
+function rewriteBoolLiterals(source: string, literals: BoolLiteral[]): string {
+  if (!literals.length) return source;
+  const lines = source.split('\n');
+  const sorted = [...literals].sort(
+    (a, b) => b.start.line - a.start.line || b.start.col - a.start.col,
+  );
+  for (const lit of sorted) {
+    const i = lit.start.line - 1;
+    const line = lines[i];
+    if (line === undefined) continue;
+    const at = lit.start.col - 1;
+    if (!/^[01](?![0-9_.#])/.test(line.slice(at))) continue;
+    lines[i] = `${line.slice(0, at)}${lit.value ? 'TRUE' : 'FALSE'}${line.slice(at + 1)}`;
+  }
+  return lines.join('\n');
+}
+
 function declLines(vars: VarDecl[], indent: string): string[] {
   return vars.map((v) => {
-    const init = v.init !== undefined && v.init !== '' ? ` := ${v.init}` : '';
+    const shown = initText(v);
+    const init = shown !== undefined ? ` := ${shown}` : '';
     const comment = v.comment ? `   // ${v.comment}` : '';
     return `${indent}${v.name} : ${v.type}${init};${comment}`;
   });
@@ -68,6 +98,8 @@ function indentBody(src: string): string {
 
 /** Erzeugt eine TIA-kompatible externe Quelle aus dem Projekt (Datenbausteine zuerst). */
 export function projectToSource(project: PlcProject): string {
+  // Wo 0/1 als BOOL gelesen wird, schreibt die Quelle TRUE/FALSE
+  const literals = compileProject(project).boolLiterals ?? [];
   const order = (b: Block) => (b.kind === 'DB' || b.kind === 'IDB' ? 0 : b.kind === 'OB' ? 2 : 1);
   const blocks = [...project.blocks].sort((a, b) => order(a) - order(b));
   const out: string[] = [];
@@ -113,7 +145,11 @@ export function projectToSource(project: PlcProject): string {
         if (!rows?.length) continue;
         out.push(`   ${SECTION_HEADER[s]} `, ...declLines(rows, '      '), '   END_VAR', '');
       }
-      out.push('', 'BEGIN', indentBody(b.source), end, '');
+      const body = rewriteBoolLiterals(
+        b.source,
+        literals.filter((l) => l.block === b.name),
+      );
+      out.push('', 'BEGIN', indentBody(body), end, '');
     }
   }
   return out.join('\n');
