@@ -257,7 +257,20 @@ class RemoteWorld implements WorldView {
     }
     const next: Workpiece[] = [];
     const seen = new Map<number, Workpiece>();
-    for (const [id, material, color, size, x, y, z, sz, h, state, grounded] of s.workpieces) {
+    for (const [
+      id,
+      material,
+      color,
+      size,
+      x,
+      y,
+      z,
+      sz,
+      h,
+      state,
+      grounded,
+      angle,
+    ] of s.workpieces) {
       const w: Workpiece = this.byId.get(id) ?? {
         id,
         spec: { material, color, size },
@@ -272,8 +285,9 @@ class RemoteWorld implements WorldView {
         vz: 0,
         state,
         grounded,
+        angle,
       };
-      Object.assign(w, { x, y, z, state, grounded });
+      Object.assign(w, { x, y, z, state, grounded, angle });
       seen.set(id, w);
       next.push(w);
     }

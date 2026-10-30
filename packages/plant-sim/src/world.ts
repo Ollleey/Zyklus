@@ -59,6 +59,8 @@ export interface Workpiece {
   bin?: string;
   /** liegt auf einer Fläche (sonst im Fall) */
   grounded: boolean;
+  /** Drehung in der Draufsicht in Grad (Drehtisch, Kurve); Kollision bleibt achsparallel */
+  angle: number;
 }
 
 /** veränderlicher Zustand eines Bauteils */
@@ -117,6 +119,9 @@ interface Surface {
   top(x: number, y: number): number | undefined;
   /** Mitnahmegeschwindigkeit an (x, y) */
   vel(x: number, y: number): Vec;
+  /** Drehgeschwindigkeit in Grad/s (Drehtisch) bzw. Ausrichtung nach der Fahrtrichtung (Kurve) */
+  turn?: 'spin' | 'follow';
+  spin?: () => number;
 }
 
 interface Solid {
@@ -152,6 +157,8 @@ export class World {
   private staticSolids: Solid[] = [];
   private surfaceList: Surface[] = [];
   private readonly lastBlocker = new WeakMap<Workpiece, Workpiece>();
+  /** Fahrtrichtung beim Einlauf in eine Kurve (minus bisheriger Drehung) */
+  private readonly curveEntry = new WeakMap<Workpiece, number>();
   private readonly cylinders: Part[];
   private readonly diverters: { part: Part; rect: Rect }[];
   private readonly bins: { part: Part; rect: Rect }[];
@@ -243,6 +250,7 @@ export class World {
       vz: 0,
       state: 'free',
       grounded: false,
+      angle: 0,
     };
     this.workpieces.push(w);
     return w;
@@ -524,6 +532,11 @@ export class World {
               const omega = turning ? (st.on ? 1 : -1) * rate : 0;
               return { x: -omega * (y - p.y), y: omega * (x - p.x) };
             },
+            turn: 'spin',
+            spin: () => {
+              const turning = st.angle > 0 && st.angle < 90 && p.fault !== 'klemmt';
+              return turning ? ((st.on ? 1 : -1) * rate * 180) / Math.PI : 0;
+            },
           });
           break;
         }
@@ -557,6 +570,7 @@ export class World {
               const tv = (-du / r) * sp + (dv / r) * k;
               return { x: tu * d.x + tv * lft.x, y: tu * d.y + tv * lft.y };
             },
+            turn: 'follow',
           });
           break;
         }
@@ -719,6 +733,13 @@ export class World {
       const v = sup ? sup.vel(w.x, w.y) : ZERO;
       w.vx = v.x;
       w.vy = v.y;
+      if (sup?.turn === 'spin') w.angle = (w.angle + sup.spin!() * DT) % 360;
+      else if (sup?.turn === 'follow' && (v.x || v.y)) {
+        // in der Kurve dreht sich das Teil mit der Fahrtrichtung (Änderung gegenüber dem Einlauf)
+        const dir = (Math.atan2(v.y, v.x) * 180) / Math.PI;
+        if (!this.curveEntry.has(w)) this.curveEntry.set(w, dir - w.angle);
+        w.angle = dir - this.curveEntry.get(w)!;
+      } else this.curveEntry.delete(w);
       this.divert(w);
       if (!sup) {
         this.landOnFloor(w);

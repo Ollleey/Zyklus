@@ -99,6 +99,7 @@ function pieces(layout: Layout, plant?: PlantView | null): Workpiece[] {
     vz: 0,
     state: 'free',
     grounded: true,
+    angle: 0,
   }));
 }
 

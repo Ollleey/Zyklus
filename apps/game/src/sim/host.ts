@@ -153,6 +153,7 @@ function plantSnapshot(p: SandboxPlant): PlantSnapshot {
       k.h,
       k.state,
       k.grounded,
+      k.angle,
     ]);
   }
   return {

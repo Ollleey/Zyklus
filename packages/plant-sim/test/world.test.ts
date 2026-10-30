@@ -319,3 +319,26 @@ describe('Determinismus', () => {
     expect(once()).toBe(once());
   });
 });
+
+describe('Drehung der Werkstücke', () => {
+  it('dreht sich auf dem Drehtisch um 90° mit', () => {
+    const lay = layoutOf([{ type: 'turntable', x: 0, y: 0, z: 100, params: { diameter: 200 } }]);
+    const tt = lay.parts[0]!;
+    const w = new World(lay);
+    const wp = w.addWorkpiece(STEEL, 50, 0, 100);
+    run(w, 1100, { [deviceId(tt, 'dreh')]: true });
+    expect(wp.angle).toBeCloseTo(90, 0);
+  });
+
+  it('folgt in der Kurve der Fahrtrichtung', () => {
+    // Kurve R 200: Einlauf bei u = −100 auf der linken Spur (v = 60), Auslauf nach rechts (+y)
+    const lay = layoutOf([
+      { type: 'curve', x: 0, y: 0, z: 100, params: { radius: 200, width: 80 } },
+    ]);
+    const w = new World(lay);
+    const wp = w.addWorkpiece(STEEL, -95, -60, 100);
+    run(w, 4000, { [deviceId(lay.parts[0]!, '')]: true });
+    expect(wp.angle).toBeGreaterThan(60);
+    expect(wp.angle).toBeLessThan(100);
+  });
+});

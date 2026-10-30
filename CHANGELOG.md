@@ -1,5 +1,12 @@
 # Changelog
 
+## W4 – Werkstücke drehen sich mit (2026-10-30)
+
+- Werkstücke haben einen Drehwinkel: Auf dem Drehtisch drehen sie mit dem Teller, in der Kurve
+  richten sie sich nach der Fahrtrichtung aus; die Draufsicht zeigt sie gedreht (auch über den
+  Web Worker). Die Kollision bleibt achsparallel (quadratische Grundflächen).
+- Tests: 90° auf dem Drehtisch, Kurve dreht mit der Fahrtrichtung; 600 Tests
+
 ## W3 – Geführter Einstieg im Sandkasten (2026-10-30)
 
 - Beim ersten Besuch wird eine Einführung angeboten, danach jederzeit über „Mehr → Einführung

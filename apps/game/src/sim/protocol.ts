@@ -63,6 +63,7 @@ export type WpTuple = [
   h: number,
   state: WorkpieceState,
   grounded: boolean,
+  angle: number,
 ];
 
 export interface PlantSnapshot {

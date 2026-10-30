@@ -737,13 +737,13 @@ export function WorkpieceTop({
   w,
   selected,
 }: {
-  w: Pick<Workpiece, 'spec' | 'x' | 'y' | 's'>;
+  w: Pick<Workpiece, 'spec' | 'x' | 'y' | 's'> & { angle?: number };
   selected?: boolean;
 }) {
   const m = MATERIALS[w.spec.material];
   const h = w.s / 2;
   return (
-    <g transform={`translate(${w.x} ${w.y})`}>
+    <g transform={`translate(${w.x} ${w.y}) rotate(${w.angle ?? 0})`}>
       <rect
         x={-h}
         y={-h}
