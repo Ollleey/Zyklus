@@ -10,6 +10,7 @@ import {
 import { compileSolution } from '@zyklus/levels';
 import { sourceToProject } from '@zyklus/scl-compiler';
 import {
+  SandboxPlant,
   createPart,
   emptyLayout,
   levelFromLayout,
@@ -73,7 +74,7 @@ describe('Geführter Einstieg', () => {
     expect(current(layout, ctx(layout, solution))).toBe(7);
     const c = compileSolution(level, solution);
     const run = new LevelRun(level, solution, c.programs);
-    (run.plant as { setControl: (r: string, v: boolean) => void }).setControl('S1', true);
+    (run.plant as SandboxPlant).setControl('S1', true);
     run.runTo(200);
     expect(current(layout, ctx(layout, solution, run))).toBe(-1);
   });
