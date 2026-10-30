@@ -13,6 +13,7 @@ import {
 import { emptySolution } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
+import { Coach } from '../components/plant/Coach';
 import { MyPlants } from '../components/plant/MyPlants';
 import { PublishDialog } from '../components/plant/PublishDialog';
 import { PlantEditor } from '../components/plant/PlantEditor';
@@ -44,6 +45,28 @@ function download(name: string, text: string) {
   a.download = name;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+const COACH_KEY = 'zyklus.sandkasten.einfuehrung';
+
+/** Stand des geführten Einstiegs; beim ersten Besuch wird er angeboten (-1) */
+function loadCoach(): number | null {
+  try {
+    const raw = localStorage.getItem(COACH_KEY);
+    if (raw === null) return -1;
+    const n = JSON.parse(raw) as number | null;
+    return typeof n === 'number' ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCoach(n: number | null): void {
+  try {
+    localStorage.setItem(COACH_KEY, JSON.stringify(n));
+  } catch {
+    /* ohne Speicher nur für diese Sitzung */
+  }
 }
 
 function firstVisit(): void {
@@ -192,13 +215,14 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
     };
   }, []);
 
-  const createNew = () => {
+  const createNew = (name?: string) => {
     store();
     open(
       {
         format: 'zyklus-anlage',
         formatVersion: 1,
         ...newMeta(),
+        ...(name ? { name } : {}),
         layout: emptyLayout(),
         solution: emptySolution(),
         sim: { speed: 1, signals: null },
@@ -208,8 +232,42 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
     setDialog(false);
   };
 
+  // geführter Einstieg: -1 = Angebot, Zahl = Schritt, null = aus
+  const [coach, setCoachState] = useState<number | null>(loadCoach);
+  const setCoach = (n: number | null) => {
+    setCoachState(n);
+    saveCoach(n);
+  };
+  const startCoach = () => {
+    createNew(t('coach.layoutName'));
+    setCoach(0);
+  };
+
   const slot: PlantSlot = {
     subtitle: meta.name,
+    overlay: (ctx) =>
+      coach === null ? null : coach < 0 ? (
+        <aside className="coach" aria-live="polite">
+          <h3>{t('coach.offerTitle')}</h3>
+          <p>{t('coach.offerText')}</p>
+          <div className="coach-actions">
+            <button className="btn btn-small" onClick={() => setCoach(null)}>
+              {t('coach.no')}
+            </button>
+            <button className="btn btn-small btn-primary" onClick={startCoach}>
+              {t('coach.start')}
+            </button>
+          </div>
+        </aside>
+      ) : (
+        <Coach
+          step={coach}
+          layout={layout}
+          ctx={ctx}
+          onStep={setCoach}
+          onClose={() => setCoach(null)}
+        />
+      ),
     panels: (ctx) => {
       ctxRef.current = ctx;
       const { run, sim, solution, setSolution, analysis } = ctx;
@@ -281,7 +339,8 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
         title: t('anlage.importTitle'),
         onSelect: () => fileInput.current?.click(),
       },
-      { label: t('anlage.new'), onSelect: createNew },
+      { label: t('anlage.new'), onSelect: () => createNew() },
+      { label: t('coach.menu'), onSelect: startCoach },
       {
         label: t('publish.menu'),
         title: t('publish.menuTitle'),
@@ -341,7 +400,7 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
             open(file, id);
             setDialog(false);
           }}
-          onNew={createNew}
+          onNew={() => createNew()}
           onImport={() => fileInput.current?.click()}
           onSaveCurrent={() => store(true)}
           onTemplate={importText}

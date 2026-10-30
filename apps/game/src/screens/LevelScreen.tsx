@@ -56,6 +56,9 @@ export interface SlotContext {
   solution: Solution;
   setSolution: (s: Solution) => void;
   analysis: BoardAnalysis;
+  /** Programm übersetzt ohne Fehler, Anzahl Anweisungen */
+  compiledOk: boolean;
+  size: number;
 }
 
 /** Zusatz für den Sandkasten: Anlagenpanel, weitere Panels und Inhalt des Simulationsbereichs */
@@ -66,6 +69,8 @@ export interface PlantSlot {
   menu?: (ctx: SlotContext) => MenuItem[];
   /** Kopfzeile: zweite Zeile unter dem Titel (Name der Anlage) */
   subtitle?: string;
+  /** schwebendes Element über dem Arbeitsplatz (geführter Einstieg), wird je Bild neu gezeichnet */
+  overlay?: (ctx: SlotContext) => ReactNode;
 }
 
 interface Props {
@@ -194,7 +199,15 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
   // Breite der Prozessansicht im Simulationsbereich (Anteil)
   const [plantW, setPlantW] = useStoredNumber('split.plant', 0.34, [0.22, 0.6]);
 
-  const slotCtx: SlotContext = { run, sim, solution, setSolution, analysis: compiled.analysis };
+  const slotCtx: SlotContext = {
+    run,
+    sim,
+    solution,
+    setSolution,
+    analysis: compiled.analysis,
+    compiledOk: compiled.ok,
+    size: compiled.size,
+  };
   const panels: PanelDef[] = [
     {
       id: 'cabinet',
@@ -569,6 +582,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
         />
       )}
 
+      {plant?.overlay?.(slotCtx)}
       {result && (
         <ResultDialog
           level={level}

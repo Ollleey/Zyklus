@@ -68,6 +68,7 @@ http://localhost:5173 http://localhost:4173` (Dev-Server und `npm run preview` l
 | ![Signale mit Forcewert](05-signale-forcen.png)                 | ![Meine Anlagen](06-meine-anlagen.png)                      |
 | ![Tankanlage](07-tankanlage-seitenansicht.png)                  | ![Leistungstest](08-leistungstest.png)                      |
 | ![Als Auftrag veröffentlichen](09-auftrag-veroeffentlichen.png) | ![Eigener Auftrag geprüft](10-eigener-auftrag-geprueft.png) |
+| ![Geführter Einstieg](11-einfuehrung.png)                       |                                                             |
 
 ## Bekannte Grenzen
 

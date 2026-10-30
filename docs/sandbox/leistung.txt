@@ -1,1 +1,1 @@
-Leistungstest (Dev-Server, 50 Werkstücke, 30 Bauteile, eingestellt ×100): 60.0 Bilder/s, Simulation ×58
+Leistungstest (Dev-Server, 50 Werkstücke, 30 Bauteile, eingestellt ×100): 60.0 Bilder/s, Simulation ×56

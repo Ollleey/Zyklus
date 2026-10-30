@@ -1,5 +1,17 @@
 # Changelog
 
+## W3 – Geführter Einstieg im Sandkasten (2026-10-30)
+
+- Beim ersten Besuch wird eine Einführung angeboten, danach jederzeit über „Mehr → Einführung
+  starten“. Sie legt eine neue Anlage an und führt in acht Schritten von Band, Sensor und
+  Schalter über CPU, Baugruppen, Verdrahtung und Programm bis zum laufenden Band.
+- Jeder Schritt wird selbst erkannt („✓ Weiter“), Schritte lassen sich überspringen; der Stand
+  bleibt gespeichert.
+- Behoben: Die Farbvariablen `--panel-2`/`--panel-3` verwiesen auf nicht vorhandene Namen.
+  Menüs, Segmentknöpfe, Eingabefelder und Bauteilkörper waren dadurch durchsichtig; die
+  Screenshots in `docs/design/after` und `docs/sandbox` sind neu erzeugt.
+- Test: alle Schritte werden der Reihe nach erkannt; 598 Tests
+
 ## W2 – Anlage als Auftrag veröffentlichen (2026-10-30)
 
 - Sandkasten, Menü „Mehr → Als Auftrag veröffentlichen“:

@@ -6,8 +6,8 @@
   --bg: var(--c-bg);
   --bg-deep: var(--c-bg-deep);
   --panel: var(--c-surface);
-  --panel-2: var(--c-surface-2);
-  --panel-3: var(--c-surface-3);
+  --panel-2: var(--c-surface2);
+  --panel-3: var(--c-surface3);
   --line: var(--c-line);
   --line-strong: var(--c-line-strong);
   --text: var(--c-text);
@@ -3340,4 +3340,71 @@ code {
 .custom-actions {
   display: flex;
   gap: 4px;
+}
+
+/* Geführter Einstieg */
+.coach {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  /* über allen Bereichen, unter Dialogen (40) */
+  z-index: 39;
+  isolation: isolate;
+  width: min(380px, calc(100vw - 40px));
+  background: var(--panel-2);
+  border: 1px solid var(--c-select);
+  border-radius: var(--r-lg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--t-sm);
+}
+.coach h3 {
+  margin: 0 0 var(--s-2);
+  font-size: var(--t-md);
+}
+.coach p {
+  margin: 0 0 var(--s-2);
+}
+.coach code {
+  font-family: var(--mono);
+  background: var(--bg-deep);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.coach-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+.coach-head h3 {
+  flex: 1;
+}
+.coach-no {
+  font-family: var(--mono);
+  color: var(--muted);
+}
+.coach-hint {
+  font-size: 12px;
+}
+.coach-progress {
+  display: flex;
+  gap: 4px;
+  margin: var(--s-2) 0;
+}
+.coach-progress span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.coach-progress .coach-dot-done {
+  background: var(--green);
+}
+.coach-progress .coach-dot-now {
+  background: var(--c-select);
+}
+.coach-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
 }

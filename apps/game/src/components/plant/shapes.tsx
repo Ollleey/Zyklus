@@ -18,7 +18,7 @@ import {
 
 const C = {
   frame: 'var(--c-zinc)',
-  body: 'var(--c-surface-3)',
+  body: 'var(--c-surface3)',
   dark: 'var(--c-bg-deep)',
   line: 'var(--c-line-strong)',
   text: 'var(--c-text-muted)',

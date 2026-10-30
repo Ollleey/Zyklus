@@ -25,6 +25,8 @@ async function fresh() {
     for (const k of Object.keys(localStorage))
       if (k.startsWith('zyklus.')) localStorage.removeItem(k);
     localStorage.setItem('zyklus.version', '3');
+    // Einführung nur dort, wo sie gezeigt werden soll
+    localStorage.setItem('zyklus.sandkasten.einfuehrung', 'null');
   });
   await page.reload();
 }
@@ -131,7 +133,17 @@ const verdict = await page
   .catch(() => '');
 console.log('Eigener Auftrag geprüft:', verdict.split('\n').slice(0, 3).join(' | '));
 
-// 7. Leistung: 30 Bauteile, 50 Werkstücke, ×100 (Aufbau über die Module des Dev-Servers)
+// 7. Geführter Einstieg beim ersten Besuch
+await fresh();
+await page.evaluate(() => localStorage.removeItem('zyklus.sandkasten.einfuehrung'));
+await openSandbox();
+await page.locator('.coach button', { hasText: 'Einführung starten' }).click();
+await page.waitForTimeout(300);
+await page.locator('.pe-lib-item', { hasText: 'Förderband' }).click();
+await page.waitForTimeout(300);
+await shot('11-einfuehrung');
+
+// 8. Leistung: 30 Bauteile, 50 Werkstücke, ×100 (Aufbau über die Module des Dev-Servers)
 await fresh();
 const data = await page.evaluate(async (ROOT) => {
   const R = `/@fs/${ROOT}`;

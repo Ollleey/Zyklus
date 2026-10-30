@@ -262,5 +262,17 @@
   "custom.par": "Richtwert",
   "custom.download": "Herunterladen",
   "custom.delete": "Löschen",
-  "custom.deleteConfirm": "Auftrag „{name}“ löschen? Der Fortschritt dazu bleibt gespeichert."
+  "custom.deleteConfirm": "Auftrag „{name}“ löschen? Der Fortschritt dazu bleibt gespeichert.",
+  "coach.menu": "Einführung starten",
+  "coach.layoutName": "Meine erste Anlage",
+  "coach.offerTitle": "Neu im Sandkasten?",
+  "coach.offerText": "In acht kurzen Schritten baust du ein Band mit Sensor, verdrahtest es und lässt es mit deinem eigenen Programm laufen. Die Sortierstation bleibt unter „Meine Anlagen“ gespeichert.",
+  "coach.start": "Einführung starten",
+  "coach.no": "Nein danke",
+  "coach.next": "Weiter",
+  "coach.skip": "Überspringen",
+  "coach.back": "Zurück",
+  "coach.close": "Einführung schließen",
+  "coach.finished": "Geschafft!",
+  "coach.finishedText": "Deine Anlage läuft mit deinem Programm. Als Nächstes: Werkstücke sortieren – die Vorlagen unter „Mehr → Meine Anlagen“ zeigen, wie es geht. Die Einführung findest du jederzeit unter „Mehr“."
 }
