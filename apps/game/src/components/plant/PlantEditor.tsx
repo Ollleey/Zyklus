@@ -50,6 +50,8 @@ interface Props {
   live: (fn: (p: PlantView) => void) => void;
   /** Kopfzeile des Panels (Tabs) */
   head: ReactNode;
+  /** nur ansehen und bedienen (veröffentlichter Auftrag): keine Bibliothek, kein Inspektor */
+  readOnly?: boolean;
 }
 
 const GRID = 10;
@@ -111,6 +113,7 @@ export function PlantEditor({
   time,
   live,
   head,
+  readOnly = false,
 }: Props) {
   const [mode, setMode] = useState<ViewMode>('top');
   const [selected, setSelected] = useState<string | null>(null);
@@ -277,6 +280,7 @@ export function PlantEditor({
       setSelected(p.id);
       return;
     }
+    if (readOnly) return;
     setSelected(p.id);
     const w = toWorld(e.clientX, e.clientY);
     drag.current = {
@@ -292,7 +296,7 @@ export function PlantEditor({
   };
 
   const onWpDown = (e: PointerEvent, w: Workpiece) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || readOnly) return;
     e.stopPropagation();
     drag.current = { kind: 'wp', id: w.id };
     svg.current!.setPointerCapture(e.pointerId);
@@ -379,6 +383,7 @@ export function PlantEditor({
   }, [mode, size]);
 
   const onKey = (e: React.KeyboardEvent) => {
+    if (readOnly) return;
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl && e.key.toLowerCase() === 'z') {
       e.preventDefault();
@@ -506,42 +511,50 @@ export function PlantEditor({
             </button>
           ))}
         </div>
-        <button className="btn btn-small" onClick={undo} disabled={!canUndo} title="Strg+Z">
-          ↶ {t('plant.undo')}
-        </button>
-        <button className="btn btn-small" onClick={redo} disabled={!canRedo} title="Strg+Y">
-          ↷ {t('plant.redo')}
-        </button>
-        <span className="pe-sep" />
-        <button
-          className="btn btn-small"
-          onClick={() => sel && turn(sel)}
-          disabled={!sel}
-          title="R"
-        >
-          ⟳ {t('plant.rotate')}
-        </button>
-        <button
-          className="btn btn-small"
-          onClick={() => sel && duplicate(sel)}
-          disabled={!sel}
-          title="Strg+D"
-        >
-          ⧉ {t('plant.copy')}
-        </button>
-        <button
-          className="btn btn-small"
-          onClick={() => sel && remove(sel.id)}
-          disabled={!sel}
-          title="Entf"
-        >
-          ✕ {t('plant.delete')}
-        </button>
-        <span className="pe-sep" />
-        <label className="pe-check">
-          <input type="checkbox" checked={snapOn} onChange={(e) => setSnapOn(e.target.checked)} />{' '}
-          {t('plant.snap')}
-        </label>
+        {!readOnly && (
+          <>
+            <button className="btn btn-small" onClick={undo} disabled={!canUndo} title="Strg+Z">
+              ↶ {t('plant.undo')}
+            </button>
+            <button className="btn btn-small" onClick={redo} disabled={!canRedo} title="Strg+Y">
+              ↷ {t('plant.redo')}
+            </button>
+            <span className="pe-sep" />
+            <button
+              className="btn btn-small"
+              onClick={() => sel && turn(sel)}
+              disabled={!sel}
+              title="R"
+            >
+              ⟳ {t('plant.rotate')}
+            </button>
+            <button
+              className="btn btn-small"
+              onClick={() => sel && duplicate(sel)}
+              disabled={!sel}
+              title="Strg+D"
+            >
+              ⧉ {t('plant.copy')}
+            </button>
+            <button
+              className="btn btn-small"
+              onClick={() => sel && remove(sel.id)}
+              disabled={!sel}
+              title="Entf"
+            >
+              ✕ {t('plant.delete')}
+            </button>
+            <span className="pe-sep" />
+            <label className="pe-check">
+              <input
+                type="checkbox"
+                checked={snapOn}
+                onChange={(e) => setSnapOn(e.target.checked)}
+              />{' '}
+              {t('plant.snap')}
+            </label>
+          </>
+        )}
         <label className="pe-check">
           <input type="checkbox" checked={zones} onChange={(e) => setZones(e.target.checked)} />{' '}
           {t('plant.zones')}
@@ -551,61 +564,63 @@ export function PlantEditor({
         </button>
         {plant && <span className="pe-live">● {t('plant.live')}</span>}
       </div>
-      <div className="pe-body">
-        <aside className="pe-library" aria-label={t('plant.library')}>
-          {CATEGORIES.map(([cat, name]) => (
-            <section key={cat}>
-              <h4>{name}</h4>
-              {Object.values(CATALOG)
-                .filter((i) => i.category === cat)
-                .map((i) => (
-                  <button
-                    key={i.type}
-                    className="pe-lib-item"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(DRAG_PART, i.type);
-                      e.dataTransfer.effectAllowed = 'copy';
-                    }}
-                    onClick={() => {
-                      // Klick legt versetzt zur Mitte ab, damit Teile nicht übereinander liegen
-                      const k = parts.length % 6;
-                      add(
-                        i.type,
-                        view.cx + (k - 2.5) * 60,
-                        view.cy + (mode === 'top' ? (k % 2) * 60 : 0),
-                      );
-                    }}
-                    title={t('plant.libHint')}
-                  >
-                    <svg viewBox="-40 -40 80 80" width={22} height={22} aria-hidden>
-                      <PartTop
-                        part={{
-                          id: '',
-                          type: i.type,
-                          tag: '',
-                          x: 0,
-                          y: 0,
-                          z: 0,
-                          rot: 0,
-                          params: {
-                            ...i.defaults,
-                            length: 70,
-                            width: 40,
-                            radius: 70,
-                            diameter: 60,
-                            depth: 60,
-                          },
-                        }}
-                        s={{ time: 0 }}
-                      />
-                    </svg>
-                    {i.name}
-                  </button>
-                ))}
-            </section>
-          ))}
-        </aside>
+      <div className={`pe-body ${readOnly ? 'pe-body-ro' : ''}`}>
+        {!readOnly && (
+          <aside className="pe-library" aria-label={t('plant.library')}>
+            {CATEGORIES.map(([cat, name]) => (
+              <section key={cat}>
+                <h4>{name}</h4>
+                {Object.values(CATALOG)
+                  .filter((i) => i.category === cat)
+                  .map((i) => (
+                    <button
+                      key={i.type}
+                      className="pe-lib-item"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(DRAG_PART, i.type);
+                        e.dataTransfer.effectAllowed = 'copy';
+                      }}
+                      onClick={() => {
+                        // Klick legt versetzt zur Mitte ab, damit Teile nicht übereinander liegen
+                        const k = parts.length % 6;
+                        add(
+                          i.type,
+                          view.cx + (k - 2.5) * 60,
+                          view.cy + (mode === 'top' ? (k % 2) * 60 : 0),
+                        );
+                      }}
+                      title={t('plant.libHint')}
+                    >
+                      <svg viewBox="-40 -40 80 80" width={22} height={22} aria-hidden>
+                        <PartTop
+                          part={{
+                            id: '',
+                            type: i.type,
+                            tag: '',
+                            x: 0,
+                            y: 0,
+                            z: 0,
+                            rot: 0,
+                            params: {
+                              ...i.defaults,
+                              length: 70,
+                              width: 40,
+                              radius: 70,
+                              diameter: 60,
+                              depth: 60,
+                            },
+                          }}
+                          s={{ time: 0 }}
+                        />
+                      </svg>
+                      {i.name}
+                    </button>
+                  ))}
+              </section>
+            ))}
+          </aside>
+        )}
         <div className="pe-canvas" ref={box}>
           <svg
             ref={svg}
@@ -620,6 +635,7 @@ export function PlantEditor({
             onKeyDown={onKey}
             onContextMenu={(e) => {
               e.preventDefault();
+              if (readOnly) return;
               const w = toWorld(e.clientX, e.clientY);
               const r = box.current!.getBoundingClientRect();
               const target = (e.target as Element).closest('[data-part],[data-wp]');
@@ -640,6 +656,7 @@ export function PlantEditor({
               if (e.dataTransfer.types.includes(DRAG_PART)) e.preventDefault();
             }}
             onDrop={(e) => {
+              if (readOnly) return;
               const type = e.dataTransfer.getData(DRAG_PART) as PartType;
               if (!type || !CATALOG[type]) return;
               e.preventDefault();
@@ -797,16 +814,18 @@ export function PlantEditor({
             </div>
           )}
         </div>
-        <Inspector
-          layout={layout}
-          part={sel}
-          plant={plant}
-          onChange={(p) => update(p)}
-          onLayout={onChange}
-          onTagCheck={(tag) => !parts.some((x) => x.tag === tag && x.id !== sel?.id)}
-          suggestTag={(type) => nextTag(type, parts)}
-          live={live}
-        />
+        {!readOnly && (
+          <Inspector
+            layout={layout}
+            part={sel}
+            plant={plant}
+            onChange={(p) => update(p)}
+            onLayout={onChange}
+            onTagCheck={(tag) => !parts.some((x) => x.tag === tag && x.id !== sel?.id)}
+            suggestTag={(type) => nextTag(type, parts)}
+            live={live}
+          />
+        )}
       </div>
     </div>
   );

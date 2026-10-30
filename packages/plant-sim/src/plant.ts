@@ -10,6 +10,7 @@ import {
 } from '@zyklus/sim-core';
 import { connectionsOf, identifier, type Connection } from './devices';
 import { bool, num, type Layout, type Part } from './model';
+import type { ControlStep } from './publish';
 import { SENSOR_TYPES, detect } from './sensors';
 import { STEP_MS, World } from './world';
 
@@ -31,10 +32,16 @@ export class SandboxPlant implements Plant {
   /** Behälter und Tanks mit ihrem Schlüssel in `state()` */
   private readonly stateKeys: [Part, string][];
 
+  /** Bedienfolge eines Prüflaufs (veröffentlichte Aufträge), nach Zeit sortiert */
+  private readonly controls: ControlStep[];
+  private nextControl = 0;
+
   constructor(
     readonly layout: Layout,
     seed = layout.seed,
+    controls: ControlStep[] = [],
   ) {
+    this.controls = [...controls].sort((a, b) => a[0] - b[0]);
     this.world = new World(layout, seed);
     this.stateKeys = layout.parts
       .filter((p) => p.type === 'bin' || p.type === 'tank')
@@ -63,7 +70,13 @@ export class SandboxPlant implements Plant {
     return this.cache;
   }
 
-  step(_t: number, outputs: Record<string, Value>): void {
+  step(t: number, outputs: Record<string, Value>): void {
+    while (this.nextControl < this.controls.length && this.controls[this.nextControl]![0] <= t) {
+      const [, ref, value] = this.controls[this.nextControl++]!;
+      const part = this.world.find(ref);
+      if (part?.type === 'estop' && !value) this.world.releaseEstop(ref);
+      else this.world.setControl(ref, value);
+    }
     // Drahtbruch an einem Ausgang: am Gerät kommt nichts an
     let out = outputs;
     for (const c of this.cutOutputs) {
@@ -228,7 +241,11 @@ class DiFilter {
   }
 }
 
-registerPlantModel('sandbox', (p, _level, seed) => new SandboxPlant(p.layout as Layout, seed));
+registerPlantModel(
+  'sandbox',
+  (p, _level, seed) =>
+    new SandboxPlant(p.layout as Layout, seed, (p.controls as ControlStep[]) ?? []),
+);
 
 /** Aus einer Anlage entsteht zur Laufzeit ein gewöhnliches Level mit Handbetrieb. */
 export function levelFromLayout(layout: Layout, title = 'Sandkasten'): Level {

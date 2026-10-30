@@ -14,6 +14,7 @@ import { emptySolution } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
 import { MyPlants } from '../components/plant/MyPlants';
+import { PublishDialog } from '../components/plant/PublishDialog';
 import { PlantEditor } from '../components/plant/PlantEditor';
 import { SignalsPanel } from '../components/plant/SignalsPanel';
 import { useHistory } from '../state/history';
@@ -67,6 +68,7 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
   const [activeId, setActiveId] = useState<string | null>(loadActive);
   const [signals, setSignals] = useState<string[] | null>(null);
   const [dialog, setDialog] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   /** zuletzt gesehener Arbeitsplatz (Lösung, Simulation) für Aktionen außerhalb der Panels */
@@ -280,6 +282,12 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
         onSelect: () => fileInput.current?.click(),
       },
       { label: t('anlage.new'), onSelect: createNew },
+      {
+        label: t('publish.menu'),
+        title: t('publish.menuTitle'),
+        disabled: !layout.parts.length,
+        onSelect: () => setPublishing(true),
+      },
     ],
   };
 
@@ -308,6 +316,19 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
             ✕
           </button>
         </div>
+      )}
+      {publishing && (
+        <PublishDialog
+          layout={layout}
+          solution={ctxRef.current?.solution ?? emptySolution()}
+          name={meta.name}
+          author={meta.author}
+          onClose={() => setPublishing(false)}
+          onPublished={(l) => {
+            setPublishing(false);
+            setNotice(t('publish.done', { name: l.title.de }));
+          }}
+        />
       )}
       {dialog && (
         <MyPlants

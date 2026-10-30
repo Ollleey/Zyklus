@@ -98,7 +98,40 @@ await button('Seitenansicht').click();
 await page.waitForTimeout(300);
 await shot('07-tankanlage-seitenansicht');
 
-// 6. Leistung: 30 Bauteile, 50 Werkstücke, ×100 (Aufbau über die Module des Dev-Servers)
+// 6. Sortierstation als Auftrag veröffentlichen und im Posteingang spielen
+await fresh();
+await openSandbox();
+await page.locator('.menu > button', { hasText: 'Mehr' }).click();
+await page.locator('.menu-item', { hasText: 'Als Auftrag veröffentlichen' }).click();
+await page.locator('.publish input').first().fill('Sortieren für Kesselbach');
+await page.locator('button', { hasText: 'Mit meiner Lösung prüfen' }).click();
+await page.locator('.publish-ok').waitFor({ timeout: 60000 });
+await shot('09-auftrag-veroeffentlichen');
+await page.locator('.publish button', { hasText: 'Veröffentlichen' }).click();
+await page.locator('button', { hasText: 'Posteingang' }).first().click();
+// Lösung aus dem Sandkasten übernehmen (wie ein Spieler, der die Anlage selbst gebaut hat)
+await page.evaluate(() =>
+  localStorage.setItem(
+    'zyklus.loesung.eigen-sortieren-fuer-kesselbach',
+    localStorage.getItem('zyklus.loesung.sandkasten'),
+  ),
+);
+await page.locator('.custom-item button.mail-item').first().click();
+await page
+  .locator('.brief .icon-btn')
+  .click()
+  .catch(() => {});
+await page.locator('button', { hasText: 'Prüfen' }).first().click();
+await page.waitForTimeout(8000);
+await shot('10-eigener-auftrag-geprueft');
+const verdict = await page
+  .locator('[role=dialog]')
+  .first()
+  .innerText()
+  .catch(() => '');
+console.log('Eigener Auftrag geprüft:', verdict.split('\n').slice(0, 3).join(' | '));
+
+// 7. Leistung: 30 Bauteile, 50 Werkstücke, ×100 (Aufbau über die Module des Dev-Servers)
 await fresh();
 const data = await page.evaluate(async (ROOT) => {
   const R = `/@fs/${ROOT}`;

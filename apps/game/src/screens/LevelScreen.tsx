@@ -32,7 +32,9 @@ import {
   type LevelProgress,
 } from '../state/persistence';
 import { setBoolFormat, useBoolFormat } from '../state/prefs';
-import type { RunView } from '../sim/types';
+import type { Layout } from '@zyklus/plant-sim';
+import { PlantEditor } from '../components/plant/PlantEditor';
+import { plantOf, type RunView } from '../sim/types';
 import { useSimulation, type SimControls } from '../state/useSimulation';
 
 /** Standardanordnung der Aufträge: wie bisher Schrank links, Programm rechts, Simulation unten */
@@ -323,28 +325,49 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                 onDrag={(p) => setPlantW(1 - p.x / p.width)}
                 onStep={(d) => setPlantW(plantW - d * 0.02)}
               />
-              <PlantView
-                level={level}
-                traces={run?.traces}
-                now={run?.time ?? 0}
-                values={values}
-                manual={sim.mode === 'manual'}
-                actuated={(d) => run?.isActuated(d) === true}
-                onActuate={(d, v) => {
-                  sim.setManual(d, v);
-                  if (!sim.running) sim.play();
-                }}
-                analogValue={(d) => {
-                  const v = run?.isActuated(d);
-                  const dev = level.devices.find((x) => x.id === d);
-                  return typeof v === 'number' ? v : (dev?.analog?.min ?? 0);
-                }}
-                testParams={test?.plant}
-                onAnalog={(d, v) => {
-                  sim.setManual(d, v);
-                  if (!sim.running) sim.play();
-                }}
-              />
+              {level.plant?.type === 'sandbox' ? (
+                <PlantEditor
+                  readOnly
+                  layout={level.plant.params!.layout as Layout}
+                  onChange={() => {}}
+                  undo={() => {}}
+                  redo={() => {}}
+                  canUndo={false}
+                  canRedo={false}
+                  plant={plantOf(run)}
+                  time={run?.time ?? 0}
+                  live={(fn) => {
+                    const p = plantOf(sim.ensureRun());
+                    if (!p) return;
+                    fn(p);
+                    if (!sim.running) sim.play();
+                  }}
+                  head={null}
+                />
+              ) : (
+                <PlantView
+                  level={level}
+                  traces={run?.traces}
+                  now={run?.time ?? 0}
+                  values={values}
+                  manual={sim.mode === 'manual'}
+                  actuated={(d) => run?.isActuated(d) === true}
+                  onActuate={(d, v) => {
+                    sim.setManual(d, v);
+                    if (!sim.running) sim.play();
+                  }}
+                  analogValue={(d) => {
+                    const v = run?.isActuated(d);
+                    const dev = level.devices.find((x) => x.id === d);
+                    return typeof v === 'number' ? v : (dev?.analog?.min ?? 0);
+                  }}
+                  testParams={test?.plant}
+                  onAnalog={(d, v) => {
+                    sim.setManual(d, v);
+                    if (!sim.running) sim.play();
+                  }}
+                />
+              )}
             </div>
           )}
         </>
@@ -366,7 +389,9 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
         </button>
         <div className="topbar-title">
           <span className="topbar-name">
-            {!sandbox && <span className="level-no">{level.order}</span>}
+            {!sandbox && (
+              <span className="level-no">{level.id.startsWith('eigen-') ? '★' : level.order}</span>
+            )}
             {tr(level.title)}
           </span>
           <span className="customer">{plant?.subtitle ?? tr(level.customer)}</span>

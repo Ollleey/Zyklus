@@ -1,5 +1,20 @@
 # Changelog
 
+## W2 – Anlage als Auftrag veröffentlichen (2026-10-30)
+
+- Sandkasten, Menü „Mehr → Als Auftrag veröffentlichen“:
+  - Titel, Kunde, Auftragstext, Hinweise
+  - Testfälle mit Dauer, Startwerten und Bedienfolge der Taster, Schalter, Wahlschalter und Potis
+  - Prüfregeln: richtig sortiert, nichts verloren, mindestens N im Behälter, Füllstand im Bereich,
+    nie gleichzeitig, bleibt aus
+- Die eigene Lösung muss den Auftrag bestehen; ihre Kennzahlen werden die Richtwerte
+- Daraus entsteht ein gewöhnliches Level (`publishLevel`) mit Datenblatt (Geräte und Regeln);
+  die Bedienfolge stellt die Anlage im Prüflauf selbst
+- Posteingang: Abschnitt „Eigene Aufträge“ mit Öffnen, Herunterladen (`*.auftrag.json`), Import
+  und Löschen; Prüfen und Bewertung wie in der Kampagne, die Anlage als Ansicht ohne Bearbeitung
+- Tests: Beispiellösung besteht, leere Lösung und verletzte Regel fallen durch; Leistungstest
+  misst drei Runden; 597 Tests
+
 ## W1 – Sandkasten-Simulation im Web Worker (2026-10-30)
 
 - Der Sandkasten rechnet SPS und Anlage in einem eigenen Thread. Die Oberfläche spiegelt den Lauf
