@@ -15,6 +15,29 @@ Eigene Anlage bauen, verdrahten, programmieren und live simulieren. Der Plan ste
 - App: bewegliche Panels (`ui/Dock.tsx`, auch für die Aufträge), Anlageneditor
   (`components/plant`), Panel „Signale“, „Meine Anlagen“.
 
+## Eigene Aufträge
+
+Im Sandkasten unter „Mehr → Als Auftrag veröffentlichen“: Testfälle mit Bedienfolge und
+Prüfregeln (`packages/plant-sim/src/publish.ts`). Die eigene Lösung muss bestehen und liefert die
+Richtwerte. Der Auftrag erscheint im Posteingang unter „Eigene Aufträge“ und lässt sich als
+`*.auftrag.json` weitergeben und importieren.
+
+## Leistung
+
+Testfall: 30 Bauteile, 50 Werkstücke im Stau, eingestellt ×100. `scripts/sandbox-shots.mjs`
+schreibt die letzte Messung nach [leistung.txt](leistung.txt).
+
+| Stand                                                              | Bilder/s | Simulation |
+| ------------------------------------------------------------------ | -------- | ---------- |
+| Hauptthread, Budget 11 ms, ohne Fremdlast (Produktions-Build)      | 59,7     | ×47        |
+| Hauptthread, anpassendes Budget, mit Fremdlast (Produktions-Build) | 51,1     | ×6         |
+| Web Worker, mit Fremdlast (Produktions-Build)                      | 60,2     | ×71        |
+| Web Worker, mit Fremdlast (Dev-Server)                             | 60,0     | ×58        |
+
+Die Darstellung bleibt flüssig, weil der Worker rechnet. In diesem Extremfall (alle Teile im Stau,
+15 Sensoren) erreicht die Simulation noch nicht ganz ×100; sie läuft dann so schnell, wie der
+Worker rechnen kann. Die Aufträge der Kampagne rechnen weiter im Hauptthread.
+
 ## Vorlagen
 
 | Datei                                 | Inhalt                                                                      |
@@ -38,17 +61,18 @@ http://localhost:5173 http://localhost:4173` (Dev-Server und `npm run preview` l
 
 ## Screenshots
 
-|                                                 |                                                       |
-| ----------------------------------------------- | ----------------------------------------------------- |
-| ![Draufsicht](01-sortierstation-draufsicht.png) | ![Seitenansicht](02-sortierstation-seitenansicht.png) |
-| ![Live mit Zähler](03-sortierstation-live.png)  | ![Schaltschrank](04-schaltschrank.png)                |
-| ![Signale mit Forcewert](05-signale-forcen.png) | ![Meine Anlagen](06-meine-anlagen.png)                |
-| ![Tankanlage](07-tankanlage-seitenansicht.png)  | ![Leistungstest](08-leistungstest.png)                |
+|                                                                 |                                                             |
+| --------------------------------------------------------------- | ----------------------------------------------------------- |
+| ![Draufsicht](01-sortierstation-draufsicht.png)                 | ![Seitenansicht](02-sortierstation-seitenansicht.png)       |
+| ![Live mit Zähler](03-sortierstation-live.png)                  | ![Schaltschrank](04-schaltschrank.png)                      |
+| ![Signale mit Forcewert](05-signale-forcen.png)                 | ![Meine Anlagen](06-meine-anlagen.png)                      |
+| ![Tankanlage](07-tankanlage-seitenansicht.png)                  | ![Leistungstest](08-leistungstest.png)                      |
+| ![Als Auftrag veröffentlichen](09-auftrag-veroeffentlichen.png) | ![Eigener Auftrag geprüft](10-eigener-auftrag-geprueft.png) |
 
 ## Bekannte Grenzen
 
 - Werkstücke sind achsparallele Quader und drehen sich nicht; Auflage nach der Mitte des Teils.
-- Der Sandkasten rechnet in einem Web Worker; im Extremfall erreicht er etwa ×70 statt ×100 (siehe [leistung.txt](leistung.txt)); die
+- Der Sandkasten rechnet in einem Web Worker; im Extremfall erreicht er etwa ×70 statt ×100 (siehe „Leistung“); die
   Darstellung zeigt je Bild den aktuellen Stand, ohne Zwischenbilder zu interpolieren.
 - Ein-/Ausgänge werden als elektrischer Wert bzw. Rohwert geforct; Prüfläufe der Kampagne
   kennen kein Forcen.
