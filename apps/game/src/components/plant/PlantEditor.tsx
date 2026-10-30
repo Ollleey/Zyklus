@@ -17,7 +17,7 @@ import {
   type MaterialId,
   type Part,
   type PartType,
-  type SandboxPlant,
+  type PlantView,
   type SizeId,
   type Workpiece,
   type WorkpieceSpec,
@@ -44,10 +44,10 @@ interface Props {
   canUndo: boolean;
   canRedo: boolean;
   /** laufende Anlage (Live-Simulation) */
-  plant?: SandboxPlant | null;
+  plant?: PlantView | null;
   time: number;
   /** Eingriff in die laufende Anlage; legt den Lauf bei Bedarf an */
-  live: (fn: (p: SandboxPlant) => void) => void;
+  live: (fn: (p: PlantView) => void) => void;
   /** Kopfzeile des Panels (Tabs) */
   head: ReactNode;
 }
@@ -81,7 +81,7 @@ interface Menu {
 }
 
 /** Werkstücke der Anlage: live aus der Welt, sonst die von Hand eingelegten */
-function pieces(layout: Layout, plant?: SandboxPlant | null): Workpiece[] {
+function pieces(layout: Layout, plant?: PlantView | null): Workpiece[] {
   if (plant) return plant.world.workpieces.filter((w) => w.state === 'free');
   return (layout.workpieces ?? []).map((w, i) => ({
     id: -(i + 1),
@@ -813,7 +813,7 @@ export function PlantEditor({
 }
 
 /** Zähler-Overlay: Teile je Behälter, Fehlsortierungen nach Soll-Regel, Durchsatz je Minute */
-function Counters({ plant }: { plant: SandboxPlant }) {
+function Counters({ plant }: { plant: PlantView }) {
   const w = plant.world;
   const bins = w.parts.filter((p) => p.type === 'bin');
   if (!bins.length && !w.spawned) return null;

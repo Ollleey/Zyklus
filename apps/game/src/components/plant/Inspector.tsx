@@ -11,19 +11,19 @@ import {
   type Part,
   type PartType,
   type Rot,
-  type SandboxPlant,
+  type PlantView,
 } from '@zyklus/plant-sim';
 import { t } from '../../i18n';
 
 interface Props {
   layout: Layout;
   part: Part | null;
-  plant?: SandboxPlant | null;
+  plant?: PlantView | null;
   onChange: (p: Part) => void;
   onLayout: (l: Layout) => void;
   onTagCheck: (tag: string) => boolean;
   suggestTag: (type: PartType) => string;
-  live: (fn: (p: SandboxPlant) => void) => void;
+  live: (fn: (p: PlantView) => void) => void;
 }
 
 /** Eigenschaften des ausgewählten Bauteils; ohne Auswahl die Anlage selbst */

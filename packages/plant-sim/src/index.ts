@@ -8,3 +8,4 @@ export * from './params';
 export * from './plant';
 export * from './file';
 export * from './templates';
+export type * from './view';

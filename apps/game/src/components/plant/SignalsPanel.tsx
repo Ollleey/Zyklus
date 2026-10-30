@@ -6,10 +6,10 @@ import {
   type BoardAnalysis,
   type Device,
   type Level,
-  type LevelRun,
   type Solution,
 } from '@zyklus/sim-core';
 import { t } from '../../i18n';
+import type { RunView } from '../../sim/types';
 import { autoWire, updateProject } from '../../state/edit';
 import { formatValue, useBoolFormat } from '../../state/prefs';
 
@@ -18,9 +18,9 @@ interface Props {
   solution: Solution;
   setSolution: (s: Solution) => void;
   analysis: BoardAnalysis;
-  run: LevelRun | null;
+  run: RunView | null;
   /** Lauf holen bzw. anlegen (Forcen vor dem Start) */
-  ensureRun: () => LevelRun | null;
+  ensureRun: () => RunView | null;
   redraw: () => void;
   /** Spuren im Zeitdiagramm; `null` = alle */
   signals: string[] | null;

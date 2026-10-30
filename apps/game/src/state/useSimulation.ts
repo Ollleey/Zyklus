@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LevelRun, type Level, type Solution } from '@zyklus/sim-core';
 import type { SolutionCompileResult } from '@zyklus/levels';
+import { RemoteRun, type Channel } from '../sim/remote';
+import type { RunView } from '../sim/types';
+import { workerChannel } from '../sim/worker';
 
 export type SimMode = 'test' | 'manual';
 
@@ -11,9 +14,11 @@ export type SimMode = 'test' | 'manual';
 const BUDGET_MAX_MS = 12;
 const BUDGET_MIN_MS = 3;
 const FRAME_TARGET_MS = 18;
+/** Rechenzeit je Block im Worker: blockiert die Darstellung nicht */
+const WORKER_BUDGET_MS = 30;
 
 export interface SimControls {
-  run: LevelRun | null;
+  run: RunView | null;
   mode: SimMode;
   testIdx: number;
   seed: number;
@@ -31,19 +36,24 @@ export interface SimControls {
   setSpeed: (s: number) => void;
   setManual: (device: string, v: boolean | number) => void;
   /** laufenden Versuch holen bzw. anlegen (Bedienung in der Anlage vor dem Start) */
-  ensureRun: () => LevelRun | null;
+  ensureRun: () => RunView | null;
   /** Bild neu zeichnen (nach Eingriffen ohne laufende Simulation) */
   redraw: () => void;
 }
 
-/** Steuert einen schrittweisen Simulationslauf im Browser (Echtzeit × Faktor). */
+/**
+ * Steuert einen schrittweisen Simulationslauf im Browser (Echtzeit × Faktor). Mit `worker` rechnet
+ * ein Web Worker (Sandkasten); ohne Worker-Unterstützung im Hauptthread wie in den Aufträgen.
+ */
 export function useSimulation(
   level: Level,
   solution: Solution,
   compiled: SolutionCompileResult,
   initialMode: SimMode = 'test',
+  worker = false,
 ): SimControls {
-  const runRef = useRef<LevelRun | null>(null);
+  const runRef = useRef<LevelRun | RemoteRun | null>(null);
+  const channelRef = useRef<(Channel & { close: () => void }) | null | undefined>(undefined);
   const [mode, setModeState] = useState<SimMode>(initialMode);
   const [testIdx, setTestIdx] = useState(0);
   const [seed, setSeed] = useState(level.tests[0]?.seeds[0] ?? 1);
@@ -52,14 +62,35 @@ export function useSimulation(
   const [frame, setFrame] = useState(0);
   const ready = compiled.ok;
 
-  const create = useCallback((): LevelRun | null => {
+  /** Worker-Kanal, einmal je Arbeitsplatz; Antworten gehen an den aktuellen Lauf */
+  const channel = () => {
+    if (!worker) return null;
+    if (channelRef.current === undefined) {
+      channelRef.current = workerChannel();
+      channelRef.current?.onReply((r) => {
+        const run = runRef.current;
+        if (run instanceof RemoteRun) run.receive(r);
+      });
+    }
+    return channelRef.current;
+  };
+  useEffect(() => () => channelRef.current?.close(), []);
+
+  const create = useCallback((): LevelRun | RemoteRun | null => {
     if (!compiled.ok) return null;
+    const test = mode === 'test' ? level.tests[testIdx] : undefined;
+    const ch = channel();
+    if (ch) {
+      const r = new RemoteRun(ch, level, solution, compiled.programs, { test, seed });
+      r.onUpdate(() => setFrame((f) => f + 1));
+      return r;
+    }
     try {
-      const test = mode === 'test' ? level.tests[testIdx] : undefined;
       return new LevelRun(level, solution, compiled.programs, { test, seed });
     } catch {
       return null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compiled, level, solution, mode, testIdx, seed]);
 
   // Änderungen an Aufbau, Programm oder Testauswahl beenden den laufenden Versuch
@@ -79,14 +110,29 @@ export function useSimulation(
     let last = performance.now();
     let budget = BUDGET_MAX_MS;
     let id = 0;
+    // Worker: Wandzeit seit dem letzten Auftrag, damit Wartezeit nicht verloren geht
+    let lastSent = performance.now();
     const loop = (now: number) => {
       const run = runRef.current;
       if (!run) return;
-      const frame = now - last;
-      const dt = Math.min(100, frame);
+      if (run instanceof RemoteRun) {
+        if (run.error || run.done) {
+          setRunning(false);
+          return;
+        }
+        if (!run.busy) {
+          const dt = Math.min(100, now - lastSent);
+          lastSent = now;
+          run.advance(run.time + Math.max(1, Math.round(dt * speed)) - 1, WORKER_BUDGET_MS);
+        }
+        id = requestAnimationFrame(loop);
+        return;
+      }
+      const frameMs = now - last;
+      const dt = Math.min(100, frameMs);
       last = now;
       // Bild zu lang: weniger rechnen; Luft vorhanden: langsam wieder mehr
-      if (frame > FRAME_TARGET_MS) budget = Math.max(BUDGET_MIN_MS, budget * 0.8);
+      if (frameMs > FRAME_TARGET_MS) budget = Math.max(BUDGET_MIN_MS, budget * 0.8);
       else budget = Math.min(BUDGET_MAX_MS, budget + 0.25);
       // Rechenzeit je Bild begrenzen: unter Volllast läuft die Simulation langsamer als
       // eingestellt, die Darstellung bleibt flüssig

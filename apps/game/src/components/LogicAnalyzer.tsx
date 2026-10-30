@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import {
-  compareTrace,
-  tr,
-  valueAt,
-  type Edge,
-  type Level,
-  type LevelRun,
-  type TestCase,
-} from '@zyklus/sim-core';
+import { compareTrace, tr, valueAt, type Edge, type Level, type TestCase } from '@zyklus/sim-core';
+import type { RunView } from '../sim/types';
 import { formatValue, useBoolFormat } from '../state/prefs';
 
 const LABEL_W = 190;
@@ -58,7 +51,7 @@ const fmtT = (t: number) => (t >= 1000 ? `${(t / 1000).toFixed(t % 1000 ? 2 : 0)
 
 interface Props {
   level: Level;
-  run: LevelRun | null;
+  run: RunView | null;
   test?: TestCase;
   /** nur diese Spuren zeigen (Geräte-ids bzw. `plant.<größe>`), Reihenfolge wie angegeben */
   signals?: string[];

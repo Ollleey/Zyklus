@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  SandboxPlant,
   anlageFileName,
   emptyLayout,
   levelFromLayout,
@@ -31,6 +30,7 @@ import {
   saveLayout,
   saveMeta,
 } from '../state/layouts';
+import { plantOf } from '../sim/types';
 import { LevelScreen, type PlantSlot, type SlotContext } from './LevelScreen';
 
 /** Autosave in „Meine Anlagen“ */
@@ -225,12 +225,13 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
               redo={hist.redo}
               canUndo={hist.canUndo}
               canRedo={hist.canRedo}
-              plant={run?.plant instanceof SandboxPlant ? run.plant : null}
+              plant={plantOf(run)}
               time={run?.time ?? 0}
               live={(fn) => {
                 const r = sim.ensureRun();
-                if (!(r?.plant instanceof SandboxPlant)) return;
-                fn(r.plant);
+                const p = plantOf(r);
+                if (!p) return;
+                fn(p);
                 if (!sim.running) sim.play();
               }}
               head={head}

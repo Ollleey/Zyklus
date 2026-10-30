@@ -48,7 +48,7 @@ http://localhost:5173 http://localhost:4173` (Dev-Server und `npm run preview` l
 ## Bekannte Grenzen
 
 - Werkstücke sind achsparallele Quader und drehen sich nicht; Auflage nach der Mitte des Teils.
-- Unter Volllast erreicht die Simulation nicht ×100 (siehe [leistung.txt](leistung.txt)); die
+- Der Sandkasten rechnet in einem Web Worker; im Extremfall erreicht er etwa ×70 statt ×100 (siehe [leistung.txt](leistung.txt)); die
   Darstellung zeigt je Bild den aktuellen Stand, ohne Zwischenbilder zu interpolieren.
 - Ein-/Ausgänge werden als elektrischer Wert bzw. Rohwert geforct; Prüfläufe der Kampagne
   kennen kein Forcen.

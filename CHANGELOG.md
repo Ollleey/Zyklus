@@ -1,5 +1,18 @@
 # Changelog
 
+## W1 – Sandkasten-Simulation im Web Worker (2026-10-30)
+
+- Der Sandkasten rechnet SPS und Anlage in einem eigenen Thread. Die Oberfläche spiegelt den Lauf
+  (`RemoteRun`) aus Schnappschüssen: neue Flanken der Spuren, CPU-Zustand, Forcewerte, Anlage
+  und Werkstücke. Bedienungen gehen als Befehle an den Worker.
+- Kanal-LEDs und Beobachten melden ihre Lesewünsche an; der Worker beantwortet sie nach jedem
+  Rechenblock.
+- Gemeinsame Ansichten `RunView` und `PlantView`: `LevelRun` und `SandboxPlant` erfüllen sie
+  direkt, die Aufträge rechnen wie bisher im Hauptthread.
+- Leistungstest (50 Werkstücke, 30 Bauteile, ×100, Produktions-Build): 60 Bilder/s, Simulation
+  ×71 statt ×47
+- Test: Spiegel und direkter Lauf liefern denselben Verlauf; 593 Tests
+
 ## S6 – Sandkasten: Vorlagen, Störungen, Zähler, Feinschliff (2026-10-30)
 
 - Vorlagen als `*.anlage.json` (je mit und ohne Beispielprogramm) in

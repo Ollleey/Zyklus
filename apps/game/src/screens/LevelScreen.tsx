@@ -8,7 +8,6 @@ import {
   verifySolution,
   type BoardAnalysis,
   type Level,
-  type LevelRun,
   type Solution,
   type Verification,
 } from '@zyklus/sim-core';
@@ -33,6 +32,7 @@ import {
   type LevelProgress,
 } from '../state/persistence';
 import { setBoolFormat, useBoolFormat } from '../state/prefs';
+import type { RunView } from '../sim/types';
 import { useSimulation, type SimControls } from '../state/useSimulation';
 
 /** Standardanordnung der Aufträge: wie bisher Schrank links, Programm rechts, Simulation unten */
@@ -49,7 +49,7 @@ const SANDKASTEN_DOCK: DockLayout = {
 
 /** Was der Sandkasten vom Arbeitsplatz braucht */
 export interface SlotContext {
-  run: LevelRun | null;
+  run: RunView | null;
   sim: SimControls;
   solution: Solution;
   setSolution: (s: Solution) => void;
@@ -98,7 +98,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
   }, [plant, level, solution]);
 
   const compiled = useMemo(() => compileSolution(level, solution), [level, solution]);
-  const sim = useSimulation(level, solution, compiled, sandbox ? 'manual' : 'test');
+  const sim = useSimulation(level, solution, compiled, sandbox ? 'manual' : 'test', !!plant);
   const run = sim.run;
 
   const values = useMemo(() => {
