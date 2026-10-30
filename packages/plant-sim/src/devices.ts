@@ -45,6 +45,7 @@ export function connectionsOf(layout: Layout): Connection[] {
     for (const io of CATALOG[part.type].io(part)) {
       const device: Device = {
         id: deviceId(part, io.key),
+        label: io.key ? `${part.tag}.${io.key}` : part.tag,
         tag: suggestedTag(part, io),
         name: { de: `${io.label} (${part.tag})` },
         kind: io.kind,

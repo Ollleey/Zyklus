@@ -48,6 +48,8 @@ export class LevelRun {
   private readonly disturb = new Map<string, AnalogDisturbance>();
   private readonly manual = new Map<string, boolean | number>();
   private readonly relays = new Map<string, RelayState>();
+  /** Forcewerte je Gerät: Eingänge elektrisch bzw. Rohwert, Ausgänge zur Peripherie */
+  private readonly forces = new Map<string, boolean | number>();
   private readonly devices: Device[];
 
   constructor(
@@ -169,6 +171,23 @@ export class LevelRun {
     while (!this.done) this.sim.tick();
   }
 
+  /**
+   * Forcen wie in TIA: Ein Eingang erhält den Wert statt des Signals aus dem Feld, ein Ausgang
+   * gibt ihn statt des Prozessabbilds an das Gerät. `undefined` hebt den Force auf.
+   */
+  force(deviceId: string, value: boolean | number | undefined): void {
+    if (value === undefined) this.forces.delete(deviceId);
+    else this.forces.set(deviceId, value);
+  }
+
+  forced(deviceId: string): boolean | number | undefined {
+    return this.forces.get(deviceId);
+  }
+
+  get forcedIds(): string[] {
+    return [...this.forces.keys()];
+  }
+
   /** Betriebsartenschalter einer CPU (Sandkasten) */
   setCpuSwitch(cpuId: string, mode: 'RUN' | 'STOP'): void {
     this.cpus.get(cpuId)?.setSwitch(mode, this.sim.time);
@@ -199,6 +218,8 @@ export class LevelRun {
       } else {
         continue;
       }
+      const f = this.forces.get(d.id);
+      if (f !== undefined) v = f;
       const b = this.analysis.bindings.get(d.id);
       if (b) this.cpus.get(b.cpu)!.setInput(b.address, v, b.t);
       this.push(d.id, t, v);
@@ -228,7 +249,7 @@ export class LevelRun {
           if (t - r.since >= (cmd ? delay.on : delay.off)) r.phys = cmd;
         }
       }
-      outputs[d.id] = this.outputValue(d);
+      outputs[d.id] = this.forces.get(d.id) ?? this.outputValue(d);
       this.push(d.id, t, outputs[d.id]!);
     }
     if (this.plant) {

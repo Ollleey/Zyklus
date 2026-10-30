@@ -1,5 +1,26 @@
 # Changelog
 
+## S4 – Sandkasten: Kopplung und Live-Simulation (2026-10-30)
+
+- Elektrische Bauteile der Anlage erscheinen als Feldgeräte am Schrankrand, angezeigt mit ihrer
+  Kennzeichnung (neues Feld `Device.label`)
+- Panel **Signale**:
+  - „Automatisch verdrahten“ belegt für jedes offene Gerät den ersten freien passenden Kanal
+    (Leistungsverbraucher nur auf Relais, Messbereich nach Signalart) und meldet fehlende Kanäle
+  - Liste der nicht angeschlossenen Geräte, Adresse, PLC-Variable mit Namensvorschlag
+    (`B1_Induktiv`), einzeln oder alle übernehmen
+  - Live-Werte (Analog mit Rohwert und physikalischem Wert)
+  - Forcetabelle: Eingänge und Ausgänge auf festen Wert (Analog als Rohwert), „F“ in der Tabelle
+    und am Gerät im Schaltschrank, alle Forcewerte aufheben
+  - Spuren des Zeitdiagramms frei wählbar, Anlagenwerte (Zähler, Füllstände) zuschaltbar
+- sim-core: `LevelRun.force()` – ein Eingang bekommt den Wert statt des Feldsignals, ein Ausgang
+  gibt ihn statt des Prozessabbilds ans Gerät; Prüfläufe der Kampagne sind nicht betroffen
+- Live-Simulation in der Anlagenansicht: Bänder laufen, Zylinder fahren, Werkstücke fließen,
+  Sensor-LEDs und Erfassungszonen leuchten, Tanks füllen sich; Taster, Schalter, Not-Halt,
+  Wahlschalter und Magazin per Klick, Poti im Inspektor, Werkstücke mit der Maus versetzen,
+  einlegen und entfernen; Änderungen an der Anlage setzen den Lauf zurück
+- 573 Tests
+
 ## S3 – Sandkasten: Arbeitsbereich und Anlageneditor (2026-10-29)
 
 - Bewegliche Panels für Aufträge, Testpult und Sandkasten:

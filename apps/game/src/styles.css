@@ -3024,3 +3024,97 @@ code {
 .mono {
   font-family: var(--mono);
 }
+.device-forced rect {
+  fill: var(--c-led-yellow);
+}
+.device-forced text {
+  font-family: var(--font-mono);
+  font-size: 3.6px;
+  font-weight: 700;
+  fill: #1a1e23;
+  text-anchor: middle;
+}
+
+/* Signale (Sandkasten) */
+.signals {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--t-sm);
+}
+.signals-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line);
+}
+.signals-notice,
+.signals-unwired,
+.signals-empty {
+  margin: var(--s-2) var(--s-3) 0;
+}
+.signals-unwired b {
+  color: var(--warn);
+}
+.signals-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--s-2) var(--s-3);
+}
+.signals-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.signals-table th {
+  text-align: left;
+  color: var(--faint);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+.signals-table th,
+.signals-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.signals-open {
+  color: var(--warn);
+}
+.signals-forced td {
+  background: rgba(244, 196, 67, 0.08);
+}
+.signals-force {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.signals-f {
+  background: var(--c-led-yellow);
+  color: #1a1e23;
+  font-weight: 700;
+  font-family: var(--mono);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.signals-raw {
+  width: 72px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+.sim-body-sandbox > * {
+  flex: 1;
+  min-width: 0;
+}
+.signals-plant {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: var(--s-2) 0 0;
+}

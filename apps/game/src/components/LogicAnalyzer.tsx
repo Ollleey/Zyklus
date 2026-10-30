@@ -60,6 +60,8 @@ interface Props {
   level: Level;
   run: LevelRun | null;
   test?: TestCase;
+  /** nur diese Spuren zeigen (Geräte-ids bzw. `plant.<größe>`), Reihenfolge wie angegeben */
+  signals?: string[];
 }
 
 /**
@@ -67,7 +69,7 @@ interface Props {
  * dahinter, Abweichungen rot schraffiert. Der Zeiger zeigt Zeit und alle Werte; Klick heftet ihn
  * an, Klick auf eine Abweichung springt an deren Anfang.
  */
-export function LogicAnalyzer({ level, run, test }: Props) {
+export function LogicAnalyzer({ level, run, test, signals }: Props) {
   const [box, size] = useSize<HTMLDivElement>();
   const boolFormat = useBoolFormat();
   const [hoverT, setHoverT] = useState<number | null>(null);
@@ -90,7 +92,7 @@ export function LogicAnalyzer({ level, run, test }: Props) {
       ...level.devices.filter((d) => !isInput(d.kind)),
     ].map((d) => ({
       key: d.id,
-      label: `${d.id} ${tr(d.name).replace(/\s*\([^)]*\)$/, '')}`,
+      label: `${d.label ?? d.id} ${tr(d.name).replace(/\s*\([^)]*\)$/, '')}`,
       analog: d.kind === 'AI' || d.kind === 'AO',
       kind: d.kind.toLowerCase() as Row['kind'],
       range: [0, 27648] as [number, number],
@@ -98,8 +100,10 @@ export function LogicAnalyzer({ level, run, test }: Props) {
     for (const k of traceKeys ? traceKeys.split(',') : []) {
       out.push({ key: k, label: `Anlage: ${k.slice(6)}`, analog: true, kind: 'plant' });
     }
-    return out;
-  }, [level, traceKeys]);
+    if (!signals) return out;
+    const byKey = new Map(out.map((r) => [r.key, r]));
+    return signals.map((k) => byKey.get(k)).filter((r): r is Row => !!r);
+  }, [level, traceKeys, signals]);
 
   // Spurhöhe so, dass das Diagramm den Bereich füllt (Analogspuren doppelt so hoch)
   const units = rows.reduce((n, r) => n + (r.analog ? 2 : 1), 0) || 1;

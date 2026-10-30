@@ -6,6 +6,7 @@ import {
   toSolutionFile,
   tr,
   verifySolution,
+  type BoardAnalysis,
   type Level,
   type LevelRun,
   type Solution,
@@ -42,14 +43,23 @@ const LEVEL_DOCK: DockLayout = {
 
 /** Sandkasten: Anlage und Schaltschrank als Tabs links, Programm rechts, Simulation unten */
 const SANDKASTEN_DOCK: DockLayout = {
-  areas: { left: ['plant', 'cabinet'], right: ['program'], bottom: ['sim'] },
+  areas: { left: ['plant', 'cabinet'], right: ['program', 'signals'], bottom: ['sim'] },
   active: { left: 'plant' },
 };
 
-/** Zusatz für den Sandkasten: Anlagenpanel und Inhalt des Simulationsbereichs */
+/** Was der Sandkasten vom Arbeitsplatz braucht */
+export interface SlotContext {
+  run: LevelRun | null;
+  sim: SimControls;
+  solution: Solution;
+  setSolution: (s: Solution) => void;
+  analysis: BoardAnalysis;
+}
+
+/** Zusatz für den Sandkasten: Anlagenpanel, weitere Panels und Inhalt des Simulationsbereichs */
 export interface PlantSlot {
-  panel: (run: LevelRun | null, sim: SimControls) => PanelDef;
-  simBody: (run: LevelRun | null, sim: SimControls) => ReactNode;
+  panels: (ctx: SlotContext) => PanelDef[];
+  simBody: (ctx: SlotContext) => ReactNode;
   /** Kopfzeile: zusätzliche Einträge im Menü „Mehr“ */
   menu?: { label: string; onSelect: () => void; disabled?: boolean }[];
 }
@@ -180,6 +190,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
   // Breite der Prozessansicht im Simulationsbereich (Anteil)
   const [plantW, setPlantW] = useStoredNumber('split.plant', 0.34, [0.22, 0.6]);
 
+  const slotCtx: SlotContext = { run, sim, solution, setSolution, analysis: compiled.analysis };
   const panels: PanelDef[] = [
     {
       id: 'cabinet',
@@ -195,6 +206,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           cpuStatus={run ? cpuStatus : undefined}
           readIo={run ? readIo : undefined}
           canSwitch={sandbox}
+          forced={run && run.forcedIds.length ? (id) => run.forced(id) !== undefined : undefined}
           onCpuSwitch={(cpu, mode) => {
             run?.setCpuSwitch(cpu, mode);
             if (!sim.running) sim.play();
@@ -294,7 +306,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             )}
           </div>
           {plant ? (
-            <div className="sim-body sim-body-sandbox">{plant.simBody(run, sim)}</div>
+            <div className="sim-body sim-body-sandbox">{plant.simBody(slotCtx)}</div>
           ) : (
             <div
               className="sim-body"
@@ -336,7 +348,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
         </>
       ),
     },
-    ...(plant ? [plant.panel(run, sim)] : []),
+    ...(plant ? plant.panels(slotCtx) : []),
   ];
   const ids = panels.map((p) => p.id);
   const dockName = plant ? 'sandkasten' : 'auftrag';

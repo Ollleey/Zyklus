@@ -54,6 +54,8 @@ interface Props {
   /** Betriebsartenschalter bedienbar (Sandkasten) */
   canSwitch?: boolean;
   onCpuSwitch?: (cpu: string, mode: 'RUN' | 'STOP') => void;
+  /** geforcte Geräte (Markierung „F“) */
+  forced?: (deviceId: string) => boolean;
 }
 
 interface View {
@@ -75,6 +77,7 @@ export function Cabinet({
   readIo,
   canSwitch = false,
   onCpuSwitch,
+  forced,
 }: Props) {
   const [tool, setTool] = useState<Tool>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -534,8 +537,22 @@ export function Cabinet({
                   />
                   <DeviceSymbol d={d} on={v === true} x={symX} y={p.y} />
                   <text x={textX} y={p.y - 2} className={`device-id ${isLeft ? '' : 'end'}`}>
-                    {d.id}
+                    {d.label ?? d.id}
                   </text>
+                  {forced?.(d.id) && (
+                    <g className="device-forced">
+                      <rect
+                        x={isLeft ? p.x - 7 : p.x + 2}
+                        y={p.y - 2.4}
+                        width={5}
+                        height={4.8}
+                        rx={0.8}
+                      />
+                      <text x={isLeft ? p.x - 4.5 : p.x + 4.5} y={p.y + 1.5}>
+                        F
+                      </text>
+                    </g>
+                  )}
                   <text x={textX} y={p.y + 2.6} className={`device-name ${isLeft ? '' : 'end'}`}>
                     {tr(d.name).replace(/\s*\([^)]*\)$/, '')}
                   </text>

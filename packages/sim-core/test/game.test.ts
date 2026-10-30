@@ -379,3 +379,22 @@ describe('Levellauf und Verifikation', () => {
     expect(run.time).toBe(11);
   });
 });
+
+describe('Forcen', () => {
+  it('Eingang: Forcewert statt Feldsignal; Ausgang: Forcewert zum Gerät statt Prozessabbild', () => {
+    const run = new LevelRun(LEVEL, SOLUTION, selfHold());
+    // Stopp ist ein Öffner: ohne Force liegt 1 an, Start fehlt → Motor aus
+    run.force('S1', true);
+    run.runTo(50);
+    expect(run.traces.get('M1')!.at(-1)![1]).toBe(true);
+    run.force('S1', undefined);
+    run.force('S2', false);
+    run.runTo(100);
+    expect(run.traces.get('M1')!.at(-1)![1]).toBe(false);
+    expect(run.forcedIds).toEqual(['S2']);
+    run.force('M1', true);
+    run.runTo(150);
+    expect(run.traces.get('M1')!.at(-1)![1]).toBe(true);
+    expect(run.cpus.get('cpu')!.read('%Q0.0')).toBe(false);
+  });
+});

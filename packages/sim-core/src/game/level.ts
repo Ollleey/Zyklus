@@ -39,6 +39,8 @@ export interface AnalogSpec {
 /** Feldgerät am Rand des Schaltschranks (fest vom Level vorgegeben). */
 export interface Device {
   id: string;
+  /** kurze Anzeige im Schrank und Zeitdiagramm (Sandkasten: Kennzeichnung); sonst die id */
+  label?: string;
   /** vorgeschlagener Name in der PLC-Variablentabelle */
   tag: string;
   name: Text;
