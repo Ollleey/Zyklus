@@ -1,5 +1,20 @@
 # Changelog
 
+## S5 – Sandkasten: Export, Import, Speichern (2026-10-30)
+
+- Dateiformat `*.anlage.json` mit `formatVersion`: Anlage, Schaltschrank mit allen
+  CPU-Programmen, Simulationseinstellungen (Geschwindigkeit, gewählte Signale), Name,
+  Beschreibung, Autor und Zeitpunkte
+- Import mit zod-Prüfung und deutschen Meldungen mit Fundstelle (z. B. „layout.parts.1.x“: Zahl
+  erwartet); unbekannte Felder werden ignoriert, fehlende Parameter mit Standardwerten
+  aufgefüllt, ältere Versionen (nackte Anlage) und alte Schaltschränke migriert
+- Menü „Mehr“ im Sandkasten: Meine Anlagen, Jetzt speichern, Anlage herunterladen, Anlage
+  importieren, Neue Anlage; `.scl` je CPU wie bisher; Dateien lassen sich auch ins Fenster ziehen
+- „Meine Anlagen“: Vorschaubild, Öffnen, Umbenennen, Duplizieren, Löschen mit Bestätigung;
+  Angaben der aktuellen Anlage bearbeiten; Autosave alle 30 s und beim Verlassen
+- Tests: Round-Trip Export → Import ergibt exakt denselben Zustand, Migration, Fehlermeldungen;
+  578 Tests
+
 ## S4 – Sandkasten: Kopplung und Live-Simulation (2026-10-30)
 
 - Elektrische Bauteile der Anlage erscheinen als Feldgeräte am Schrankrand, angezeigt mit ihrer

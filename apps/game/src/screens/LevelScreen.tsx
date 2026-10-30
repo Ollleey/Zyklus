@@ -22,7 +22,7 @@ import { ProgramPanel, type WatchReader } from '../components/ProgramPanel';
 import { ResultDialog } from '../components/ResultDialog';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Markdown } from '../ui/Markdown';
-import { Menu } from '../ui/Menu';
+import { Menu, type MenuItem } from '../ui/Menu';
 import { Dock, useDockLayout, viewMenu, type DockLayout, type PanelDef } from '../ui/Dock';
 import { Splitter, useStoredNumber } from '../ui/Split';
 import {
@@ -60,8 +60,10 @@ export interface SlotContext {
 export interface PlantSlot {
   panels: (ctx: SlotContext) => PanelDef[];
   simBody: (ctx: SlotContext) => ReactNode;
-  /** Kopfzeile: zusätzliche Einträge im Menü „Mehr“ */
-  menu?: { label: string; onSelect: () => void; disabled?: boolean }[];
+  /** Kopfzeile: Einträge im Menü „Mehr“ statt Lösung speichern/laden */
+  menu?: (ctx: SlotContext) => MenuItem[];
+  /** Kopfzeile: zweite Zeile unter dem Titel (Name der Anlage) */
+  subtitle?: string;
 }
 
 interface Props {
@@ -367,7 +369,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             {!sandbox && <span className="level-no">{level.order}</span>}
             {tr(level.title)}
           </span>
-          <span className="customer">{tr(level.customer)}</span>
+          <span className="customer">{plant?.subtitle ?? tr(level.customer)}</span>
         </div>
         <div className="segmented" role="group" aria-label={t('level.brief')} hidden={!!plant}>
           <button
@@ -403,23 +405,27 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           <Menu
             label={t('level.more')}
             items={[
-              ...(plant?.menu ?? []),
-              {
-                label: t('level.save'),
-                title: t('level.save.title'),
-                disabled: !solution.modules.length,
-                onSelect: () =>
-                  download(
-                    `${level.id}.zyklus.json`,
-                    toSolutionFile(level.id, solution),
-                    'application/json',
-                  ),
-              },
-              {
-                label: t('level.load'),
-                title: t('level.load.title'),
-                onSelect: () => fileInput.current?.click(),
-              },
+              ...(plant?.menu ? plant.menu(slotCtx) : []),
+              ...(plant?.menu
+                ? []
+                : [
+                    {
+                      label: t('level.save'),
+                      title: t('level.save.title'),
+                      disabled: !solution.modules.length,
+                      onSelect: () =>
+                        download(
+                          `${level.id}.zyklus.json`,
+                          toSolutionFile(level.id, solution),
+                          'application/json',
+                        ),
+                    },
+                    {
+                      label: t('level.load'),
+                      title: t('level.load.title'),
+                      onSelect: () => fileInput.current?.click(),
+                    },
+                  ]),
               {
                 label: t('level.export'),
                 disabled: !solution.modules.length,

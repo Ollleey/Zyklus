@@ -3118,3 +3118,110 @@ code {
   gap: 4px 12px;
   margin: var(--s-2) 0 0;
 }
+
+/* Meine Anlagen */
+.myplants {
+  width: min(880px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  padding: var(--s-3) var(--s-4) var(--s-4);
+}
+.myplants-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.myplants-head h2 {
+  margin: 0;
+  font-size: var(--t-lg, 18px);
+}
+.myplants-current {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--s-3);
+  padding: var(--s-2) 0 var(--s-3);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--s-3);
+}
+.myplants-current h3 {
+  grid-column: 1 / -1;
+  margin: var(--s-2) 0;
+  font-size: var(--t-md);
+}
+.myplants-current input,
+.myplants-current textarea,
+.myplants-list input {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+  color: inherit;
+}
+.myplants-desc,
+.myplants-actions,
+.myplants-current > p {
+  grid-column: 1 / -1;
+}
+.myplants-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: var(--s-2);
+}
+.myplants-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s-3);
+}
+.myplants-list li {
+  display: grid;
+  gap: 4px;
+  padding: var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}
+.myplants-active {
+  border-color: var(--c-select) !important;
+}
+.myplants-thumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.myplants-thumb img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--r-sm);
+}
+.myplants-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.myplants-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.notice-float {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 60;
+  white-space: pre-line;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
