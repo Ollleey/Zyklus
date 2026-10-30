@@ -712,6 +712,7 @@ export function PlantEditor({
             )}
           </svg>
           {!parts.length && <p className="pe-empty">{t('plant.empty')}</p>}
+          {plant && <Counters plant={plant} />}
           {menu && (
             <div
               className="pe-menu menu-list"
@@ -806,6 +807,51 @@ export function PlantEditor({
           suggestTag={(type) => nextTag(type, parts)}
           live={live}
         />
+      </div>
+    </div>
+  );
+}
+
+/** Zähler-Overlay: Teile je Behälter, Fehlsortierungen nach Soll-Regel, Durchsatz je Minute */
+function Counters({ plant }: { plant: SandboxPlant }) {
+  const w = plant.world;
+  const bins = w.parts.filter((p) => p.type === 'bin');
+  if (!bins.length && !w.spawned) return null;
+  const tally = w.tally();
+  const minutes = w.time / 60_000;
+  const rate = minutes > 0 ? tally.binned / minutes : 0;
+  const wrong = bins.reduce((n, b) => n + w.st(b).missorted, 0);
+  return (
+    <div className="pe-counters" aria-live="polite">
+      <table>
+        <tbody>
+          {bins.map((b) => {
+            const st = w.st(b);
+            return (
+              <tr key={b.id}>
+                <th>{b.tag}</th>
+                <td className="mono">{st.total}</td>
+                <td className={st.missorted ? 'pe-wrong' : 'muted'}>
+                  {st.missorted ? `${st.missorted} ${t('plant.missorted')}` : '✓'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="pe-counters-sum">
+        <span>
+          {t('plant.throughput')} <b className="mono">{rate.toFixed(1)}</b>/min
+        </span>
+        <span>
+          {t('plant.issued')} <b className="mono">{w.spawned}</b>
+        </span>
+        {tally.lost > 0 && (
+          <span className="pe-wrong">
+            {t('plant.lost')} <b className="mono">{tally.lost}</b>
+          </span>
+        )}
+        {wrong > 0 && <span className="pe-wrong">Σ {wrong}</span>}
       </div>
     </div>
   );

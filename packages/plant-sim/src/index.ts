@@ -7,3 +7,4 @@ export * from './sensors';
 export * from './params';
 export * from './plant';
 export * from './file';
+export * from './templates';

@@ -1,5 +1,32 @@
 # Changelog
 
+## S6 – Sandkasten: Vorlagen, Störungen, Zähler, Feinschliff (2026-10-30)
+
+- Vorlagen als `*.anlage.json` (je mit und ohne Beispielprogramm) in
+  `packages/plant-sim/vorlagen`, erreichbar über „Meine Anlagen“:
+  - Sortierstation Metall/Holz
+  - Materialprüfung mit kapazitivem, induktivem und optischem Sensor, drei Behälter
+  - Tankanlage mit Pumpe, Ventil, Ultraschall, Grenzwertschalter und Hand/Auto
+  - Beim ersten Öffnen des Sandkastens ist die Sortierstation geladen
+- Testpult-Bauteile in der Bibliothek, neu das Zeigerinstrument (AO)
+- Störungen im Inspektor: Sensor dauernd 0 bzw. 1, Drahtbruch (Eingang elektrisch 0,
+  Analogeingang Geberfehler, Ausgang ohne Wirkung), Zylinder klemmt, Band blockiert
+- Behälter mit Soll-Regel (Metall, kein Metall, Werkstoff, Farbe); Zähler-Overlay mit Teilen je
+  Behälter, Fehlsortierungen, Durchsatz je Minute, ausgegebenen und verlorenen Teilen
+- Leistung:
+  - Raster für die Nachbarsuche, Stau-Hinweis, Flächen und feste Hindernisse einmal aufgebaut
+  - Sensoren nur nach Mechanikschritten ausgewertet
+  - Adressen in der CPU zwischengespeichert (auch für die Kampagne)
+  - Rechenzeit je Bild passt sich an, damit die Bildrate über 50 bleibt; unter Volllast läuft die
+    Simulation langsamer als eingestellt (Messwerte in `docs/sandbox/leistung.txt`)
+- Tests:
+  - Vorlage 1 sortiert 100 Teile ohne Fehlsortierung
+  - Materialprüfung und Tankregelung
+  - Vorlagendateien aktuell und übersetzbar
+  - Störungen, Soll-Regeln, Leistung als Rückschrittschutz
+  - 591 Tests insgesamt
+- Screenshots und Bildratenmessung: `scripts/sandbox-shots.mjs` → `docs/sandbox/`
+
 ## S5 – Sandkasten: Export, Import, Speichern (2026-10-30)
 
 - Dateiformat `*.anlage.json` mit `formatVersion`: Anlage, Schaltschrank mit allen

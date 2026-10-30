@@ -1,0 +1,11 @@
+Leistungstest Sandkasten: 30 Bauteile, 50 Werkstücke im Stau, eingestellt ×100
+Messung: scripts/sandbox-shots.mjs gegen den Produktions-Build (npm run build, npm run preview)
+
+Rechner ohne Fremdlast, festes Budget 11 ms je Bild:   59,7 Bilder/s, Simulation ×47
+Rechner ohne Fremdlast, festes Budget 14 ms je Bild:   51,0 Bilder/s, Simulation ×49
+Rechner mit Fremdlast (anderes Spiel lief parallel),
+  anpassendes Budget (max. 12 ms, Ziel ≤ 18 ms je Bild):  51,1 Bilder/s, Simulation ×6
+
+Die Bildrate bleibt über 50. Bei voller Last erreicht die Simulation aber nicht ×100: Die
+Rechenzeit je Bild ist begrenzt, die Simulation läuft dann langsamer als eingestellt.
+Im Dev-Server (React im Entwicklungsmodus) liegt die Bildrate niedriger (gemessen 38–40 Bilder/s).

@@ -18,6 +18,8 @@ import { MyPlants } from '../components/plant/MyPlants';
 import { PlantEditor } from '../components/plant/PlantEditor';
 import { SignalsPanel } from '../components/plant/SignalsPanel';
 import { useHistory } from '../state/history';
+import { saveSolution } from '../state/persistence';
+import { TEMPLATE_FILES } from '../state/templates';
 import {
   loadActive,
   loadLayout,
@@ -43,11 +45,22 @@ function download(name: string, text: string) {
   URL.revokeObjectURL(a.href);
 }
 
+function firstVisit(): void {
+  if (loadLayout()) return;
+  const r = parseAnlageFile(TEMPLATE_FILES[0]!.withProgram);
+  if (!r.ok) return;
+  saveLayout(r.file.layout);
+  saveSolution('sandkasten', r.file.solution);
+  saveMeta({ ...newMeta(), name: r.file.name, description: r.file.description });
+}
+
 /**
  * Sandkasten: eigene Anlage bauen, verdrahten, programmieren und live simulieren. Technisch ein
  * Level, das zur Laufzeit aus der Anlage entsteht; Schrank, Compiler und SPS bleiben dieselben.
  */
 export function SandboxScreen({ onBack }: { onBack: () => void }) {
+  // erster Besuch: mit der Sortierstation beginnen (vor dem ersten Laden des Schaltschranks)
+  useState(firstVisit);
   const hist = useHistory<Layout>(() => loadLayout() ?? emptyLayout());
   const layout = hist.value;
   const [meta, setMetaState] = useState<AnlageMeta>(loadMeta);
@@ -62,6 +75,12 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
   const savedRef = useRef<string>('');
 
   useEffect(() => saveLayout(layout), [layout]);
+  // Hinweise blenden sich aus; Fehlermeldungen bleiben, bis sie geschlossen werden
+  useEffect(() => {
+    if (!notice || notice.startsWith(t('anlage.importFailed'))) return;
+    const id = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [notice]);
   useEffect(() => saveMeta(meta), [meta]);
   useEffect(() => saveActive(activeId), [activeId]);
   const level = useMemo(() => levelFromLayout(layout, t('sandkasten.title')), [layout]);
@@ -303,6 +322,7 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
           onNew={createNew}
           onImport={() => fileInput.current?.click()}
           onSaveCurrent={() => store(true)}
+          onTemplate={importText}
         />
       )}
     </>

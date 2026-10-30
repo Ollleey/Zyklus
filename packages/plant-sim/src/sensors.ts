@@ -28,6 +28,8 @@ export interface Scene {
   find(ref: string): Part | undefined;
   levelOf(tank: Part): number;
   pusher(cylinder: Part): Rect;
+  /** Vorauswahl der Werkstücke nahe einem Rechteck (optional, beschleunigt die Suche) */
+  near?(r: Rect, out: Workpiece[]): Workpiece[];
 }
 
 /** Erfassungszone zum Zeichnen: Strahl bzw. Kegel ab der Sensorfläche */
@@ -94,9 +96,34 @@ interface Hit {
 }
 
 /** Werkstücke, die die Achse des Sensors schneiden, nach Abstand sortiert */
+const nearBuf: Workpiece[] = [];
+/** Suchrechteck je Sensor und Reichweite (Bauteile ändern sich während eines Laufs nicht) */
+const zoneCache = new WeakMap<Part, Map<number, Rect>>();
+
+/** Werkstücke, die für einen Sensor in Frage kommen (über das Raster der Welt, sonst alle) */
+function candidates(p: Part, scene: Scene, length: number, half: number): readonly Workpiece[] {
+  if (!scene.near) return scene.workpieces;
+  let byLen = zoneCache.get(p);
+  if (!byLen) zoneCache.set(p, (byLen = new Map()));
+  const key = length * 1000 + half;
+  let r = byLen.get(key);
+  if (!r) {
+    const a = toWorld(p, FACE, 0);
+    const b = toWorld(p, FACE + length, 0);
+    r = {
+      x0: Math.min(a.x, b.x) - half,
+      x1: Math.max(a.x, b.x) + half,
+      y0: Math.min(a.y, b.y) - half,
+      y1: Math.max(a.y, b.y) + half,
+    };
+    byLen.set(key, r);
+  }
+  return scene.near(r, nearBuf);
+}
+
 function along(p: Part, scene: Scene, length: number, half: number): Hit[] {
   const out: Hit[] = [];
-  for (const w of scene.workpieces) {
+  for (const w of candidates(p, scene, length, half)) {
     if (w.state !== 'free') continue;
     if (p.z < w.z || p.z > w.z + w.h) continue;
     const c = toLocal(p, w.x, w.y);

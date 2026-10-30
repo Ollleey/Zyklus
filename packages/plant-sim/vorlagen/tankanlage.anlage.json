@@ -1,0 +1,325 @@
+{
+  "format": "zyklus-anlage",
+  "formatVersion": 1,
+  "name": "Tankanlage",
+  "description": "Pumpe M1 füllt Tank T1, Ventil Y1 entnimmt. Ultraschall B1 misst von oben den Abstand zum Spiegel (4–20 mA), Grenzwertschalter B2 meldet Überfüllung. Wahlschalter S1: Hand (Pumpe mit Taster S2) oder Auto (Zweipunktregelung 40…70 %).",
+  "author": "ZYKLUS",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z",
+  "layout": {
+    "formatVersion": 1,
+    "parts": [
+      {
+        "id": "p1",
+        "type": "tank",
+        "tag": "T1",
+        "x": 300,
+        "y": 300,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "volume": 100,
+          "level0": 20,
+          "height": 300,
+          "diameter": 200,
+          "drain": 0
+        }
+      },
+      {
+        "id": "p2",
+        "type": "pump",
+        "tag": "M1",
+        "x": 100,
+        "y": 300,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "flow": 2,
+          "tank": "T1"
+        }
+      },
+      {
+        "id": "p3",
+        "type": "valve",
+        "tag": "Y1",
+        "x": 500,
+        "y": 300,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "flow": 1,
+          "tank": "T1"
+        }
+      },
+      {
+        "id": "p4",
+        "type": "pipe",
+        "tag": "L1",
+        "x": 165,
+        "y": 300,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "length": 70
+        }
+      },
+      {
+        "id": "p5",
+        "type": "pipe",
+        "tag": "L2",
+        "x": 445,
+        "y": 300,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "length": 90
+        }
+      },
+      {
+        "id": "p6",
+        "type": "ultrasonic",
+        "tag": "B1",
+        "x": 300,
+        "y": 300,
+        "z": 400,
+        "rot": 0,
+        "params": {
+          "range": 400,
+          "blind": 30,
+          "facing": "unten"
+        }
+      },
+      {
+        "id": "p7",
+        "type": "levelswitch",
+        "tag": "B2",
+        "x": 420,
+        "y": 240,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "tank": "T1",
+          "at": 90,
+          "contact": "NO"
+        }
+      },
+      {
+        "id": "p8",
+        "type": "selector",
+        "tag": "S1",
+        "x": 100,
+        "y": 520,
+        "z": 0,
+        "rot": 0,
+        "params": {}
+      },
+      {
+        "id": "p9",
+        "type": "button",
+        "tag": "S2",
+        "x": 160,
+        "y": 520,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "contact": "NO",
+          "color": "gruen"
+        }
+      },
+      {
+        "id": "p10",
+        "type": "lamp",
+        "tag": "H1",
+        "x": 220,
+        "y": 520,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "color": "rot"
+        }
+      },
+      {
+        "id": "p11",
+        "type": "lamp",
+        "tag": "H2",
+        "x": 280,
+        "y": 520,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "color": "gruen"
+        }
+      }
+    ],
+    "seed": 1,
+    "area": {
+      "w": 2000,
+      "h": 1200
+    }
+  },
+  "solution": {
+    "version": 2,
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "dio1",
+        "type": "dio8",
+        "x": 6
+      },
+      {
+        "id": "rel1",
+        "type": "rel4",
+        "x": 8
+      },
+      {
+        "id": "ai1",
+        "type": "ai2",
+        "x": 10
+      }
+    ],
+    "wires": [
+      {
+        "device": "p2",
+        "module": "rel1",
+        "channel": 0
+      },
+      {
+        "device": "p3",
+        "module": "dio1",
+        "channel": 8
+      },
+      {
+        "device": "p6",
+        "module": "ai1",
+        "channel": 0
+      },
+      {
+        "device": "p7",
+        "module": "dio1",
+        "channel": 0
+      },
+      {
+        "device": "p8_hand",
+        "module": "dio1",
+        "channel": 1
+      },
+      {
+        "device": "p8_auto",
+        "module": "dio1",
+        "channel": 2
+      },
+      {
+        "device": "p9",
+        "module": "dio1",
+        "channel": 3
+      },
+      {
+        "device": "p10",
+        "module": "dio1",
+        "channel": 9
+      },
+      {
+        "device": "p11",
+        "module": "dio1",
+        "channel": 10
+      }
+    ],
+    "projects": {
+      "cpu1": {
+        "tags": [
+          {
+            "name": "M1_Pumpe",
+            "address": "%Q1.0",
+            "t": "BOOL",
+            "comment": "Gerät p2"
+          },
+          {
+            "name": "Y1_Ventil",
+            "address": "%Q0.0",
+            "t": "BOOL",
+            "comment": "Gerät p3"
+          },
+          {
+            "name": "B1_Abstand",
+            "address": "%IW64",
+            "t": "INT",
+            "comment": "Gerät p6"
+          },
+          {
+            "name": "B2_Grenzwert",
+            "address": "%I0.0",
+            "t": "BOOL",
+            "comment": "Gerät p7"
+          },
+          {
+            "name": "S1_Hand",
+            "address": "%I0.1",
+            "t": "BOOL",
+            "comment": "Gerät p8_hand"
+          },
+          {
+            "name": "S1_Auto",
+            "address": "%I0.2",
+            "t": "BOOL",
+            "comment": "Gerät p8_auto"
+          },
+          {
+            "name": "S2_Taster",
+            "address": "%I0.3",
+            "t": "BOOL",
+            "comment": "Gerät p9"
+          },
+          {
+            "name": "H1_Leuchte",
+            "address": "%Q0.1",
+            "t": "BOOL",
+            "comment": "Gerät p10"
+          },
+          {
+            "name": "H2_Leuchte",
+            "address": "%Q0.2",
+            "t": "BOOL",
+            "comment": "Gerät p11"
+          }
+        ],
+        "blocks": [
+          {
+            "kind": "DB",
+            "name": "Tank",
+            "number": 1,
+            "vars": [
+              {
+                "name": "Pumpe",
+                "type": "Bool"
+              }
+            ]
+          },
+          {
+            "kind": "OB",
+            "name": "Main",
+            "number": 1,
+            "lang": "SCL",
+            "title": "Tankanlage",
+            "iface": {},
+            "source": "// B1: Abstand Sensor–Spiegel 0…400 mm = 0…27648; Tank 300 mm hoch, Sensor 400 mm über dem Boden\nIF \"S1_Auto\" THEN\n    IF \"B1_Abstand\" > 19354 THEN   // unter 40 %\n        \"Tank\".Pumpe := TRUE;\n    END_IF;\n    IF \"B1_Abstand\" < 13133 THEN   // über 70 %\n        \"Tank\".Pumpe := FALSE;\n    END_IF;\n    \"Y1_Ventil\" := TRUE;\nELSE\n    \"Tank\".Pumpe := \"S2_Taster\";\n    \"Y1_Ventil\" := FALSE;\nEND_IF;\n\n// Grenzwertschalter schaltet die Pumpe in jeder Betriebsart ab\n\"M1_Pumpe\" := \"Tank\".Pumpe AND NOT \"B2_Grenzwert\";\n\"H1_Leuchte\" := \"B2_Grenzwert\";\n\"H2_Leuchte\" := \"S1_Auto\";"
+          }
+        ]
+      }
+    },
+    "config": {
+      "ai1": {
+        "ranges": {
+          "0": "4-20mA"
+        }
+      }
+    }
+  },
+  "sim": {
+    "speed": 10,
+    "signals": null
+  }
+}

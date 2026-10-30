@@ -42,6 +42,9 @@ export interface CpuMetrics {
  * Eine CPU im zyklischen Betrieb: PAE einlesen → OB1 ausführen → PAA schreiben.
  * `inputs`/`outputs` sind die Peripherie (Klemmen), `pae`/`paa` die Prozessabbilder.
  */
+/** geprüfte Adressen (Adresse bzw. Adresse|Typ → zerlegte Adresse und Datentyp) */
+const ACCESS_CACHE = new Map<string, { a: ReturnType<typeof parseAddress>; type: DataType }>();
+
 export class Cpu {
   readonly inputs: ByteArea;
   readonly outputs: ByteArea;
@@ -197,11 +200,17 @@ export class Cpu {
   }
 
   private access(address: string, t?: DataType) {
+    // Peripheriezugriffe kommen jede ms mit denselben Adressen: geprüftes Ergebnis merken
+    const key = t ? `${address}|${t}` : address;
+    const hit = ACCESS_CACHE.get(key);
+    if (hit) return hit;
     const a = parseAddress(address);
     const type = t ?? defaultTypeForSize(a.size);
     if (sizeOfType(type) !== a.size)
       throw new AddressError(`Typ ${type} passt nicht zu ${address}`);
-    return { a, type };
+    const r = { a, type };
+    ACCESS_CACHE.set(key, r);
+    return r;
   }
 
   /** Setzt einen Wert an der Peripherie (Eingangsklemme) bzw. im Merkerbereich. */

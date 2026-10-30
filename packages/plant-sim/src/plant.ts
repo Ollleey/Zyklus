@@ -3,6 +3,7 @@ import {
   Rng,
   deriveSeed,
   registerPlantModel,
+  type FaultKind,
   type Level,
   type Plant,
   type Value,
@@ -19,18 +20,30 @@ import { STEP_MS, World } from './world';
 export class SandboxPlant implements Plant {
   readonly world: World;
   private readonly conns: Connection[];
+  private readonly cutOutputs: Connection[];
   private cache: Record<string, number | boolean> = {};
   private ms = 0;
   /** Rohwert (ohne Ansprechzeit) und Ausgang je Sensor */
   private readonly raw = new Map<string, boolean | number>();
   private readonly filters = new Map<string, DiFilter>();
+  private stateCache?: Record<string, number>;
+  private stateAt = -1;
+  /** Behälter und Tanks mit ihrem Schlüssel in `state()` */
+  private readonly stateKeys: [Part, string][];
 
   constructor(
     readonly layout: Layout,
     seed = layout.seed,
   ) {
     this.world = new World(layout, seed);
-    this.conns = connectionsOf(layout).filter((c) => c.io.kind === 'DI' || c.io.kind === 'AI');
+    this.stateKeys = layout.parts
+      .filter((p) => p.type === 'bin' || p.type === 'tank')
+      .map((p) => [p, identifier(p.tag)]);
+    const all = connectionsOf(layout);
+    this.conns = all.filter((c) => c.io.kind === 'DI' || c.io.kind === 'AI');
+    this.cutOutputs = all.filter(
+      (c) => (c.io.kind === 'DO' || c.io.kind === 'AO') && c.part.fault === 'drahtbruch',
+    );
     for (const p of layout.parts) {
       if (!SENSOR_TYPES.has(p.type)) continue;
       const bounce = p.type === 'limit' && bool(p.params, 'bounce', true);
@@ -51,9 +64,18 @@ export class SandboxPlant implements Plant {
   }
 
   step(_t: number, outputs: Record<string, Value>): void {
-    this.world.setOutputs(outputs);
-    if (++this.ms % STEP_MS === 0) this.world.step();
-    this.sense();
+    // Drahtbruch an einem Ausgang: am Gerät kommt nichts an
+    let out = outputs;
+    for (const c of this.cutOutputs) {
+      if (out === outputs) out = { ...outputs };
+      out[c.device.id] = c.io.kind === 'AO' ? 0 : false;
+    }
+    this.world.setOutputs(out);
+    // Lagen ändern sich nur im Mechanikschritt: dann neu erfassen, sonst nur Ansprechzeit/Prellen
+    if (++this.ms % STEP_MS === 0) {
+      this.world.step();
+      this.sense();
+    } else this.tickFilters();
     this.refresh();
   }
 
@@ -62,6 +84,13 @@ export class SandboxPlant implements Plant {
     const f = this.filters.get(partId);
     const r = this.raw.get(partId);
     return typeof r === 'number' ? r : f?.value(this.ms);
+  }
+
+  private tickFilters(): void {
+    for (const [id, f] of this.filters) {
+      const v = this.raw.get(id);
+      if (typeof v === 'boolean') f.update(v, this.ms);
+    }
   }
 
   private sense(): void {
@@ -75,13 +104,28 @@ export class SandboxPlant implements Plant {
     }
   }
 
+  /** Zustandsgrößen; ändern sich nur im Mechanikschritt, LevelRun fragt jede ms */
   state(): Record<string, number> {
+    if (this.stateCache && this.stateAt === this.world.time) return this.stateCache;
+    this.stateAt = this.world.time;
+    this.stateCache = this.computeState();
+    return this.stateCache;
+  }
+
+  private computeState(): Record<string, number> {
     const w = this.world;
     const t = w.tally();
-    const out: Record<string, number> = { spawned: w.spawned, binned: t.binned, lost: t.lost };
-    for (const p of w.parts) {
-      if (p.type === 'bin') out[identifier(p.tag)] = w.st(p).total;
-      if (p.type === 'tank') out[identifier(p.tag)] = Math.round(w.levelOf(p) * 10) / 10;
+    let missorted = 0;
+    for (const p of w.parts) if (p.type === 'bin') missorted += w.st(p).missorted;
+    const out: Record<string, number> = {
+      spawned: w.spawned,
+      binned: t.binned,
+      lost: t.lost,
+      missorted,
+    };
+    for (const [p, key] of this.stateKeys) {
+      if (p.type === 'bin') out[key] = w.st(p).total;
+      else out[key] = Math.round(w.levelOf(p) * 10) / 10;
     }
     return out;
   }
@@ -93,12 +137,19 @@ export class SandboxPlant implements Plant {
   }
 
   private refresh(): void {
-    const next: Record<string, number | boolean> = {};
+    // gleiches Objekt weiterverwenden: wird jede ms gelesen
+    const next = this.cache;
     for (const c of this.conns) {
-      const v = this.read(c.part, c.io.key);
+      const v = withFault(c, this.read(c.part, c.io.key));
       if (v !== undefined) next[c.device.id] = v;
+      else delete next[c.device.id];
     }
-    this.cache = next;
+  }
+
+  /** Analogeingang mit Drahtbruch: Geberfehler wie in der Kampagne (4–20 mA: 32767) */
+  fault(deviceId: string): FaultKind | undefined {
+    const c = this.conns.find((x) => x.device.id === deviceId);
+    return c?.io.kind === 'AI' && c.part.fault === 'drahtbruch' ? 'break' : undefined;
   }
 
   /** Wert eines Eingangs vor der Öffner-Umkehr (betätigt bzw. erkannt = true) */
@@ -124,6 +175,18 @@ export class SandboxPlant implements Plant {
     if (SENSOR_TYPES.has(p.type)) return this.sensed(p.id);
     return undefined;
   }
+}
+
+/**
+ * Störungen digitaler Eingänge als elektrischer Wert: dauernd 0, dauernd 1, Drahtbruch (= 0).
+ * Zurückgegeben wird der Wert vor der Öffner-Umkehr, die `LevelRun` anwendet.
+ */
+function withFault(c: Connection, v: number | boolean | undefined): number | boolean | undefined {
+  const f = c.part.fault;
+  if (!f || c.io.kind !== 'DI') return v;
+  const electrical = f === 'dauer1';
+  if (f !== 'dauer0' && f !== 'dauer1' && f !== 'drahtbruch') return v;
+  return c.io.nc ? !electrical : electrical;
 }
 
 /**

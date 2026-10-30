@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { parseAnlageFile, type AnlageFile, type AnlageMeta } from '@zyklus/plant-sim';
+import { parseAnlageFile, thumbnailSvg, type AnlageFile, type AnlageMeta } from '@zyklus/plant-sim';
+import { TEMPLATE_FILES } from '../../state/templates';
 import { t } from '../../i18n';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import {
@@ -19,6 +20,8 @@ interface Props {
   onNew: () => void;
   onImport: () => void;
   onSaveCurrent: () => void;
+  /** Vorlage als neue Anlage übernehmen (Dateiinhalt) */
+  onTemplate: (text: string) => void;
 }
 
 const date = (iso: string) => {
@@ -38,6 +41,7 @@ export function MyPlants({
   onNew,
   onImport,
   onSaveCurrent,
+  onTemplate,
 }: Props) {
   const [list, setList] = useState<StoredAnlage[]>(listAnlagen);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
@@ -104,6 +108,39 @@ export function MyPlants({
             </button>
           </div>
           <p className="muted">{t('anlage.autosave')}</p>
+        </section>
+        <section className="myplants-templates">
+          <h3>{t('anlage.templates')}</h3>
+          <ul className="myplants-list">
+            {TEMPLATE_FILES.map((tf) => {
+              const parsed = parseAnlageFile(tf.withProgram);
+              if (!parsed.ok) return null;
+              const f = parsed.file;
+              return (
+                <li key={tf.id}>
+                  <img
+                    alt=""
+                    className="myplants-tpl-img"
+                    src={`data:image/svg+xml;utf8,${encodeURIComponent(thumbnailSvg(f.layout))}`}
+                  />
+                  <b className="myplants-name">{f.name}</b>
+                  <span className="muted myplants-tpl-desc">{f.description}</span>
+                  <div className="myplants-item-actions">
+                    <button
+                      className="btn btn-small btn-primary"
+                      onClick={() => onTemplate(tf.withProgram)}
+                    >
+                      {t('anlage.withProgram')}
+                    </button>
+                    <button className="btn btn-small" onClick={() => onTemplate(tf.empty)}>
+                      {t('anlage.withoutProgram')}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <h3>{t('anlage.stored')}</h3>
         </section>
         {error && (
           <p className="pe-error" role="alert">

@@ -268,6 +268,24 @@ export const CATALOG: Record<PartType, PartInfo> = {
       { key: 'gruen', kind: 'DO', label: 'Ampel grün', role: 'lamp' },
     ],
   },
+  gauge: {
+    type: 'gauge',
+    name: 'Zeigerinstrument',
+    category: 'aktor',
+    prefix: 'P',
+    defaults: {},
+    size: () => ({ l: 40, w: 40, h: 40 }),
+    io: () => [
+      {
+        key: '',
+        kind: 'AO',
+        label: 'Anzeige',
+        role: 'actuator',
+        analog: { unit: '%', min: 0, max: 100 },
+        signal: '0-10V',
+      },
+    ],
+  },
   button: {
     type: 'button',
     name: 'Taster',

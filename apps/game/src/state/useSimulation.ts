@@ -4,6 +4,14 @@ import type { SolutionCompileResult } from '@zyklus/levels';
 
 export type SimMode = 'test' | 'manual';
 
+/**
+ * Rechenzeit je Bild (ms): startet bei 12 und passt sich an die gemessene Bilddauer an, damit
+ * auch bei Fremdlast über 50 Bilder je Sekunde bleiben (Ziel: höchstens 18 ms je Bild).
+ */
+const BUDGET_MAX_MS = 12;
+const BUDGET_MIN_MS = 3;
+const FRAME_TARGET_MS = 18;
+
 export interface SimControls {
   run: LevelRun | null;
   mode: SimMode;
@@ -69,13 +77,24 @@ export function useSimulation(
   useEffect(() => {
     if (!running) return;
     let last = performance.now();
+    let budget = BUDGET_MAX_MS;
     let id = 0;
     const loop = (now: number) => {
       const run = runRef.current;
       if (!run) return;
-      const dt = Math.min(100, now - last);
+      const frame = now - last;
+      const dt = Math.min(100, frame);
       last = now;
-      run.runTo(run.time + Math.max(1, Math.round(dt * speed)) - 1);
+      // Bild zu lang: weniger rechnen; Luft vorhanden: langsam wieder mehr
+      if (frame > FRAME_TARGET_MS) budget = Math.max(BUDGET_MIN_MS, budget * 0.8);
+      else budget = Math.min(BUDGET_MAX_MS, budget + 0.25);
+      // Rechenzeit je Bild begrenzen: unter Volllast läuft die Simulation langsamer als
+      // eingestellt, die Darstellung bleibt flüssig
+      const target = run.time + Math.max(1, Math.round(dt * speed)) - 1;
+      const start = performance.now();
+      while (run.time <= target && !run.done && performance.now() - start < budget) {
+        run.runTo(Math.min(target, run.time + 25));
+      }
       setFrame((f) => f + 1);
       if (run.done) {
         setRunning(false);

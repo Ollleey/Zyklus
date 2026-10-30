@@ -1,0 +1,302 @@
+{
+  "format": "zyklus-anlage",
+  "formatVersion": 1,
+  "name": "Sortierstation Metall/Holz (ohne Programm)",
+  "description": "Ein Magazin gibt gemischt Stahl- und Holzteile aus. Die Lichtschranke B2 meldet ein Teil vor dem Auswerfer, der induktive Sensor B1 gegenüber erkennt dort Metall. Metall wirft Zylinder 1A1 in den Behälter K1, Holz läuft bis K2. S1 schaltet die Anlage ein.",
+  "author": "ZYKLUS",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z",
+  "layout": {
+    "formatVersion": 1,
+    "parts": [
+      {
+        "id": "p1",
+        "type": "magazine",
+        "tag": "G1",
+        "x": -45,
+        "y": 200,
+        "z": 100,
+        "rot": 0,
+        "params": {
+          "capacity": 100,
+          "mode": "auto",
+          "intervalMs": 1500,
+          "random": true,
+          "materials": [
+            "stahl",
+            "holz"
+          ],
+          "colors": [
+            "silber",
+            "natur"
+          ],
+          "sizes": [
+            "mittel"
+          ],
+          "list": []
+        }
+      },
+      {
+        "id": "p2",
+        "type": "belt",
+        "tag": "M1",
+        "x": 300,
+        "y": 200,
+        "z": 100,
+        "rot": 0,
+        "params": {
+          "length": 600,
+          "width": 80,
+          "speed": 120,
+          "drive": "motor",
+          "reversible": false
+        }
+      },
+      {
+        "id": "p3",
+        "type": "inductive",
+        "tag": "B1",
+        "x": 410,
+        "y": 164,
+        "z": 115,
+        "rot": 90,
+        "params": {
+          "range": 8,
+          "contact": "NO",
+          "responseMs": 2,
+          "hysteresis": 1
+        }
+      },
+      {
+        "id": "p4",
+        "type": "thrubeam",
+        "tag": "B2",
+        "x": 440,
+        "y": 150,
+        "z": 115,
+        "rot": 90,
+        "params": {
+          "length": 100,
+          "contact": "NO",
+          "responseMs": 1
+        }
+      },
+      {
+        "id": "p5",
+        "type": "cylinder",
+        "tag": "1A1",
+        "x": 420,
+        "y": 290,
+        "z": 100,
+        "rot": 270,
+        "params": {
+          "stroke": 130,
+          "extendMs": 300,
+          "retractMs": 300,
+          "valve": "3/2"
+        }
+      },
+      {
+        "id": "p6",
+        "type": "reed",
+        "tag": "B3",
+        "x": 450,
+        "y": 300,
+        "z": 100,
+        "rot": 0,
+        "params": {
+          "cylinder": "1A1",
+          "position": "aus"
+        }
+      },
+      {
+        "id": "p7",
+        "type": "bin",
+        "tag": "K1",
+        "x": 420,
+        "y": 70,
+        "z": 60,
+        "rot": 0,
+        "params": {
+          "width": 160,
+          "depth": 160,
+          "rule": "metall"
+        }
+      },
+      {
+        "id": "p8",
+        "type": "bin",
+        "tag": "K2",
+        "x": 690,
+        "y": 200,
+        "z": 60,
+        "rot": 0,
+        "params": {
+          "width": 160,
+          "depth": 160,
+          "rule": "nichtmetall"
+        }
+      },
+      {
+        "id": "p9",
+        "type": "switch",
+        "tag": "S1",
+        "x": -60,
+        "y": 380,
+        "z": 0,
+        "rot": 0,
+        "params": {}
+      },
+      {
+        "id": "p10",
+        "type": "lamp",
+        "tag": "H1",
+        "x": -10,
+        "y": 380,
+        "z": 0,
+        "rot": 0,
+        "params": {
+          "color": "gruen"
+        }
+      }
+    ],
+    "seed": 7,
+    "area": {
+      "w": 2000,
+      "h": 1200
+    }
+  },
+  "solution": {
+    "version": 2,
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "dio1",
+        "type": "dio8",
+        "x": 6
+      },
+      {
+        "id": "rel1",
+        "type": "rel4",
+        "x": 8
+      }
+    ],
+    "wires": [
+      {
+        "device": "p1_leer",
+        "module": "dio1",
+        "channel": 0
+      },
+      {
+        "device": "p2",
+        "module": "rel1",
+        "channel": 0
+      },
+      {
+        "device": "p3",
+        "module": "dio1",
+        "channel": 1
+      },
+      {
+        "device": "p4",
+        "module": "dio1",
+        "channel": 2
+      },
+      {
+        "device": "p5_aus",
+        "module": "dio1",
+        "channel": 8
+      },
+      {
+        "device": "p6",
+        "module": "dio1",
+        "channel": 3
+      },
+      {
+        "device": "p9",
+        "module": "dio1",
+        "channel": 4
+      },
+      {
+        "device": "p10",
+        "module": "dio1",
+        "channel": 9
+      }
+    ],
+    "projects": {
+      "cpu1": {
+        "tags": [
+          {
+            "name": "G1_Leer",
+            "address": "%I0.0",
+            "t": "BOOL",
+            "comment": "Gerät p1_leer"
+          },
+          {
+            "name": "M1_Bandmotor",
+            "address": "%Q1.0",
+            "t": "BOOL",
+            "comment": "Gerät p2"
+          },
+          {
+            "name": "B1_Induktiv",
+            "address": "%I0.1",
+            "t": "BOOL",
+            "comment": "Gerät p3"
+          },
+          {
+            "name": "B2_Lichtschranke",
+            "address": "%I0.2",
+            "t": "BOOL",
+            "comment": "Gerät p4"
+          },
+          {
+            "name": "Z1A1_Aus",
+            "address": "%Q0.0",
+            "t": "BOOL",
+            "comment": "Gerät p5_aus"
+          },
+          {
+            "name": "B3_Zylinderschalter",
+            "address": "%I0.3",
+            "t": "BOOL",
+            "comment": "Gerät p6"
+          },
+          {
+            "name": "S1_Schalter",
+            "address": "%I0.4",
+            "t": "BOOL",
+            "comment": "Gerät p9"
+          },
+          {
+            "name": "H1_Leuchte",
+            "address": "%Q0.1",
+            "t": "BOOL",
+            "comment": "Gerät p10"
+          }
+        ],
+        "blocks": [
+          {
+            "kind": "OB",
+            "name": "Main",
+            "number": 1,
+            "lang": "SCL",
+            "iface": {
+              "Temp": [],
+              "Constant": []
+            },
+            "source": ""
+          }
+        ]
+      }
+    }
+  },
+  "sim": {
+    "speed": 10,
+    "signals": null
+  }
+}

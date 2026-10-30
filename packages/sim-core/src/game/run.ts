@@ -207,7 +207,7 @@ export class LevelRun {
         v = this.inputValue(d, t);
       } else if (d.kind === 'AI') {
         const clean = toRaw(this.analogPhysical(d, t), d.analog!);
-        const fault = faultAt(this.opts.test?.faults?.[d.id], t);
+        const fault = faultAt(this.opts.test?.faults?.[d.id], t) ?? this.plant?.fault?.(d.id);
         // immer ziehen, damit die Zufallsfolge unabhängig vom Messbereich bleibt
         v = this.disturb.get(d.id)!.apply(clean, fault);
         const ch = this.analysis.bindings.get(d.id);

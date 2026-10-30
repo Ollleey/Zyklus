@@ -236,8 +236,8 @@ describe('Schaltausgang im Anlagenmodell', () => {
       plant.step(t, {});
       seen.push(plant.inputs()[id] as boolean);
     }
-    // erkannt ab dem ersten Schritt, Ausgang 5 ms später
-    expect(seen.indexOf(true)).toBe(5);
+    // erfasst im ersten Mechanikschritt (2 ms), Ausgang 5 ms später
+    expect(seen.indexOf(true)).toBe(6);
   });
 
   it('Endschalter prellt deterministisch nach dem Seed', () => {

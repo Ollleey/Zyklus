@@ -212,5 +212,13 @@
   "anlage.duplicate": "Duplizieren",
   "anlage.delete": "Löschen",
   "anlage.deleteConfirm": "„{name}“ wirklich löschen? Das lässt sich nicht rückgängig machen.",
-  "anlage.isCurrent": "geöffnet"
+  "anlage.isCurrent": "geöffnet",
+  "anlage.templates": "Vorlagen",
+  "anlage.stored": "Gespeicherte Anlagen",
+  "anlage.withProgram": "Mit Beispielprogramm",
+  "anlage.withoutProgram": "Ohne Programm",
+  "plant.missorted": "falsch",
+  "plant.throughput": "Durchsatz",
+  "plant.issued": "ausgegeben",
+  "plant.lost": "verloren"
 }

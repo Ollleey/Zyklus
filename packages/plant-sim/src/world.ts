@@ -86,6 +86,10 @@ export interface PartState {
   /** Behälter: Anzahl je Werkstoff und Farbe */
   counts: Partial<Record<MaterialId | ColorId, number>>;
   total: number;
+  /** Behälter: Teile, die nicht zur Soll-Regel passen */
+  missorted: number;
+  /** Zeigerinstrument: Anzeige in % */
+  value: number;
 }
 
 const blankState = (): PartState => ({
@@ -102,6 +106,8 @@ const blankState = (): PartState => ({
   volume: 0,
   counts: {},
   total: 0,
+  missorted: 0,
+  value: 0,
 });
 
 interface Surface {
@@ -136,6 +142,19 @@ export class World {
   private outputs: Record<string, Value> = {};
   private readonly rng = new Map<string, Rng>();
   private nextId = 1;
+  private readonly grid = new Map<number, Workpiece[]>();
+  private readonly byPart = new Map<Part, PartState>();
+  /** Rasterzellen je Suchrechteck (Sensorzonen sind fest) */
+  private readonly cellsOf = new WeakMap<Rect, number[]>();
+  /** Hub der Zylinder im vorigen Schritt: nur bewegte Druckplatten schieben */
+  private readonly lastPos = new Map<Part, number>();
+  /** Hindernisse, die sich nie ändern (Magazin, Behälterwände, Zylindergehäuse) */
+  private staticSolids: Solid[] = [];
+  private surfaceList: Surface[] = [];
+  private readonly lastBlocker = new WeakMap<Workpiece, Workpiece>();
+  private readonly cylinders: Part[];
+  private readonly diverters: { part: Part; rect: Rect }[];
+  private readonly bins: { part: Part; rect: Rect }[];
   private readonly byTag = new Map<string, Part>();
   spawned = 0;
 
@@ -151,14 +170,24 @@ export class World {
       if (p.type === 'magazine') st.nextAt = num(p.params, 'intervalMs', 3000);
       if (p.type === 'stopper') st.on = false;
       this.state.set(p.id, st);
+      this.byPart.set(p, st);
       this.byTag.set(p.tag, p);
       this.rng.set(p.id, new Rng(deriveSeed(seed, p.id)));
     }
+    this.cylinders = this.parts.filter((p) => p.type === 'cylinder');
+    const area = (p: Part) => {
+      const size = CATALOG[p.type].size(p.params);
+      return { part: p, rect: rectOf(p, size.l, size.w) };
+    };
+    this.diverters = this.parts.filter((p) => p.type === 'diverter').map(area);
+    this.bins = this.parts.filter((p) => p.type === 'bin').map(area);
+    this.staticSolids = this.buildStaticSolids();
+    this.surfaceList = this.buildSurfaces();
     for (const w of layout.workpieces ?? []) this.addWorkpiece(w, w.x, w.y, w.z);
   }
 
   st(p: Part): PartState {
-    return this.state.get(p.id)!;
+    return this.byPart.get(p) ?? this.state.get(p.id)!;
   }
 
   /** Bauteil über id oder Kennzeichnung */
@@ -252,7 +281,20 @@ export class World {
     for (const p of this.parts) this.actuate(p);
     const surfaces = this.surfaces();
     const solids = this.solids();
-    for (const p of this.parts) if (p.type === 'cylinder') this.push(p);
+    for (const p of this.cylinders) {
+      const pos = this.st(p).pos;
+      if (this.lastPos.get(p) !== pos) this.push(p);
+      this.lastPos.set(p, pos);
+    }
+    // Raster für die Nachbarsuche; Verschiebungen je Schritt sind viel kleiner als eine Zelle
+    for (const list of this.grid.values()) list.length = 0;
+    for (const w of this.workpieces) {
+      if (w.state !== 'free') continue;
+      const k = cellKey(Math.floor(w.x / CELL), Math.floor(w.y / CELL));
+      const list = this.grid.get(k);
+      if (list) list.push(w);
+      else this.grid.set(k, [w]);
+    }
     for (const w of this.workpieces) if (w.state === 'free') this.move(w, surfaces, solids);
   }
 
@@ -311,6 +353,12 @@ export class World {
         st.on = q.springOut === false ? this.on(p) : !this.on(p);
         break;
       case 'diverter':
+      case 'gauge': {
+        const raw = Number(this.out(p) || 0);
+        st.value = Math.max(0, Math.min(100, (raw / 27648) * 100));
+        st.on = st.value > 0;
+        break;
+      }
       case 'lamp':
       case 'horn':
       case 'pump':
@@ -405,7 +453,12 @@ export class World {
   // Flächen und Hindernisse
   // -------------------------------------------------------------------------------------------
 
+  /** Auflageflächen; einmal gebaut, Geschwindigkeit und Höhe lesen den Zustand beim Aufruf */
   private surfaces(): Surface[] {
+    return this.surfaceList;
+  }
+
+  private buildSurfaces(): Surface[] {
     const out: Surface[] = [];
     for (const p of this.parts) {
       const st = this.st(p);
@@ -416,22 +469,28 @@ export class World {
       switch (p.type) {
         case 'belt':
         case 'rollers': {
-          const sp = p.type === 'belt' ? st.speed : num(q, 'speed', 60);
-          const v = { x: d.x * sp, y: d.y * sp };
+          const fixed = num(q, 'speed', 60);
+          const v = { x: d.x * fixed, y: d.y * fixed };
+          const belt = p.type === 'belt';
           out.push({
             part: p,
             rect,
             top: (x, y) => (inside(rect, x, y) ? p.z : undefined),
-            vel: () => v,
+            vel: () => {
+              if (!belt) return v;
+              v.x = d.x * st.speed;
+              v.y = d.y * st.speed;
+              return v;
+            },
           });
           break;
         }
         case 'lift': {
-          const top = p.z + st.pos * num(q, 'stroke', 80);
+          const stroke = num(q, 'stroke', 80);
           out.push({
             part: p,
             rect,
-            top: (x, y) => (inside(rect, x, y) ? top : undefined),
+            top: (x, y) => (inside(rect, x, y) ? p.z + st.pos * stroke : undefined),
             vel: () => ZERO,
           });
           break;
@@ -455,15 +514,16 @@ export class World {
         }
         case 'turntable': {
           const r = num(q, 'diameter', 140) / 2;
-          const turning = st.angle > 0 && st.angle < 90 && p.fault !== 'klemmt';
-          const omega = turning
-            ? (((st.on ? 1 : -1) * Math.PI) / 2 / num(q, 'turnMs', 1000)) * 1000
-            : 0;
+          const rate = (Math.PI / 2 / num(q, 'turnMs', 1000)) * 1000;
           out.push({
             part: p,
             rect,
             top: (x, y) => ((x - p.x) ** 2 + (y - p.y) ** 2 <= r * r ? p.z : undefined),
-            vel: (x, y) => ({ x: -omega * (y - p.y), y: omega * (x - p.x) }),
+            vel: (x, y) => {
+              const turning = st.angle > 0 && st.angle < 90 && p.fault !== 'klemmt';
+              const omega = turning ? (st.on ? 1 : -1) * rate : 0;
+              return { x: -omega * (y - p.y), y: omega * (x - p.x) };
+            },
           });
           break;
         }
@@ -473,7 +533,6 @@ export class World {
           const rc = R - W / 2;
           // Bogenmitte an der hinteren rechten Ecke; Einlauf in Richtung, Auslauf nach rechts
           const c = { u: -R / 2, v: -R / 2 };
-          const sp = st.speed;
           const lft = LEFT[p.rot];
           out.push({
             part: p,
@@ -486,6 +545,7 @@ export class World {
               return du >= 0 && dv >= 0 && r >= R - W && r <= R ? p.z : undefined;
             },
             vel: (x, y) => {
+              const sp = st.speed;
               if (!sp) return ZERO;
               const l = toLocal(p, x, y);
               const du = l.u - c.u;
@@ -515,21 +575,27 @@ export class World {
 
   /** feste Körper, an denen Werkstücke anstoßen */
   private solids(): Solid[] {
+    const out = this.staticSolids.slice();
+    for (const p of this.parts) {
+      const size = CATALOG[p.type].size(p.params);
+      if (p.type === 'stopper' && this.st(p).on)
+        out.push({ part: p, rect: rectOf(p, size.l, size.w), z0: p.z, z1: p.z + size.h });
+      if (p.type === 'cylinder')
+        out.push({ part: p, rect: this.pusher(p), z0: p.z, z1: p.z + size.h });
+    }
+    return out;
+  }
+
+  private buildStaticSolids(): Solid[] {
     const out: Solid[] = [];
     for (const p of this.parts) {
-      const st = this.st(p);
       const size = CATALOG[p.type].size(p.params);
       switch (p.type) {
-        case 'stopper':
-          if (st.on)
-            out.push({ part: p, rect: rectOf(p, size.l, size.w), z0: p.z, z1: p.z + size.h });
-          break;
         case 'magazine':
           out.push({ part: p, rect: rectOf(p, size.l, size.w), z0: p.z - 40, z1: p.z + size.h });
           break;
         case 'cylinder':
           out.push({ part: p, rect: rectOf(p, size.l, size.w), z0: p.z, z1: p.z + size.h });
-          out.push({ part: p, rect: this.pusher(p), z0: p.z, z1: p.z + size.h });
           break;
         case 'bin': {
           // Wände des Behälters: Werkstücke fallen von oben hinein, schieben aber nicht seitlich durch
@@ -587,6 +653,31 @@ export class World {
       }
     };
     shove(plate, 0);
+  }
+
+  /** freie Werkstücke, deren Mitte in der Nähe des Rechtecks liegen kann (Raster des letzten Schritts) */
+  near(r: Rect, out: Workpiece[]): Workpiece[] {
+    out.length = 0;
+    if (!this.time) {
+      // vor dem ersten Schritt gibt es kein Raster
+      for (const w of this.workpieces) if (w.state === 'free') out.push(w);
+      return out;
+    }
+    let keys = this.cellsOf.get(r);
+    if (!keys) {
+      keys = [];
+      const i0 = Math.floor((r.x0 - CELL) / CELL);
+      const i1 = Math.floor((r.x1 + CELL) / CELL);
+      const j0 = Math.floor((r.y0 - CELL) / CELL);
+      const j1 = Math.floor((r.y1 + CELL) / CELL);
+      for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) keys.push(cellKey(i, j));
+      this.cellsOf.set(r, keys);
+    }
+    for (const k of keys) {
+      const list = this.grid.get(k);
+      if (list) for (const w of list) if (w.state === 'free') out.push(w);
+    }
+    return out;
   }
 
   /** höchste Auflagefläche an (x, y), 0 = Boden (zum Ablegen mit der Maus) */
@@ -653,21 +744,22 @@ export class World {
         return;
       }
     }
-    if (!w.vx && !w.vy) return;
-    const nx = w.x + w.vx * DT;
-    if (!this.blocked(w, nx, w.y, surfaces, solids)) w.x = nx;
-    else w.vx = 0;
-    const ny = w.y + w.vy * DT;
-    if (!this.blocked(w, w.x, ny, surfaces, solids)) w.y = ny;
-    else w.vy = 0;
+    if (w.vx) {
+      const nx = w.x + w.vx * DT;
+      if (!this.blocked(w, nx, w.y, surfaces, solids)) w.x = nx;
+      else w.vx = 0;
+    }
+    if (w.vy) {
+      const ny = w.y + w.vy * DT;
+      if (!this.blocked(w, w.x, ny, surfaces, solids)) w.y = ny;
+      else w.vy = 0;
+    }
   }
 
   /** aktive Weiche schiebt Werkstücke in ihrem Bereich seitlich weg */
   private divert(w: Workpiece): void {
-    for (const p of this.parts) {
-      if (p.type !== 'diverter' || !this.st(p).on) continue;
-      const size = CATALOG.diverter.size(p.params);
-      if (!inside(rectOf(p, size.l, size.w), w.x, w.y)) continue;
+    for (const { part: p, rect } of this.diverters) {
+      if (!this.st(p).on || !inside(rect, w.x, w.y)) continue;
       if (w.z < p.z - 5 || w.z > p.z + 30) continue;
       const side = str(p.params, 'side', 'links') === 'links' ? 1 : -1;
       const l = LEFT[p.rot];
@@ -678,11 +770,7 @@ export class World {
   }
 
   private binAt(w: Workpiece): Part | undefined {
-    for (const p of this.parts) {
-      if (p.type !== 'bin') continue;
-      const size = CATALOG.bin.size(p.params);
-      if (inside(rectOf(p, size.l, size.w), w.x, w.y)) return p;
-    }
+    for (const b of this.bins) if (inside(b.rect, w.x, w.y)) return b.part;
     return undefined;
   }
 
@@ -703,6 +791,7 @@ export class World {
     st.total++;
     st.counts[w.spec.material] = (st.counts[w.spec.material] ?? 0) + 1;
     st.counts[w.spec.color] = (st.counts[w.spec.color] ?? 0) + 1;
+    if (!binAccepts(str(bin.params, 'rule', 'alle'), w.spec)) st.missorted++;
   }
 
   private blocked(
@@ -712,11 +801,14 @@ export class World {
     surfaces: Surface[],
     solids: Solid[],
   ): boolean {
+    const z0 = w.z + 0.01;
+    const z1 = w.z + w.h;
+    // Stau: zuerst das Teil prüfen, an dem es zuletzt hing (gleiches Ergebnis, viel schneller)
+    const last = this.lastBlocker.get(w);
+    if (last && pieceBlocks(w, last, x, y, z0, z1)) return true;
     const box = square(x, y, w.s);
     // schon überlappende Körper (Kante beim Abkippen, frisch abgelegt) dürfen sich trennen
     const here = square(w.x, w.y, w.s);
-    const z0 = w.z + 0.01;
-    const z1 = w.z + w.h;
     for (const s of solids) {
       if (s.z1 <= z0 || s.z0 >= z1) continue;
       if (overlaps(box, s.rect) && !overlaps(here, s.rect)) return true;
@@ -733,11 +825,20 @@ export class World {
           : top - 40;
       if (body < z1 && overlapsInterior(box, s) && !overlapsInterior(here, s)) return true;
     }
-    for (const o of this.workpieces) {
-      if (o === w || o.state !== 'free') continue;
-      if (o.z >= z1 || o.z + o.h <= z0) continue;
-      const ob = square(o.x, o.y, o.s);
-      if (overlaps(box, ob) && !overlaps(here, ob)) return true;
+    // Nachbarn aus dem Raster (3 × 3 Zellen), ohne Hilfsobjekte
+    const cx = Math.floor(x / CELL);
+    const cy = Math.floor(y / CELL);
+    for (let i = cx - 1; i <= cx + 1; i++) {
+      for (let j = cy - 1; j <= cy + 1; j++) {
+        const list = this.grid.get(cellKey(i, j));
+        if (!list) continue;
+        for (const o of list) {
+          if (pieceBlocks(w, o, x, y, z0, z1)) {
+            this.lastBlocker.set(w, o);
+            return true;
+          }
+        }
+      }
     }
     return false;
   }
@@ -753,6 +854,29 @@ export class World {
     return t;
   }
 }
+
+/** Werkstück `o` versperrt `w` den Weg nach (x, y): überlappt dort, aber nicht schon jetzt */
+function pieceBlocks(
+  w: Workpiece,
+  o: Workpiece,
+  x: number,
+  y: number,
+  z0: number,
+  z1: number,
+): boolean {
+  if (o === w || o.state !== 'free') return false;
+  if (o.z >= z1 || o.z + o.h <= z0) return false;
+  const r = (o.s + w.s) / 2;
+  return (
+    Math.abs(o.x - x) < r &&
+    Math.abs(o.y - y) < r &&
+    !(Math.abs(o.x - w.x) < r && Math.abs(o.y - w.y) < r)
+  );
+}
+
+/** Zellgröße des Rasters (größer als jedes Werkstück) */
+const CELL = 64;
+const cellKey = (i: number, j: number) => i * 65_536 + j;
 
 const square = (x: number, y: number, s: number): Rect => ({
   x0: x - s / 2,
@@ -776,4 +900,13 @@ function overlapsInterior(box: Rect, s: Surface): boolean {
     [(box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2],
   ];
   return pts.some(([x, y]) => s.top(x, y) !== undefined);
+}
+
+/** Soll-Regel eines Behälters: alle, metall, nichtmetall, mat:<werkstoff>, farbe:<farbe> */
+export function binAccepts(rule: string, spec: WorkpieceSpec): boolean {
+  if (rule === 'metall') return MATERIALS[spec.material].metal;
+  if (rule === 'nichtmetall') return !MATERIALS[spec.material].metal;
+  if (rule.startsWith('mat:')) return spec.material === rule.slice(4);
+  if (rule.startsWith('farbe:')) return spec.color === rule.slice(6);
+  return true;
 }

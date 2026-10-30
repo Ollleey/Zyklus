@@ -3225,3 +3225,51 @@ code {
   color: var(--text);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+.myplants-templates h3 {
+  margin: var(--s-2) 0;
+  font-size: var(--t-md);
+}
+.myplants-tpl-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--r-sm);
+}
+.myplants-tpl-desc {
+  font-size: var(--t-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pe-counters {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(20, 23, 27, 0.88);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 6px 10px;
+  font-size: var(--t-sm);
+  pointer-events: none;
+}
+.pe-counters table {
+  border-collapse: collapse;
+}
+.pe-counters th {
+  text-align: left;
+  padding-right: 10px;
+  font-family: var(--mono);
+}
+.pe-counters td {
+  padding-right: 10px;
+}
+.pe-counters-sum {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.pe-wrong {
+  color: var(--red);
+}

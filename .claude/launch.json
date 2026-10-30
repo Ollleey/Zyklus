@@ -4,8 +4,28 @@
     {
       "name": "game",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "-w", "@zyklus/game"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "@zyklus/game"
+      ],
       "port": 5173
+    },
+    {
+      "name": "game-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "preview",
+        "-w",
+        "@zyklus/game",
+        "--",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
     }
   ]
 }

@@ -1,5 +1,5 @@
 import type { Value } from '../types';
-import type { Device, Edge, Level, TestCase } from './level';
+import type { Device, Edge, FaultKind, Level, TestCase } from './level';
 import { fromRaw, valueAt } from './signals';
 
 /**
@@ -13,6 +13,8 @@ export interface Plant {
   step(t: number, outputs: Record<string, Value>): void;
   /** Zustandsgrößen für Kriterien und Darstellung (`plant.<name>`) */
   state(): Record<string, number>;
+  /** Geberfehler eines Analogeingangs aus dem Modell (Sandkasten: Drahtbruch) */
+  fault?(deviceId: string): FaultKind | undefined;
 }
 
 type Params = Record<string, unknown>;

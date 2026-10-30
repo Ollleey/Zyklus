@@ -8,7 +8,9 @@ import {
   RANGE_LABEL,
   channelInfo,
   ioGroups,
+  moduleType,
   type AnalogRange,
+  type ChannelKind,
   type ModuleType,
 } from './modules';
 
@@ -421,4 +423,61 @@ export function syncDeviceTags(
     else tags.push(tag);
   }
   return { ...project, tags };
+}
+
+/**
+ * Automatisch verdrahten: jedes nicht angeschlossene Gerät auf den ersten freien passenden Kanal
+ * (Leistungsverbraucher nur auf Relais, sonst Relais zuletzt). Messbereiche analoger Kanäle werden
+ * auf die Signalart des Geräts gestellt. `missing` zählt Geräte, für die kein Kanal frei war.
+ */
+export function autoWire(
+  level: Level,
+  s: Solution,
+): { solution: Solution; wired: number; missing: Partial<Record<ChannelKind | 'REL', number>> } {
+  const used = new Set(s.wires.map((w) => `${w.module}:${w.channel}`));
+  const wiredDevices = new Set(s.wires.map((w) => w.device));
+  const modules = [...s.modules].sort((a, b) => a.x - b.x);
+  const wires = [...s.wires];
+  let next: Solution = s;
+  const missing: Partial<Record<ChannelKind | 'REL', number>> = {};
+  let wired = 0;
+  for (const d of level.devices) {
+    if (wiredDevices.has(d.id)) continue;
+    let found: { module: string; channel: number; ranges?: AnalogRange[] } | undefined;
+    for (const pass of d.kind === 'DO' && !d.power ? [false, true] : [d.power === true]) {
+      for (const m of modules) {
+        const t = moduleType(m.type);
+        if (d.kind === 'DO' && (t.kind === 'rel') !== pass) continue;
+        const total = ioGroups(t).reduce((n, g) => n + g.count, 0);
+        for (let ch = 0; ch < total; ch++) {
+          const info = channelInfo(t, ch);
+          if (info?.group.kind !== d.kind || used.has(`${m.id}:${ch}`)) continue;
+          if (d.signal && info.group.ranges && !info.group.ranges.includes(d.signal)) continue;
+          found = { module: m.id, channel: ch, ranges: info.group.ranges };
+          break;
+        }
+        if (found) break;
+      }
+      if (found) break;
+    }
+    if (!found) {
+      const k = d.power ? 'REL' : d.kind;
+      missing[k] = (missing[k] ?? 0) + 1;
+      continue;
+    }
+    used.add(`${found.module}:${found.channel}`);
+    wires.push({ device: d.id, module: found.module, channel: found.channel });
+    wired++;
+    if (d.signal && found.ranges?.includes(d.signal)) {
+      const cfg = next.config?.[found.module] ?? {};
+      next = {
+        ...next,
+        config: {
+          ...next.config,
+          [found.module]: { ...cfg, ranges: { ...cfg.ranges, [found.channel]: d.signal } },
+        },
+      };
+    }
+  }
+  return { solution: { ...next, wires }, wired, missing };
 }

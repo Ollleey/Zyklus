@@ -29,6 +29,7 @@ export type PartType =
   | 'lamp'
   | 'horn'
   | 'traffic'
+  | 'gauge'
   // Bedienelemente
   | 'button'
   | 'switch'

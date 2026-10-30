@@ -170,6 +170,7 @@ export const PARAMS: Record<PartType, ParamSpec[]> = {
   lamp: [LIGHT],
   horn: [],
   traffic: [],
+  gauge: [],
   button: [CONTACT, LIGHT],
   switch: [],
   estop: [],
