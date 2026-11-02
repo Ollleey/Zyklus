@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { parseAnlageFile, thumbnailSvg, type AnlageFile, type AnlageMeta } from '@zyklus/plant-sim';
 import { TEMPLATE_FILES } from '../../state/templates';
+import { platform } from '@zyklus/platform';
 import { t } from '../../i18n';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import {
@@ -47,6 +48,9 @@ export function MyPlants({
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState<StoredAnlage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Desktop: Anlagen liegen als Dateien in einem Ordner
+  const folder = platform.plantsFolder;
+  const [folderPath, setFolderPath] = useState(() => folder?.path() ?? '');
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !deleting && onClose();
@@ -108,6 +112,25 @@ export function MyPlants({
             </button>
           </div>
           <p className="muted">{t('anlage.autosave')}</p>
+          {folder && (
+            <div className="myplants-folder">
+              <span className="muted">{t('anlage.folder')}</span>
+              <code>{folderPath}</code>
+              <button className="btn btn-small" onClick={() => void folder.reveal()}>
+                {t('anlage.folderOpen')}
+              </button>
+              <button
+                className="btn btn-small"
+                onClick={() =>
+                  void folder.choose().then((ok) => {
+                    if (ok) setFolderPath(folder.path());
+                  })
+                }
+              >
+                {t('anlage.folderChange')}
+              </button>
+            </div>
+          )}
         </section>
         <section className="myplants-templates">
           <h3>{t('anlage.templates')}</h3>
@@ -152,7 +175,10 @@ export function MyPlants({
           {list.map((e) => (
             <li key={e.id} className={e.id === activeId ? 'myplants-active' : ''}>
               <button className="myplants-thumb" onClick={() => open(e)} title={t('anlage.open')}>
-                <img alt="" src={`data:image/svg+xml;utf8,${encodeURIComponent(e.thumbnail)}`} />
+                <img
+                  alt=""
+                  src={`data:image/svg+xml;utf8,${encodeURIComponent(e.thumbnail || thumbOf(e.file))}`}
+                />
               </button>
               {renaming?.id === e.id ? (
                 <input
@@ -211,4 +237,12 @@ export function MyPlants({
       )}
     </div>
   );
+}
+
+/** Vorschaubild für Anlagen ohne gespeichertes Bild (von außen in den Ordner gelegt) */
+function thumbOf(text: string): string {
+  const r = parseAnlageFile(text);
+  return r.ok
+    ? thumbnailSvg(r.file.layout)
+    : thumbnailSvg({ formatVersion: 1, parts: [], seed: 1, area: { w: 1, h: 1 } });
 }

@@ -34,7 +34,7 @@ import {
 } from '../state/layouts';
 import { plantOf } from '../sim/types';
 import { LevelScreen, type PlantSlot, type SlotContext } from './LevelScreen';
-import { FILE_TYPES, platform } from '@zyklus/platform';
+import { FILE_TYPES, platform, platformFileName } from '@zyklus/platform';
 
 /** Autosave in „Meine Anlagen“ */
 const AUTOSAVE_MS = 30_000;
@@ -313,7 +313,7 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
         label: t('anlage.download'),
         onSelect: () =>
           void platform.files.save(
-            anlageFileName(meta.name),
+            platformFileName(anlageFileName(meta.name)),
             toAnlageFile(fileData(new Date().toISOString())),
             [FILE_TYPES.anlage],
           ),

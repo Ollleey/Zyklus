@@ -33,6 +33,13 @@ export interface Platform {
   };
   /** Datei ins Fenster gezogen bzw. per Doppelklick geöffnet; liefert eine Abmeldung */
   onFileDrop(fn: (file: OpenedFile) => void): () => void;
+  /** Desktop: Ordner für „Meine Anlagen“ (anzeigen, ändern, im Explorer öffnen) */
+  readonly plantsFolder?: {
+    path(): string;
+    /** neuen Ordner wählen; die Anlagen werden dorthin geschrieben */
+    choose(): Promise<boolean>;
+    reveal(): Promise<void>;
+  };
   /** vor dem ersten Lesen aufrufen (Desktop lädt dann die Dateien in den Speicher) */
   init(): Promise<void>;
   /** ausstehende Schreibvorgänge abschließen (Beenden) */

@@ -8,7 +8,7 @@ import '@fontsource/ibm-plex-sans-condensed/500.css';
 import '@fontsource/ibm-plex-sans-condensed/600.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
-import { platform } from '@zyklus/platform';
+import { platform, setPlatform } from '@zyklus/platform';
 import { applyTheme } from './theme';
 import './monaco-setup';
 import './styles.css';
@@ -17,7 +17,13 @@ applyTheme();
 
 // Plattform zuerst bereitstellen (Desktop lädt die Spielstände aus Dateien), dann die Oberfläche
 // laden – Module, die beim Laden schon lesen (z. B. Einstellungen), sehen so den echten Speicher
-await platform.init();
+if (import.meta.env.VITE_PLATFORM === 'desktop') {
+  // nur im Desktop-Build: Spielstände als Dateien, native Dialoge
+  const { createDesktopPlatform } = await import('@zyklus/platform/desktop');
+  await setPlatform(await createDesktopPlatform());
+} else {
+  await platform.init();
+}
 const [{ App }, { LEVELS }, { SANDBOX }, { migrate }] = await Promise.all([
   import('./App'),
   import('@zyklus/levels'),

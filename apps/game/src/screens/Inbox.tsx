@@ -10,7 +10,7 @@ import {
   type CustomLevel,
 } from '../state/customLevels';
 import type { LevelProgress } from '../state/persistence';
-import { FILE_TYPES, platform } from '@zyklus/platform';
+import { FILE_TYPES, platform, platformFileName } from '@zyklus/platform';
 
 /** `sandbox` ist das Testpult (Schlüssel bleibt wegen gespeicherter Stände) */
 export type Place = 'handbook' | 'sandbox' | 'sandkasten' | 'patience';
@@ -42,7 +42,9 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
     }
   };
   const download = (c: CustomLevel) =>
-    void platform.files.save(`${c.level.id}.auftrag.json`, toAuftragFile(c), [FILE_TYPES.auftrag]);
+    void platform.files.save(platformFileName(`${c.level.id}.auftrag.json`), toAuftragFile(c), [
+      FILE_TYPES.auftrag,
+    ]);
   const solved = levels.filter((l) => progress[l.id]?.solved).length;
   const patience = solved >= PATIENCE_UNLOCK;
   return (

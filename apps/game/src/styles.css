@@ -3408,3 +3408,17 @@ code {
   justify-content: flex-end;
   gap: 6px;
 }
+.myplants-folder {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+}
+.myplants-folder code {
+  font-family: var(--mono);
+  background: var(--bg-deep);
+  padding: 2px 6px;
+  border-radius: 3px;
+}

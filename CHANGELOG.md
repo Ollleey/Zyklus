@@ -1,5 +1,29 @@
 # Changelog
 
+## P3 – Desktop: Speicherung in Dateien (2026-11-02)
+
+- Desktop-Implementierung der Plattformschicht (`packages/platform/src/desktop.ts`):
+  - Spielstände als JSON-Dateien im App-Datenordner (`%APPDATA%\de.zyklus.spiel\`):
+    `einstellungen.json`, `fortschritt.json`, `sandkasten.json`, `auftraege.json`,
+    `loesungen/<auftrag>.json`
+  - Lesen synchron aus einem Speicher-Cache, der beim Start gefüllt wird; Schreiben gebündelt
+    (300 ms) und **atomar**: erst `.tmp`, alte Datei als `.bak`, dann umbenennen. Kaputte oder
+    halb geschriebene Dateien werden aus `.bak` bzw. `.tmp` gelesen.
+  - „Meine Anlagen“ als einzelne `.anlage`-Dateien in `Dokumente\ZYKLUS\Anlagen\`; Ordner im Spiel
+    änderbar, Knopf „Ordner öffnen“; von Hand in den Ordner gelegte Dateien erscheinen in der
+    Liste, gelöschte Anlagen bleiben als `.bak` erhalten
+  - Speichern und Öffnen über die nativen Dialoge, Ziehen ins Fenster über die WebView
+  - Beim Schließen werden ausstehende Spielstände geschrieben; Autosave weiter alle 30 s
+- Endungen auf dem Desktop: `.anlage` und `.auftrag` (`.anlage.json`/`.auftrag.json` werden
+  weiter gelesen)
+- Tauri-Hülle: Plugins `fs`, `dialog`, `opener`, `persisted-scope`; Rechte nur für App-Datenordner
+  und Dokumente (per Dialog gewählte Ordner bleiben freigegeben)
+- Das Web-Bundle enthält keinen Tauri-Code (Einstieg `@zyklus/platform/desktop` nur im
+  Desktop-Build)
+- Tests mit Dateisystem im Speicher: Zuordnung, Neustart, atomares Schreiben mit Sicherung,
+  Absturz zwischen den Schritten, kaputte Datei, Anlagen-Ordner, Dialoge; 610 Tests
+- In der gebauten App geprüft: Spielstände landen in Dateien und werden beim Start gelesen
+
 ## P2 – Desktop: Tauri-Hülle (2026-11-02)
 
 - Neue Desktop-Anwendung `apps/desktop` (Tauri 2, System-WebView): lädt den Build aus

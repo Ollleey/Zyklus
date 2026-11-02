@@ -274,5 +274,8 @@
   "coach.back": "Zurück",
   "coach.close": "Einführung schließen",
   "coach.finished": "Geschafft!",
-  "coach.finishedText": "Deine Anlage läuft mit deinem Programm. Als Nächstes: Werkstücke sortieren – die Vorlagen unter „Mehr → Meine Anlagen“ zeigen, wie es geht. Die Einführung findest du jederzeit unter „Mehr“."
+  "coach.finishedText": "Deine Anlage läuft mit deinem Programm. Als Nächstes: Werkstücke sortieren – die Vorlagen unter „Mehr → Meine Anlagen“ zeigen, wie es geht. Die Einführung findest du jederzeit unter „Mehr“.",
+  "anlage.folder": "Ordner:",
+  "anlage.folderOpen": "Ordner öffnen",
+  "anlage.folderChange": "Ordner ändern …"
 }

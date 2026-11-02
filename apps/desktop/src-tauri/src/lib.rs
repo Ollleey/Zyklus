@@ -5,6 +5,12 @@ pub fn run() {
     tauri::Builder::default()
         // Fenstergröße, -position und Maximiert-Zustand über Neustarts merken
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Spielstände und Anlagen als Dateien, native Dialoge, Ordner im Explorer öffnen
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        // per Dialog freigegebene Ordner (z. B. eigener Anlagen-Ordner) bleiben nach Neustart freigegeben
+        .plugin(tauri_plugin_persisted_scope::init())
         .run(tauri::generate_context!())
         .expect("ZYKLUS konnte nicht gestartet werden");
 }
