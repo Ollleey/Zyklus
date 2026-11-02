@@ -244,6 +244,12 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
               </b>{' '}
               {result.lang === 'FUP' ? t('program.networks') : t('program.statements')}
             </span>
+            <span
+              className={result.dataBytes > result.dataLimit ? 'size-over' : 'muted'}
+              title={t('program.data')}
+            >
+              · {result.dataBytes} / {result.dataLimit} Byte
+            </span>
           </span>
         )}
       </div>

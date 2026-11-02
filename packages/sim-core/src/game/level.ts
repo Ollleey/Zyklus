@@ -103,7 +103,24 @@ export type Check =
       tolerance: number;
       from: number;
       to?: number;
+    }
+  /**
+   * Wert einer Variablen im Programm zum Zeitpunkt `at` (nach den Zyklen dieser ms), z. B.
+   * `Schichtbuch.Eintrag[0]`. Der Name steht im Datenblatt; `cpu` ohne Angabe: erste CPU.
+   */
+  | {
+      kind: 'value';
+      name: Text;
+      variable: string;
+      value: boolean | number | string;
+      at: number;
+      cpu?: string;
     };
+
+/** Schlüssel eines Variablenwerts zu einem Zeitpunkt (Kriterium `value`) */
+export function probeKey(c: Extract<Check, { kind: 'value' }>): string {
+  return `${c.cpu ?? ''}|${c.variable.toLowerCase()}@${c.at}`;
+}
 
 export interface TestCase {
   id: string;
@@ -218,7 +235,7 @@ export function validateLevel(json: unknown): Level {
     if (!Array.isArray(tc.seeds) || !tc.seeds.length) p.push(`Test ${tc.id}: seeds fehlt`);
     let lastOn = -1;
     for (const iv of tc.power ?? []) {
-      if (!Array.isArray(iv) || !(iv[0] > lastOn) || !(iv[1] > iv[0]) || iv[1] > tc.durationMs) {
+      if (!Array.isArray(iv) || !(iv[0] > lastOn) || !(iv[1] > iv[0]) || iv[1] >= tc.durationMs) {
         p.push(`Test ${tc.id}: power braucht aufsteigende Abschnitte [aus, ein] im Testzeitraum`);
         break;
       }
@@ -242,6 +259,12 @@ export function validateLevel(json: unknown): Level {
     }
     for (const c of tc.checks ?? []) {
       if (!isText(c.name)) p.push(`Test ${tc.id}: Kriterium ohne Namen`);
+      if (c.kind === 'value') {
+        if (!c.variable || !(c.at >= 0 && c.at < tc.durationMs)) {
+          p.push(`Test ${tc.id}: Kriterium ${c.name.de} braucht variable und at im Testzeitraum`);
+        }
+        continue;
+      }
       const signals =
         c.kind === 'exclusive'
           ? c.signals

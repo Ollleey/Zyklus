@@ -39,6 +39,7 @@
   "program.problems": "Meldungen",
   "program.noProblems": "Übersetzt ohne Meldungen",
   "program.statements": "Anweisungen",
+  "program.data": "Daten im Arbeitsspeicher (Datenbausteine, Instanzen)",
   "table.name": "Name",
   "table.type": "Datentyp",
   "table.init": "Startwert",

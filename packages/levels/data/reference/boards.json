@@ -765,5 +765,102 @@
         }
       }
     }
+  },
+  "18-lackmischer": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do8",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "S2",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "S3",
+        "module": "di1",
+        "channel": 2
+      },
+      {
+        "device": "S4",
+        "module": "di1",
+        "channel": 3
+      },
+      {
+        "device": "Y1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "Y2",
+        "module": "do1",
+        "channel": 1
+      },
+      {
+        "device": "M1",
+        "module": "do1",
+        "channel": 2
+      }
+    ]
+  },
+  "19-schichtbuch": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do8",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "B2",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 2
+      },
+      {
+        "device": "H1",
+        "module": "do1",
+        "channel": 0
+      }
+    ]
   }
 }

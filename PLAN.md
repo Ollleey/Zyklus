@@ -121,7 +121,7 @@ Was heute fehlt, im Vergleich zur Praxis:
 | Technologie     | alles selbst programmiert          | PID_Compact, schneller Zähler (HSC), PWM-Ausgang, Kommunikation PUT/GET    |
 | Aufgaben        | Neubau nach Datenblatt             | fremde Programme in Betrieb nehmen, Fehler suchen, Anlagen erweitern       |
 
-### M8 – Datentypen und Bausteine wie im Projekt
+### M8 – Datentypen und Bausteine wie im Projekt (erledigt, siehe CHANGELOG M8a–M8g)
 
 - **ARRAY** (`Array[0..9] of Int`, auch mehrdimensional, Index variabel mit Bereichsprüfung →
   Programmierfehler), **STRUCT**, **PLC-Datentypen** (eigener Projektbaum-Ordner, in DBs, Schnittstellen
@@ -135,8 +135,10 @@ Was heute fehlt, im Vergleich zur Praxis:
   Istwerte, „Neustart“ im Simulator (Spannung aus/ein als Testschritt).
 - IR: Speichermodell für zusammengesetzte Daten (flache Slots mit Offset, Array-Index als Operand).
 - Speichergrenzen der CPU zusätzlich in Byte Arbeitsspeicher (Datenmenge wird zur Designfrage).
-- Level 16–17: Rezepturverwaltung (Array of UDT, Rezeptwahl), Schichtprotokoll (String + DTL,
+- Level 18–19: Rezepturverwaltung (Array of UDT, Rezeptwahl), Schichtprotokoll (String + DTL,
   Ringpuffer).
+- Nicht umgesetzt: PLC-Variablen vom Typ eines PLC-Datentyps, `AT`-Sichten, Istwert-Spalte im
+  DB-Editor (kommt mit dem Beobachten in M9).
 
 ### M9 – Online-Funktionen (Testen wie am Gerät)
 

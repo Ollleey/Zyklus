@@ -1,0 +1,353 @@
+{
+  "id": "19-schichtbuch",
+  "order": 19,
+  "title": {
+    "de": "Schichtbuch für Störmeldungen"
+  },
+  "customer": {
+    "de": "Kunststoffwerk Petrov"
+  },
+  "mail": {
+    "from": {
+      "de": "Milan Petrov <m.petrov@petrov-kunststoff.example>"
+    },
+    "subject": {
+      "de": "Wann genau ist der Extruder ausgefallen?"
+    },
+    "body": {
+      "de": "Hallo,\n\nan der Folienlinie gibt es zwei Störmelder: Extruder und Kühlung. Bisher leuchtet nur eine Sammelstörung, und am Schichtende weiß keiner mehr, wann was war.\n\nWir möchten ein kleines Schichtbuch in der Steuerung: die letzten fünf Meldungen mit Uhrzeit als Text, damit die Leitwarte sie direkt anzeigen kann. Bei der Schichtübergabe wird es gelöscht. Und bitte so, dass ein Stromausfall das Buch nicht leert – genau dann brauchen wir es am meisten.\n\nViele Grüße\nMilan Petrov"
+    }
+  },
+  "datasheet": {
+    "de": "# Folienlinie 1 – Schichtbuch\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | DI | Störung Extruder, 1 = Störung |\n| B2 | DI | Störung Kühlung, 1 = Störung |\n| S1 | DI | Taster „Schichtübergabe“, Schließer |\n| H1 | DO | Lampe Sammelstörung |\n\n## Funktion\n\n1. H1 leuchtet, solange B1 oder B2 eine Störung melden.\n2. Jede **neue** Störung (steigende Flanke an B1 bzw. B2) erzeugt einen Eintrag mit der Uhrzeit der Steuerung (`RD_SYS_T`) im Format `hh:mm:ss Extruder` bzw. `hh:mm:ss Kuehlung`, zweistellig mit führender Null, z. B. `06:00:02 Extruder`.\n3. Einträge stehen in **`\"Schichtbuch\".Eintrag`** – `Array[0..4] of String[20]` – als **Ringpuffer**: der n-te Eintrag seit der Übergabe (ab 0 gezählt) landet in `Eintrag[n MOD 5]`, der sechste überschreibt also `Eintrag[0]`. **`\"Schichtbuch\".Anzahl`** (Int) zählt die Einträge seit der Übergabe.\n4. **S1** löscht alle Einträge (leerer Text) und setzt Anzahl auf 0.\n5. Das Schichtbuch übersteht einen **Spannungsausfall**.\n\n## Prüfung\n\nDie Prüfung liest `\"Schichtbuch\".Eintrag[0]` … `[4]` und `\"Schichtbuch\".Anzahl` am Ende jedes Testfalls – die Namen müssen genau so lauten. Die Uhr der Steuerung beginnt bei jedem Test am Montag, 5. Januar 2026, um 06:00:00.\n\n## Hinweise\n\n- `RD_SYS_T(OUT => #jetzt);` mit `#jetzt : DTL` liefert Stunde, Minute und Sekunde (`#jetzt.HOUR` …, Typ USInt).\n- `USINT_TO_STRING`, `CONCAT` und eine kleine FC mit Rückgabewert für die führende Null sparen Schreibarbeit."
+  },
+  "board": {
+    "width": 20,
+    "ductCapacity": 4
+  },
+  "allowedModules": ["cpu-klein", "cpu-kompakt", "cpu-mittel", "di4", "di8", "do4", "do8", "dio8"],
+  "toleranceMs": 50,
+  "par": {
+    "cost": 8,
+    "energy": 6491,
+    "size": 19
+  },
+  "plant": {
+    "type": "panel"
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Stoerung_Extruder",
+      "name": {
+        "de": "Störung Extruder (B1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "switch"
+    },
+    {
+      "id": "B2",
+      "tag": "Stoerung_Kuehlung",
+      "name": {
+        "de": "Störung Kühlung (B2)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "switch"
+    },
+    {
+      "id": "S1",
+      "tag": "Uebergabe",
+      "name": {
+        "de": "Taster Schichtübergabe (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "H1",
+      "tag": "Sammelstoerung",
+      "name": {
+        "de": "Lampe Sammelstörung (H1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "drei-meldungen",
+      "name": {
+        "de": "Drei Meldungen"
+      },
+      "durationMs": 6500,
+      "seeds": [1],
+      "stimuli": {
+        "B1": [
+          [2300, true],
+          [2800, false],
+          [5300, true],
+          [5600, false]
+        ],
+        "B2": [
+          [3600, true],
+          [4200, false]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [2300, true],
+          [2800, false],
+          [3600, true],
+          [4200, false],
+          [5300, true],
+          [5600, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[0]"
+          },
+          "variable": "Schichtbuch.Eintrag[0]",
+          "value": "06:00:02 Extruder",
+          "at": 6000
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[1]"
+          },
+          "variable": "Schichtbuch.Eintrag[1]",
+          "value": "06:00:03 Kuehlung",
+          "at": 6000
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[2]"
+          },
+          "variable": "Schichtbuch.Eintrag[2]",
+          "value": "06:00:05 Extruder",
+          "at": 6000
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[3]"
+          },
+          "variable": "Schichtbuch.Eintrag[3]",
+          "value": "",
+          "at": 6000
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[4]"
+          },
+          "variable": "Schichtbuch.Eintrag[4]",
+          "value": "",
+          "at": 6000
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Anzahl"
+          },
+          "variable": "Schichtbuch.Anzahl",
+          "value": 3,
+          "at": 6000
+        }
+      ]
+    },
+    {
+      "id": "ringpuffer",
+      "name": {
+        "de": "Ringpuffer und Spannungsausfall"
+      },
+      "durationMs": 9000,
+      "seeds": [1],
+      "power": [[4000, 5000]],
+      "stimuli": {
+        "B1": [
+          [1200, true],
+          [1500, false],
+          [2200, true],
+          [2500, false],
+          [3200, true],
+          [3500, false]
+        ],
+        "B2": [
+          [6200, true],
+          [6500, false],
+          [7200, true],
+          [7500, false],
+          [8200, true],
+          [8500, false]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [1200, true],
+          [1500, false],
+          [2200, true],
+          [2500, false],
+          [3200, true],
+          [3500, false],
+          [6200, true],
+          [6500, false],
+          [7200, true],
+          [7500, false],
+          [8200, true],
+          [8500, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[0]"
+          },
+          "variable": "Schichtbuch.Eintrag[0]",
+          "value": "06:00:08 Kuehlung",
+          "at": 8800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[1]"
+          },
+          "variable": "Schichtbuch.Eintrag[1]",
+          "value": "06:00:02 Extruder",
+          "at": 8800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[2]"
+          },
+          "variable": "Schichtbuch.Eintrag[2]",
+          "value": "06:00:03 Extruder",
+          "at": 8800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[3]"
+          },
+          "variable": "Schichtbuch.Eintrag[3]",
+          "value": "06:00:06 Kuehlung",
+          "at": 8800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[4]"
+          },
+          "variable": "Schichtbuch.Eintrag[4]",
+          "value": "06:00:07 Kuehlung",
+          "at": 8800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Anzahl"
+          },
+          "variable": "Schichtbuch.Anzahl",
+          "value": 6,
+          "at": 8800
+        }
+      ]
+    },
+    {
+      "id": "uebergabe",
+      "name": {
+        "de": "Schichtübergabe löscht das Buch"
+      },
+      "durationMs": 4000,
+      "seeds": [1],
+      "stimuli": {
+        "B2": [
+          [1200, true],
+          [1500, false]
+        ],
+        "S1": [
+          [2000, true],
+          [2100, false]
+        ],
+        "B1": [
+          [3200, true],
+          [3500, false]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [1200, true],
+          [1500, false],
+          [3200, true],
+          [3500, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[0]"
+          },
+          "variable": "Schichtbuch.Eintrag[0]",
+          "value": "06:00:03 Extruder",
+          "at": 3800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[1]"
+          },
+          "variable": "Schichtbuch.Eintrag[1]",
+          "value": "",
+          "at": 3800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[2]"
+          },
+          "variable": "Schichtbuch.Eintrag[2]",
+          "value": "",
+          "at": 3800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[3]"
+          },
+          "variable": "Schichtbuch.Eintrag[3]",
+          "value": "",
+          "at": 3800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Eintrag[4]"
+          },
+          "variable": "Schichtbuch.Eintrag[4]",
+          "value": "",
+          "at": 3800
+        },
+        {
+          "kind": "value",
+          "name": {
+            "de": "Anzahl"
+          },
+          "variable": "Schichtbuch.Anzahl",
+          "value": 1,
+          "at": 3800
+        }
+      ]
+    }
+  ]
+}

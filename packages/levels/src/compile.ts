@@ -1,5 +1,6 @@
 import {
   analyzeBoard,
+  dataBytes,
   emptyProject,
   moduleType,
   type BoardAnalysis,
@@ -20,6 +21,9 @@ export interface CpuCompileResult {
   limit: number;
   /** Ausnutzung der Grenze: Anweisungen bzw. Netzwerke */
   used: number;
+  /** Daten im Arbeitsspeicher in Byte und Grenze der CPU */
+  dataBytes: number;
+  dataLimit: number;
   diagnostics: ProjectDiagnostic[];
 }
 
@@ -94,6 +98,17 @@ export function compileSolution(level: Level, solution: Solution): SolutionCompi
         location: { block: 'Main', part: 'project' },
       });
     }
+    const data = r.program ? dataBytes(r.program) : 0;
+    const dataLimit = t.cpu!.workMemory;
+    if (data > dataLimit) {
+      diagnostics.unshift({
+        severity: 'error',
+        message: `Arbeitsspeicher zu klein für ${t.name.de}: Daten ${data} von ${dataLimit} Byte`,
+        start: { line: 1, col: 1 },
+        end: { line: 1, col: 1 },
+        location: { part: 'project' },
+      });
+    }
     const hw = hardwareProblems(solution, analysis, m.id, r.program);
     for (const message of hw) {
       diagnostics.unshift({
@@ -104,7 +119,7 @@ export function compileSolution(level: Level, solution: Solution): SolutionCompi
         location: { part: 'project' },
       });
     }
-    const ok = r.ok && used <= limit && hw.length === 0;
+    const ok = r.ok && used <= limit && data <= dataLimit && hw.length === 0;
     cpus.set(m.id, {
       ok,
       program: r.program,
@@ -112,6 +127,8 @@ export function compileSolution(level: Level, solution: Solution): SolutionCompi
       lang: r.lang,
       limit,
       used,
+      dataBytes: data,
+      dataLimit,
       diagnostics,
     });
     if (ok && r.program) programs.set(m.id, r.program);

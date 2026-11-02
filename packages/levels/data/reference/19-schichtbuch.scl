@@ -1,0 +1,89 @@
+DATA_BLOCK "Schichtbuch"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+RETAIN
+   VAR 
+      Eintrag : Array[0..4] of String[20];   // Ringpuffer
+      Anzahl : Int;   // Meldungen seit der Übergabe
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Flanke_E"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Flanke_K"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+FUNCTION "Zweistellig" : String[2]
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      x : USInt;
+   END_VAR
+
+BEGIN
+	IF #x < 10 THEN
+	    #Ret_Val := CONCAT('0', USINT_TO_STRING(#x));
+	ELSE
+	    #Ret_Val := USINT_TO_STRING(#x);
+	END_IF;
+END_FUNCTION
+
+FUNCTION "Eintragen" : Void
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      Text : String[20];
+   END_VAR
+
+BEGIN
+	"Schichtbuch".Eintrag["Schichtbuch".Anzahl MOD 5] := #Text;
+	"Schichtbuch".Anzahl := "Schichtbuch".Anzahl + 1;
+END_FUNCTION
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP 
+      jetzt : DTL;
+      zeit : String[8];
+      i : Int;
+   END_VAR
+
+BEGIN
+	"Sammelstoerung" := "Stoerung_Extruder" OR "Stoerung_Kuehlung";
+	
+	IF "Uebergabe" THEN
+	    FOR #i := 0 TO 4 DO
+	        "Schichtbuch".Eintrag[#i] := '';
+	    END_FOR;
+	    "Schichtbuch".Anzahl := 0;
+	END_IF;
+	
+	"Flanke_E"(CLK := "Stoerung_Extruder");
+	"Flanke_K"(CLK := "Stoerung_Kuehlung");
+	IF "Flanke_E".Q OR "Flanke_K".Q THEN
+	    RD_SYS_T(OUT => #jetzt);
+	    #zeit := CONCAT("Zweistellig"(#jetzt.HOUR), ':', "Zweistellig"(#jetzt.MINUTE), ':', "Zweistellig"(#jetzt.SECOND));
+	    IF "Flanke_E".Q THEN "Eintragen"(CONCAT(#zeit, ' Extruder')); END_IF;
+	    IF "Flanke_K".Q THEN "Eintragen"(CONCAT(#zeit, ' Kuehlung')); END_IF;
+	END_IF;
+END_ORGANIZATION_BLOCK

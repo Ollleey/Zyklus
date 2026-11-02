@@ -3,7 +3,7 @@ import type { IrProgram } from '../ir';
 import { Simulation } from '../simulation';
 import type { Value } from '../types';
 import { analyzeBoard, type BoardAnalysis, type Solution } from './board';
-import type { Device, Edge, Level, TestCase } from './level';
+import { probeKey, type Device, type Edge, type Level, type TestCase } from './level';
 import { COUPLER_BASE, COUPLER_WORDS, moduleType } from './modules';
 import { createPlant, type Plant } from './plants';
 import {
@@ -99,6 +99,7 @@ export class LevelRun {
       afterScans: (t) => {
         this.record(t);
         this.exchange();
+        this.probe(t);
       },
     });
   }
@@ -281,6 +282,21 @@ export class LevelRun {
         cb.setInput(i, ca.mode === 'RUN' ? va : 0, 'WORD');
         const vb = cb.read(q, 'WORD');
         ca.setInput(i, cb.mode === 'RUN' ? vb : 0, 'WORD');
+      }
+    }
+  }
+
+  /** Variablenwerte für Kriterien `value` (nur vorhandene Variablen werden eingetragen) */
+  readonly probes = new Map<string, Value | undefined>();
+
+  private probe(t: number): void {
+    for (const c of this.opts.test?.checks ?? []) {
+      if (c.kind !== 'value' || c.at !== t) continue;
+      const cpu = c.cpu ? this.cpus.get(c.cpu) : [...this.cpus.values()][0];
+      try {
+        if (cpu) this.probes.set(probeKey(c), cpu.readSlot(c.variable));
+      } catch {
+        // unbekannte Variable: Kriterium meldet das
       }
     }
   }

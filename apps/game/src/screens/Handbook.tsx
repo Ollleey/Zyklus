@@ -107,6 +107,7 @@ function moduleRows(m: ModuleType): [string, string][] {
         'Programmspeicher',
         `${m.cpu.maxStatements} SCL-Anweisungen / ${m.cpu.maxNetworks} FUP-Netzwerke`,
       ],
+      ['Arbeitsspeicher (Daten)', `${m.cpu.workMemory} Byte`],
       ['Weckalarm (OB30…38)', m.cpu.cyclicInterrupt ? 'ja' : 'nein'],
       ['Prozessalarm (OB40…47)', m.cpu.processInterrupt ? 'ja' : 'nein'],
     );

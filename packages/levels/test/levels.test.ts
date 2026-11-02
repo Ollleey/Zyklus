@@ -77,7 +77,7 @@ function verify(level: Level, solution: Solution) {
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
     expect(LEVELS.map((l) => l.order)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
     ]);
   });
 
@@ -460,5 +460,46 @@ describe('Fehllösungen der Level 16–17', () => {
     expect(v.runs.flatMap((r) => r.criteria.filter((c) => !c.ok).map((c) => c.name.de))).toContain(
       'H1 meldet erreicht (30 Hz)',
     );
+  });
+
+  const fails = (id: string, src: string) => {
+    const level = levelById(id)!;
+    const v = verify(level, solutionFor(level, src));
+    expect(v.passed).toBe(false);
+    return v;
+  };
+  const refText = (id: string) => readFileSync(join(DATA, `${id}.scl`), 'utf8');
+  const testsFailing = (v: ReturnType<typeof fails>) => [
+    ...new Set(v.runs.filter((r) => !r.passed).map((r) => r.testId)),
+  ];
+
+  it('Level 18: Rezeptwahl nicht remanent → nach Spannungsausfall Rezept 1', () => {
+    const src = refText('18-lackmischer').replace('VAR RETAIN', 'VAR');
+    expect(testsFailing(fails('18-lackmischer', src))).toEqual(['stromausfall']);
+  });
+
+  it('Level 18: Rezept nicht kopiert → Auswahl ändert die laufende Mischung', () => {
+    const src = refText('18-lackmischer').replaceAll(
+      '"Ablauf".R.',
+      '"Rezepte".Liste["Rezepte".Auswahl].',
+    );
+    expect(testsFailing(fails('18-lackmischer', src))).toContain('auswahl');
+  });
+
+  it('Level 19: Schichtbuch nicht remanent, Stunde ohne führende Null', () => {
+    const lost = fails(
+      '19-schichtbuch',
+      refText('19-schichtbuch').replace(/^RETAIN$/m, 'NON_RETAIN'),
+    );
+    expect(testsFailing(lost)).toEqual(['ringpuffer']);
+    const unpadded = fails(
+      '19-schichtbuch',
+      refText('19-schichtbuch').replace(
+        '"Zweistellig"(#jetzt.HOUR)',
+        'USINT_TO_STRING(#jetzt.HOUR)',
+      ),
+    );
+    const detail = unpadded.runs[0]!.criteria.find((c) => !c.ok)?.detail;
+    expect(detail).toMatch(/'6:00:02 Extruder' statt '06:00:02 Extruder'/);
   });
 });

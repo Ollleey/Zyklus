@@ -84,7 +84,7 @@ Gemessen auf dem Entwicklungsrechner (Windows 11, Release-Build), Ziel unter 3 s
 geladen. Ablauf mit eigenen Testordnern (echte Spielstände bleiben unberührt):
 
 1. Start, Angebot zum Web-Import ablehnen
-2. Auftrag 1 mit hinterlegter Lösung prüfen → „Auftrag erfüllt“, Fortschritt 1/17
+2. Auftrag 1 mit hinterlegter Lösung prüfen → „Auftrag erfüllt“, Fortschritt 1/19
 3. Neustart → Fortschritt aus den Dateien
 4. Anlagendatei an das laufende Spiel übergeben → Sandkasten, Titel, Datei unter „Meine Anlagen“
 5. Offline-Kaltstart mit Anlagendatei

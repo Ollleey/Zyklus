@@ -7,6 +7,7 @@ export * from './validate';
 export * from './instances';
 export * from './interpreter';
 export * from './metrics/weights';
+export * from './metrics/memory';
 export * from './cpu';
 export * from './simulation';
 export * from './catalog';

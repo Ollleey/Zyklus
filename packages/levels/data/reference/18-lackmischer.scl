@@ -1,0 +1,101 @@
+TYPE "Rezept"
+VERSION : 0.1
+   STRUCT
+      Grundlack : Time;
+      Haerter : Time;
+      Ruehren : Time;
+   END_STRUCT;
+
+END_TYPE
+
+DATA_BLOCK "Rezepte"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR 
+      Liste : Array[1..3] of "Rezept";
+   END_VAR
+   VAR RETAIN
+      Auswahl : Int := 1;   // überlebt den Spannungsausfall
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Ablauf"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR 
+      Aktiv : Bool;
+      R : "Rezept";   // Kopie des Rezepts beim Start
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Dauer"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+TON_TIME
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Startflanke"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Startup"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+// Ereignis: Anlauf
+
+BEGIN
+	// Rezepttabelle nach jedem Anlauf laden
+	"Rezepte".Liste[1].Grundlack := T#2s;
+	"Rezepte".Liste[1].Haerter := T#1s;
+	"Rezepte".Liste[1].Ruehren := T#3s;
+	"Rezepte".Liste[2].Grundlack := T#1s;
+	"Rezepte".Liste[2].Haerter := T#2s500ms;
+	"Rezepte".Liste[2].Ruehren := T#2s;
+	"Rezepte".Liste[3].Grundlack := T#3s;
+	"Rezepte".Liste[3].Haerter := T#0s;
+	"Rezepte".Liste[3].Ruehren := T#4s;
+END_ORGANIZATION_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	IF "Rezept_1" THEN "Rezepte".Auswahl := 1; END_IF;
+	IF "Rezept_2" THEN "Rezepte".Auswahl := 2; END_IF;
+	IF "Rezept_3" THEN "Rezepte".Auswahl := 3; END_IF;
+	
+	"Startflanke"(CLK := "Start");
+	IF "Startflanke".Q AND NOT "Ablauf".Aktiv THEN
+	    "Ablauf".R := "Rezepte".Liste["Rezepte".Auswahl];
+	    "Ablauf".Aktiv := TRUE;
+	END_IF;
+	
+	// eine Zeit über die ganze Mischung, die Phasen ergeben sich aus der verstrichenen Zeit
+	"Dauer"(IN := "Ablauf".Aktiv, PT := "Ablauf".R.Grundlack + "Ablauf".R.Haerter + "Ablauf".R.Ruehren);
+	IF "Dauer".Q THEN "Ablauf".Aktiv := FALSE; END_IF;
+	
+	"Grundlack" := "Ablauf".Aktiv AND "Dauer".ET < "Ablauf".R.Grundlack;
+	"Haerter" := "Ablauf".Aktiv AND "Dauer".ET >= "Ablauf".R.Grundlack
+	    AND "Dauer".ET < "Ablauf".R.Grundlack + "Ablauf".R.Haerter;
+	"Ruehrwerk" := "Ablauf".Aktiv AND "Dauer".ET >= "Ablauf".R.Grundlack + "Ablauf".R.Haerter;
+END_ORGANIZATION_BLOCK

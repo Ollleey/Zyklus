@@ -16,6 +16,8 @@ import level14 from '../data/14-impulse.json';
 import level15 from '../data/15-pi-regler.json';
 import level16 from '../data/16-zwei-behaelter.json';
 import level17 from '../data/17-frequenzumrichter.json';
+import level18 from '../data/18-lackmischer.json';
+import level19 from '../data/19-schichtbuch.json';
 
 export * from './compile';
 
@@ -38,6 +40,8 @@ export const LEVELS: Level[] = [
   level15,
   level16,
   level17,
+  level18,
+  level19,
 ]
   .map((l) => validateLevel(l))
   .sort((a, b) => a.order - b.order);

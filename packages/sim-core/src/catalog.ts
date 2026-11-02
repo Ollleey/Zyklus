@@ -8,6 +8,8 @@ export interface CpuType {
   maxOpsPerCycle: number;
   maxNetworks: number;
   maxStatements: number;
+  /** Arbeitsspeicher für Daten in Byte (Datenbausteine, Instanzen) */
+  workMemory: number;
   /** Breite auf der Hutschiene in Rasterschritten zu 15 mm */
   width: number;
   price: number;
@@ -23,6 +25,7 @@ export const CPU_TYPES: Record<'klein' | 'kompakt' | 'mittel' | 'schnell', CpuTy
     maxOpsPerCycle: 1000,
     maxNetworks: 10,
     maxStatements: 40,
+    workMemory: 1024,
     width: 6,
     price: 4,
     cyclicInterrupt: false,
@@ -36,6 +39,7 @@ export const CPU_TYPES: Record<'klein' | 'kompakt' | 'mittel' | 'schnell', CpuTy
     maxOpsPerCycle: 1000,
     maxNetworks: 10,
     maxStatements: 40,
+    workMemory: 1024,
     width: 8,
     price: 7,
     cyclicInterrupt: false,
@@ -48,6 +52,7 @@ export const CPU_TYPES: Record<'klein' | 'kompakt' | 'mittel' | 'schnell', CpuTy
     maxOpsPerCycle: 2000,
     maxNetworks: 30,
     maxStatements: 120,
+    workMemory: 8192,
     width: 7,
     price: 8,
     cyclicInterrupt: true,
@@ -60,6 +65,7 @@ export const CPU_TYPES: Record<'klein' | 'kompakt' | 'mittel' | 'schnell', CpuTy
     maxOpsPerCycle: 500,
     maxNetworks: 20,
     maxStatements: 80,
+    workMemory: 4096,
     width: 7,
     price: 10,
     cyclicInterrupt: true,

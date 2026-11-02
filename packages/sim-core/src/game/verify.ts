@@ -1,7 +1,8 @@
 import type { IrProgram } from '../ir';
 import type { Solution } from './board';
-import type { Check, Edge, Level } from './level';
+import { probeKey, type Check, type Edge, type Level } from './level';
 import type { Text } from './text';
+import type { Value } from '../types';
 import { LevelRun } from './run';
 import { valueAt } from './signals';
 
@@ -90,6 +91,7 @@ export function evaluateCheck(
   c: Check,
   traces: Record<string, Edge[]>,
   durationMs: number,
+  probes: Map<string, Value | undefined> = new Map(),
 ): CriterionResult {
   const at = (sig: string, t: number) => valueAt(traces[sig] ?? [], t, false);
   const num = (sig: string, t: number) => Number(at(sig, t));
@@ -98,6 +100,15 @@ export function evaluateCheck(
   const fail = (detail: string): CriterionResult => ({ name: c.name, ok: false, detail });
 
   switch (c.kind) {
+    case 'value': {
+      const key = probeKey(c);
+      if (!probes.has(key)) return fail(`Variable ${c.variable} nicht gefunden`);
+      const v = probes.get(key);
+      const show = (x: Value | undefined) => (typeof x === 'string' ? `'${x}'` : String(x));
+      if (v !== c.value)
+        return fail(`bei ${sec(c.at)}: ${c.variable} = ${show(v)} statt ${show(c.value)}`);
+      break;
+    }
     case 'always':
       for (let t = from; t < to; t++) {
         if (at(c.signal, t) !== c.value)
@@ -165,7 +176,9 @@ export function verifySolution(
       run.runToEnd();
       const checks: Record<string, TraceCheck> = {};
       const traces = Object.fromEntries(run.traces);
-      const criteria = (test.checks ?? []).map((c) => evaluateCheck(c, traces, test.durationMs));
+      const criteria = (test.checks ?? []).map((c) =>
+        evaluateCheck(c, traces, test.durationMs, run.probes),
+      );
       for (const [dev, expected] of Object.entries(test.expect ?? {})) {
         checks[dev] = compareTrace(
           expected,
@@ -174,7 +187,9 @@ export function verifySolution(
           level.toleranceMs,
         );
       }
-      const stopped = [...run.cpus.values()].find((c) => c.mode === 'STOP');
+      const stopped = [...run.cpus.values()].find(
+        (c) => c.mode === 'STOP' && c.stopInfo?.reason !== 'POWER',
+      );
       runs.push({
         testId: test.id,
         seed,

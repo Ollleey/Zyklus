@@ -1,0 +1,188 @@
+{
+  "id": "18-lackmischer",
+  "order": 18,
+  "title": {
+    "de": "Lackmischer mit Rezepturen"
+  },
+  "customer": {
+    "de": "Lackfabrik Oberhuber"
+  },
+  "mail": {
+    "from": {
+      "de": "Theresa Oberhuber <t.oberhuber@oberhuber-lacke.example>"
+    },
+    "subject": {
+      "de": "Drei Rezepte, ein Mischer – und der Strom fällt immer wieder aus"
+    },
+    "body": {
+      "de": "Grüß Gott,\n\nunser Mischer dosiert Grundlack und Härter in einen Behälter und rührt danach um. Wir fahren drei Rezepte; welches gerade dran ist, wählt der Bediener mit drei Tastern.\n\nDie alte Steuerung hat zwei Macken: Wenn jemand während einer Mischung ein anderes Rezept wählt, ändert sie mitten im Ablauf die Zeiten. Und nach jedem Stromausfall – davon haben wir im Winter einige – steht sie wieder auf Rezept 1, auch wenn die ganze Schicht Rezept 3 fährt.\n\nDie Rezeptdaten bitte sauber als Tabelle ablegen, wir wollen später weitere Rezepte ergänzen.\n\nDanke und schöne Grüße\nTheresa Oberhuber"
+    }
+  },
+  "datasheet": {
+    "de": "# Mischer M2 – Rezeptsteuerung\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster „Rezept 1“, Schließer |\n| S2 | DI | Taster „Rezept 2“, Schließer |\n| S3 | DI | Taster „Rezept 3“, Schließer |\n| S4 | DI | Taster „Start“, Schließer |\n| Y1 | DO | Ventil Grundlack |\n| Y2 | DO | Ventil Härter |\n| M1 | DO | Rührwerk |\n\n## Rezepte\n\n| Rezept | Grundlack (Y1) | Härter (Y2) | Rühren (M1) |\n|---|---|---|---|\n| 1 | 2,0 s | 1,0 s | 3,0 s |\n| 2 | 1,0 s | 2,5 s | 2,0 s |\n| 3 | 3,0 s | – | 4,0 s |\n\n## Ablauf\n\n1. S1 … S3 wählen das Rezept, jederzeit. Ohne Auswahl gilt **Rezept 1**.\n2. **Start** (S4, steigende Flanke) beginnt eine Mischung mit dem gewählten Rezept: zuerst Y1, dann Y2, dann M1 – jeweils für die Zeit aus der Tabelle, lückenlos nacheinander. Ein Rezept ohne Härter überspringt Y2.\n3. Während einer Mischung wirken weder Start noch eine neue Auswahl auf den laufenden Ablauf; die Auswahl gilt ab der nächsten Mischung.\n4. **Spannungsausfall**: Die Mischung bricht ab, alle Ausgänge sind aus. Nach Spannungswiederkehr läuft nichts weiter, bis Start gedrückt wird. Das **gewählte Rezept bleibt erhalten**.\n\n## Zeitverhalten\n\nToleranz ± 50 ms je Schaltflanke.\n\n## Hinweise\n\n- Ein PLC-Datentyp `\"Rezept\"` mit drei Zeiten und ein Global-DB mit `Array[1..3] of \"Rezept\"` halten die Tabelle; beim Start eine Kopie des gewählten Rezepts ziehen.\n- Was einen Spannungsausfall überstehen soll, muss **remanent** sein (Spalte „Remanent“). Startwerte für die Tabelle lassen sich auch im **Anlauf-OB (OB100)** setzen."
+  },
+  "board": {
+    "width": 20,
+    "ductCapacity": 4
+  },
+  "allowedModules": ["cpu-klein", "cpu-kompakt", "cpu-mittel", "di4", "di8", "do4", "do8", "dio8"],
+  "toleranceMs": 50,
+  "par": {
+    "cost": 8,
+    "energy": 37162,
+    "size": 25
+  },
+  "plant": {
+    "type": "panel"
+  },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Rezept_1",
+      "name": {
+        "de": "Taster Rezept 1 (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S2",
+      "tag": "Rezept_2",
+      "name": {
+        "de": "Taster Rezept 2 (S2)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S3",
+      "tag": "Rezept_3",
+      "name": {
+        "de": "Taster Rezept 3 (S3)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S4",
+      "tag": "Start",
+      "name": {
+        "de": "Taster Start (S4)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "Y1",
+      "tag": "Grundlack",
+      "name": {
+        "de": "Ventil Grundlack (Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "Y2",
+      "tag": "Haerter",
+      "name": {
+        "de": "Ventil Härter (Y2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "M1",
+      "tag": "Ruehrwerk",
+      "name": {
+        "de": "Rührwerk (M1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    }
+  ],
+  "tests": [
+    {
+      "id": "auswahl",
+      "name": {
+        "de": "Rezept 1, Auswahl während der Mischung"
+      },
+      "durationMs": 13000,
+      "seeds": [1],
+      "stimuli": {
+        "S4": [
+          [500, true],
+          [600, false],
+          [4000, true],
+          [4100, false],
+          [7000, true],
+          [7100, false]
+        ],
+        "S2": [
+          [1000, true],
+          [1100, false]
+        ]
+      },
+      "expect": {
+        "Y1": [
+          [500, true],
+          [2500, false],
+          [7000, true],
+          [8000, false]
+        ],
+        "Y2": [
+          [2500, true],
+          [3500, false],
+          [8000, true],
+          [10500, false]
+        ],
+        "M1": [
+          [3500, true],
+          [6500, false],
+          [10500, true],
+          [12500, false]
+        ]
+      }
+    },
+    {
+      "id": "stromausfall",
+      "name": {
+        "de": "Spannungsausfall mitten in Rezept 3"
+      },
+      "durationMs": 10500,
+      "seeds": [1],
+      "power": [[1500, 2500]],
+      "stimuli": {
+        "S3": [
+          [200, true],
+          [300, false]
+        ],
+        "S4": [
+          [500, true],
+          [600, false],
+          [3000, true],
+          [3100, false]
+        ]
+      },
+      "expect": {
+        "Y1": [
+          [500, true],
+          [1500, false],
+          [3000, true],
+          [6000, false]
+        ],
+        "Y2": [[0, false]],
+        "M1": [
+          [6000, true],
+          [10000, false]
+        ]
+      }
+    }
+  ]
+}

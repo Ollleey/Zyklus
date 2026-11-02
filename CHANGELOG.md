@@ -1,5 +1,21 @@
 # Changelog
 
+## M8g – Arbeitsspeicher, Aufträge 18–19, Handbuch (2026-11-03)
+
+- **Arbeitsspeicher in Byte** je CPU (klein/kompakt 1024, schnell 4096, mittel 8192 Byte): Daten
+  aus Datenbausteinen und Instanzen zählen (String[n] = n + 2 Byte, Zeit/Zähler 16 Byte); Anzeige
+  „x / y Byte“ neben der Programmgröße, Fehler beim Überschreiten
+- **Auftrag 18 „Lackmischer mit Rezepturen“**: drei Rezepte als `Array[1..3] of "Rezept"`,
+  Rezeptwahl remanent, Kopie beim Start, Spannungsausfall als Testschritt
+- **Auftrag 19 „Schichtbuch für Störmeldungen“**: Meldungen mit Uhrzeit (`RD_SYS_T`) als String im
+  Ringpuffer, remanent über einen Spannungsausfall, Löschen bei Schichtübergabe
+- Prüfkriterium `value`: Wert einer Programmvariablen zu einem Zeitpunkt (z. B.
+  `Schichtbuch.Eintrag[0] = '06:00:02 Extruder'`); CPUs ohne Spannung gelten nicht als STOP-Fehler
+- Handbuch: SCL-Seite mit Datentypen, Feldern, Strukturen, Zeichenketten, Datum/Uhrzeit,
+  Blockbefehlen, Teilzugriffen, FC-Rückgabewert; Semantik-Seite mit Programmierfehler, Neustart,
+  Remanenz und Arbeitsspeicher
+- 689 Tests
+
 ## M8f – Zeichenketten, Datum/Uhrzeit, Blockbefehle, Teilzugriffe (2026-11-03)
 
 - **String** (`String`, `String[20]`, Höchstlänge 1 … 254, längere Werte werden abgeschnitten) und

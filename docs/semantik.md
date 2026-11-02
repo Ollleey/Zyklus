@@ -48,20 +48,38 @@ Steuerung abweicht, ist das markiert (**Spielregel**).
 - Wird das Budget überschritten (Endlosschleife, zu viel Rechenarbeit), geht die CPU sofort in **STOP**:
   PAA und Ausgangsklemmen werden 0, es laufen keine weiteren Zyklen. `stopInfo` hält Zeit und Grund.
 - Genau `maxOpsPerCycle` Befehle sind noch erlaubt.
-- STOP ist endgültig für den Simulationslauf (kein automatischer Wiederanlauf).
+- Ein **Programmierfehler** (Feldindex außerhalb, MOVE_BLK über das Feldende) hält die CPU ebenso an;
+  die Meldung nennt Variable und Index (Fehler-OBs gibt es noch nicht).
+- STOP bleibt bestehen, bis die CPU neu startet: Betriebsartenschalter STOP → RUN oder Spannung
+  aus/ein (Sandkasten: Taster „Neustart“; in Aufträgen als Testschritt `power`).
+
+### Neustart, Anlauf-OB und Remanenz
+
+- Ein Neustart (Warmstart) setzt alle **nicht remanenten** Daten auf ihre Startwerte, Zeiten,
+  Zähler und Flanken zurück und löscht Merker und Prozessabbilder. **Remanente** Variablen
+  (Global-DB, FB-Input/Output/Static) behalten ihren Wert.
+- Danach läuft einmal der **Anlauf-OB100**, dann der erste Zyklus von OB1. **Spielregel:** Im Anlauf
+  ist das PAE schon aktuell; Ausgänge wirken erst mit dem ersten Zyklus.
+- Während „Spannung aus“ steht die CPU, alle Ausgänge sind aus.
 
 ## 3. Datentypen
 
-| Typ   | Darstellung                     | Überlauf bei Arithmetik |
-| ----- | ------------------------------- | ----------------------- |
-| BOOL  | `boolean`                       | –                       |
-| INT   | 16 bit, vorzeichenbehaftet      | Zweierkomplement (wrap) |
-| DINT  | 32 bit, vorzeichenbehaftet      | wrap                    |
-| BYTE  | 8 bit Bitfolge                  | – (keine Arithmetik)    |
-| WORD  | 16 bit Bitfolge                 | – (keine Arithmetik)    |
-| DWORD | 32 bit Bitfolge                 | – (keine Arithmetik)    |
-| TIME  | 32 bit ms, vorzeichenbehaftet   | wrap                    |
-| REAL  | IEEE-754 32 bit (`Math.fround`) | ±Inf / NaN wie IEEE     |
+| Typ                      | Darstellung                               | Überlauf bei Arithmetik   |
+| ------------------------ | ----------------------------------------- | ------------------------- |
+| BOOL                     | `boolean`                                 | –                         |
+| INT                      | 16 bit, vorzeichenbehaftet                | Zweierkomplement (wrap)   |
+| DINT                     | 32 bit, vorzeichenbehaftet                | wrap                      |
+| BYTE                     | 8 bit Bitfolge                            | – (keine Arithmetik)      |
+| WORD                     | 16 bit Bitfolge                           | – (keine Arithmetik)      |
+| DWORD                    | 32 bit Bitfolge                           | – (keine Arithmetik)      |
+| TIME                     | 32 bit ms, vorzeichenbehaftet             | wrap                      |
+| REAL                     | IEEE-754 32 bit (`Math.fround`)           | ±Inf / NaN wie IEEE       |
+| SINT, USINT, UINT, UDINT | 8/16/32 bit mit bzw. ohne Vorzeichen      | wrap                      |
+| LINT, ULINT, LWORD       | JS-Zahl, ±(2^53 − 1)                      | **Spielregel:** Sättigung |
+| LREAL                    | IEEE-754 64 bit                           | ±Inf / NaN wie IEEE       |
+| DATE                     | Tage seit 1990-01-01                      | Sättigung                 |
+| TOD                      | ms seit Mitternacht                       | Sättigung                 |
+| CHAR, STRING             | Text (String mit Höchstlänge je Variable) | abgeschnitten             |
 
 - Ganzzahlige Division schneidet Richtung 0 ab; `MOD` hat das Vorzeichen des Dividenden.
 - **Spielregel:** Ganzzahlige Division bzw. MOD durch 0 ergibt 0 (keine Fehlerreaktion).
@@ -86,6 +104,12 @@ Steuerung abweicht, ist das markiert (**Spielregel**).
 - Variablen (Global-DB, statische Instanzdaten, TEMP) liegen in typisierten **Slots** und sind
   nicht über Absolutadressen erreichbar.
 - **Spielregel:** TEMP-Variablen starten jeden Zyklus mit ihrem Startwert (bei echter Hardware undefiniert).
+- Felder und Strukturen liegen flach in aufeinanderfolgenden Slots; ein variabler Index wird zur
+  Laufzeit geprüft (IR-Befehl `chk`, Operand `islot`).
+- **Arbeitsspeicher:** Jede CPU hat eine Grenze für Daten in Byte (Datenbausteine, statische
+  Instanzdaten; Bool und Byte 1, Int 2, DInt/Real/Time 4, 64-bit 8, String[n] n + 2 Byte, je Zeit/
+  Zähler/Flanke 16 Byte). Temp zählt nicht. Ist die Grenze überschritten, lässt sich das Programm
+  nicht laden.
 - Symbolische Namen (PLC-Tags): eindeutig unabhängig von Groß-/Kleinschreibung; überlappende
   Adressen sind erlaubt, werden aber als Warnung gemeldet.
 
