@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Block, GlobalDb, InstanceDb, PlcProject } from '@zyklus/sim-core';
+import type { Block, GlobalDb, InstanceDb, PlcProject, PlcType } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import { ELEMENTARY_TYPES, VarTable } from './VarTable';
 
@@ -22,6 +22,13 @@ interface Props {
   onChange: (p: PlcProject) => void;
   /** eigene FBs als "Name" – mögliche Typen für Instanz-DBs */
   userFbs?: string[];
+  /** Zeilen mit Fehlern je `Baustein:Bereich` */
+  errorRows?: Map<string, Set<number>>;
+}
+
+/** PLC-Datentypen als "Name" für die Typvorschläge */
+export function udtNames(project: PlcProject, except?: string): string[] {
+  return (project.types ?? []).filter((t) => t.name !== except).map((t) => `"${t.name}"`);
 }
 
 function nextNumber(blocks: Block[]): number {
@@ -33,19 +40,29 @@ function nextNumber(blocks: Block[]): number {
   return n;
 }
 
-function uniqueName(blocks: Block[], base: string): string {
-  const taken = new Set(blocks.map((b) => b.name.toLowerCase()));
+function uniqueName(project: PlcProject, base: string): string {
+  const taken = new Set(
+    [...project.blocks, ...(project.types ?? [])].map((b) => b.name.toLowerCase()),
+  );
   if (!taken.has(base.toLowerCase())) return base;
   for (let n = 1; ; n++) if (!taken.has(`${base}_${n}`.toLowerCase())) return `${base}_${n}`;
 }
 
-/** Datenbausteine der CPU: Global-DBs mit Variablen, Instanz-DBs für Zeiten, Zähler, Flanken. */
-export function DbPanel({ project, onChange, userFbs = [] }: Props) {
+/**
+ * Datenbausteine der CPU: Global-DBs mit Variablen, Instanz-DBs für Zeiten, Zähler, Flanken;
+ * darunter die PLC-Datentypen (eigene Strukturen).
+ */
+export function DbPanel({ project, onChange, userFbs = [], errorRows }: Props) {
   const dbs = project.blocks.filter(
     (b): b is GlobalDb | InstanceDb => b.kind === 'DB' || b.kind === 'IDB',
   );
-  // DB-Nummer als stabiler Schlüssel, damit Umbenennen den Fokus nicht verliert
-  const [open, setOpen] = useState<number | null>(dbs[0]?.number ?? null);
+  const types = project.types ?? [];
+  // DB-Nummer bzw. Position als stabiler Schlüssel, damit Umbenennen den Fokus nicht verliert
+  const [open, setOpen] = useState<string | null>(dbs[0] ? `db${dbs[0].number}` : null);
+  const toggle = (key: string) => setOpen(open === key ? null : key);
+  const udts = udtNames(project);
+
+  const setTypes = (next: PlcType[]) => onChange({ ...project, types: next });
 
   const replace = (db: GlobalDb | InstanceDb, next: Block | null) =>
     onChange({
@@ -57,7 +74,7 @@ export function DbPanel({ project, onChange, userFbs = [] }: Props) {
 
   const add = (block: GlobalDb | InstanceDb) => {
     onChange({ ...project, blocks: [...project.blocks, block] });
-    setOpen(block.number);
+    setOpen(`db${block.number}`);
   };
 
   return (
@@ -68,7 +85,7 @@ export function DbPanel({ project, onChange, userFbs = [] }: Props) {
           onClick={() =>
             add({
               kind: 'DB',
-              name: uniqueName(project.blocks, 'Daten'),
+              name: uniqueName(project, 'Daten'),
               number: nextNumber(project.blocks),
               vars: [],
             })
@@ -81,7 +98,7 @@ export function DbPanel({ project, onChange, userFbs = [] }: Props) {
           onClick={() =>
             add({
               kind: 'IDB',
-              name: uniqueName(project.blocks, 'IEC_Timer_0_DB'),
+              name: uniqueName(project, 'IEC_Timer_0_DB'),
               number: nextNumber(project.blocks),
               of: 'IEC_TIMER',
             })
@@ -89,11 +106,20 @@ export function DbPanel({ project, onChange, userFbs = [] }: Props) {
         >
           + {t('db.addInstance')}
         </button>
+        <button
+          className="btn btn-small"
+          onClick={() => {
+            setTypes([...types, { name: uniqueName(project, 'Datentyp'), fields: [] }]);
+            setOpen(`type${types.length}`);
+          }}
+        >
+          + {t('db.addType')}
+        </button>
       </div>
       {dbs.map((db) => (
-        <section key={db.number} className={`db ${open === db.number ? 'db-open' : ''}`}>
-          <header onClick={() => setOpen(open === db.number ? null : db.number)}>
-            <span className="db-caret">{open === db.number ? '▾' : '▸'}</span>
+        <section key={db.number} className={`db ${open === `db${db.number}` ? 'db-open' : ''}`}>
+          <header onClick={() => toggle(`db${db.number}`)}>
+            <span className="db-caret">{open === `db${db.number}` ? '▾' : '▸'}</span>
             <input
               className="db-name"
               value={db.name}
@@ -115,7 +141,7 @@ export function DbPanel({ project, onChange, userFbs = [] }: Props) {
               ✕
             </button>
           </header>
-          {open === db.number &&
+          {open === `db${db.number}` &&
             (db.kind === 'IDB' ? (
               <label className="db-type">
                 {t('db.instanceOf')}{' '}
@@ -140,10 +166,47 @@ export function DbPanel({ project, onChange, userFbs = [] }: Props) {
             ) : (
               <VarTable
                 rows={db.vars}
-                types={[...ELEMENTARY_TYPES, ...INSTANCE_TYPES]}
+                types={[...ELEMENTARY_TYPES, ...udts, ...INSTANCE_TYPES]}
+                errorRows={errorRows?.get(`${db.name}:Static`)}
                 onChange={(vars) => replace(db, { ...db, vars })}
               />
             ))}
+        </section>
+      ))}
+      {types.length > 0 && <h4 className="db-group">{t('db.types')}</h4>}
+      {types.map((ty, i) => (
+        <section key={`type${i}`} className={`db ${open === `type${i}` ? 'db-open' : ''}`}>
+          <header onClick={() => toggle(`type${i}`)}>
+            <span className="db-caret">{open === `type${i}` ? '▾' : '▸'}</span>
+            <input
+              className="db-name"
+              value={ty.name}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) =>
+                setTypes(types.map((x) => (x === ty ? { ...ty, name: e.target.value } : x)))
+              }
+              spellCheck={false}
+            />
+            <span className="db-kind">{t('db.typeKind')}</span>
+            <button
+              className="icon-btn"
+              title={t('db.delete')}
+              onClick={(e) => {
+                e.stopPropagation();
+                setTypes(types.filter((x) => x !== ty));
+              }}
+            >
+              ✕
+            </button>
+          </header>
+          {open === `type${i}` && (
+            <VarTable
+              rows={ty.fields}
+              types={[...ELEMENTARY_TYPES, ...udtNames(project, ty.name)]}
+              errorRows={errorRows?.get(`${ty.name}:Static`)}
+              onChange={(fields) => setTypes(types.map((x) => (x === ty ? { ...ty, fields } : x)))}
+            />
+          )}
         </section>
       ))}
     </div>

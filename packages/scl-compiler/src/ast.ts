@@ -106,9 +106,9 @@ export interface Decl {
   span: Span;
 }
 
-/** Ein Baustein aus einer externen SCL-Quelle. */
+/** Ein Baustein aus einer externen SCL-Quelle (TYPE: PLC-Datentyp, Elemente in `decls`). */
 export interface SourceBlock {
-  kind: CodeBlockKind | 'DB';
+  kind: CodeBlockKind | 'DB' | 'TYPE';
   name: string;
   nameSpan: Span;
   title?: string;

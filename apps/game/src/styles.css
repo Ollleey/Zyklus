@@ -791,8 +791,15 @@ code {
 }
 .db-panel .db-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
+}
+.db-group {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
 }
 .db {
   border: 1px solid var(--line);

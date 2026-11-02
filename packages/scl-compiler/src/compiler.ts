@@ -26,6 +26,7 @@ import {
   type ObEvent,
   type Operand,
   type PlcProject,
+  type PlcType,
   type Tag,
   type Value,
   type VarDecl,
@@ -106,7 +107,8 @@ const NO_SPAN: Span = { start: { line: 1, col: 1 }, end: { line: 1, col: 1 } };
 
 /** Einheitliche Sicht auf einen Baustein – egal ob aus dem Projektmodell oder aus einer Quelle. */
 interface Unit {
-  kind: 'OB' | 'FB' | 'FC' | 'DB' | 'IDB';
+  /** TYPE: PLC-Datentyp, Elemente in `decls` */
+  kind: 'OB' | 'FB' | 'FC' | 'DB' | 'IDB' | 'TYPE';
   name: string;
   decls: (Decl & { row?: number })[];
   instanceOf?: string;
@@ -127,7 +129,11 @@ interface Unit {
 
 /** Übersetzt das Projekt einer CPU (Variablentabelle + Bausteine) in ein IR-Programm. */
 export function compileProject(project: PlcProject, opts: CompileOptions = {}): CompileResult {
-  return compileUnits(project.blocks.map(unitFromBlock), project.tags, opts);
+  return compileUnits(
+    [...(project.types ?? []).map(unitFromType), ...project.blocks.map(unitFromBlock)],
+    project.tags,
+    opts,
+  );
 }
 
 /** Übersetzt eine externe SCL-Quelle (ORGANIZATION_BLOCK / DATA_BLOCK …). */
@@ -164,6 +170,7 @@ export function compileScl(
   opts: CompileOptions & {
     tags?: Tag[] | TagTable;
     blocks?: Block[];
+    types?: PlcType[];
     temp?: VarDecl[];
     constants?: VarDecl[];
   } = {},
@@ -172,6 +179,7 @@ export function compileScl(
   return compileProject(
     {
       tags,
+      types: opts.types,
       blocks: [
         {
           kind: 'OB',
@@ -188,40 +196,63 @@ export function compileScl(
   );
 }
 
+function unitFromType(t: PlcType): Unit {
+  const errors: ProjectDiagnostic[] = [];
+  return {
+    kind: 'TYPE',
+    name: t.name,
+    decls: rowsToDecls(t.name, 'interface', 'Static', t.fields, errors),
+    body: [],
+    origin: 'project',
+    errors,
+  };
+}
+
+/** Tabellenzeilen als Deklarationen (Startwerte werden geparst, Fehler gesammelt). */
+function rowsToDecls(
+  block: string,
+  part: Location['part'],
+  section: IfaceSection,
+  rows: VarDecl[],
+  errors: ProjectDiagnostic[],
+): (Decl & { row?: number })[] {
+  return rows.map((v, row) => {
+    let init: Expr | undefined;
+    if (v.init !== undefined && v.init.trim() !== '') {
+      const r = parseExpression(v.init);
+      if (r.diagnostics.length) {
+        errors.push({
+          ...r.diagnostics[0]!,
+          message: `Startwert von ${v.name}: ${r.diagnostics[0]!.message}`,
+          ...NO_SPAN,
+          location: { block, part, section, row },
+        });
+      }
+      init = r.expr;
+    }
+    return {
+      section,
+      name: v.name,
+      typeName: v.type,
+      typeSpan: NO_SPAN,
+      init,
+      initText: v.init,
+      span: NO_SPAN,
+      row,
+    };
+  });
+}
+
 function unitFromBlock(b: Block): Unit {
   const errors: ProjectDiagnostic[] = [];
-  const rowsToDecls = (section: IfaceSection, rows: VarDecl[]) =>
-    rows.map((v, row) => {
-      let init: Expr | undefined;
-      if (v.init !== undefined && v.init.trim() !== '') {
-        const r = parseExpression(v.init);
-        if (r.diagnostics.length) {
-          errors.push({
-            ...r.diagnostics[0]!,
-            message: `Startwert von ${v.name}: ${r.diagnostics[0]!.message}`,
-            ...NO_SPAN,
-            location: { block: b.name, part: b.kind === 'DB' ? 'code' : 'interface', section, row },
-          });
-        }
-        init = r.expr;
-      }
-      return {
-        section,
-        name: v.name,
-        typeName: v.type,
-        typeSpan: NO_SPAN,
-        init,
-        initText: v.init,
-        span: NO_SPAN,
-        row,
-      };
-    });
+  const decls = (section: IfaceSection, rows: VarDecl[]) =>
+    rowsToDecls(b.name, b.kind === 'DB' ? 'code' : 'interface', section, rows, errors);
 
   if (b.kind === 'DB') {
     return {
       kind: 'DB',
       name: b.name,
-      decls: rowsToDecls('Static', b.vars),
+      decls: decls('Static', b.vars),
       body: [],
       origin: 'project',
       errors,
@@ -238,8 +269,8 @@ function unitFromBlock(b: Block): Unit {
       errors,
     };
   }
-  const decls = Object.entries(b.iface).flatMap(([section, rows]) =>
-    rowsToDecls(section as IfaceSection, rows ?? []),
+  const ifaceDecls = Object.entries(b.iface).flatMap(([section, rows]) =>
+    decls(section as IfaceSection, rows ?? []),
   );
   let body: Stmt[] = [];
   if (b.lang === 'SCL') {
@@ -258,7 +289,7 @@ function unitFromBlock(b: Block): Unit {
   return {
     kind: b.kind,
     name: b.name,
-    decls,
+    decls: ifaceDecls,
     body,
     origin: 'project',
     errors,
@@ -407,6 +438,13 @@ interface InstEntry {
   irIndex?: number;
 }
 
+/** PLC-Datentyp; `type` nach der Auflösung (einmal je Übersetzung) */
+interface UdtEntry {
+  unit: Unit;
+  state: 'new' | 'busy' | 'done' | 'error';
+  type?: VarType;
+}
+
 interface DbEntry {
   name: string;
   vars: Map<string, { t: DataType; op: Operand } | { inst: InstEntry } | { place: Place }>;
@@ -446,6 +484,7 @@ class CodeGen {
   private tags = new TagTable();
   private locals = new Map<string, Sym>();
   private readonly dbs = new Map<string, DbEntry>();
+  private readonly udts = new Map<string, UdtEntry>();
   private readonly idbs = new Map<string, InstEntry>();
   /** eigene FB/FC nach Namen */
   private readonly units = new Map<string, Unit>();
@@ -503,7 +542,9 @@ class CodeGen {
 
     for (const u of units) {
       if (u.kind === 'FB' || u.kind === 'FC') this.units.set(u.name.toLowerCase(), u);
+      if (u.kind === 'TYPE') this.udts.set(u.name.toLowerCase(), { unit: u, state: 'new' });
     }
+    for (const e of this.udts.values()) this.resolveUdt(e);
     for (const u of units) {
       this.origin = u.origin;
       if (u.kind === 'DB') this.globalDb(u);
@@ -706,6 +747,58 @@ class CodeGen {
     });
   }
 
+  /** Elemente eines PLC-Datentyps auflösen (Meldungen je Element, Zyklen erkennen). */
+  private resolveUdt(e: UdtEntry): void {
+    if (e.state !== 'new') return;
+    e.state = 'busy';
+    const u = e.unit;
+    const saved = { locals: this.locals, origin: this.origin, where: this.where };
+    this.locals = new Map();
+    this.origin = u.origin;
+    const fields: Field[] = [];
+    let ok = !u.errors.some((d) => d.severity === 'error');
+    try {
+      if (!u.decls.length) {
+        this.where = { block: u.name, part: 'project' };
+        this.push('error', `PLC-Datentyp „${u.name}“ hat keine Elemente`, NO_SPAN);
+        ok = false;
+      }
+      for (const d of u.decls) {
+        this.where = this.declWhere(u.name, d);
+        let done = false;
+        this.guard(() => {
+          if (fields.some((f) => f.name.toLowerCase() === d.name.toLowerCase())) {
+            this.fail(`Element ${d.name} ist im Datentyp doppelt vorhanden`, d.span);
+          }
+          if (instanceType(d.typeName) || this.units.has(unquote(d.typeName).toLowerCase())) {
+            this.fail(`Instanzen (${d.typeName}) gehören nicht in einen PLC-Datentyp`, d.typeSpan);
+          }
+          const type = this.varType(d);
+          fields.push({
+            name: d.name,
+            type,
+            init: d.init ? this.initValues(type, d.init) : undefined,
+          });
+          done = true;
+        });
+        if (!done) ok = false;
+      }
+    } finally {
+      Object.assign(this, saved);
+    }
+    e.state = ok ? 'done' : 'error';
+    if (ok) e.type = { k: 'struct', name: u.name, fields };
+  }
+
+  private udtType(e: UdtEntry, span: Span): VarType {
+    this.resolveUdt(e);
+    if (e.state === 'busy') {
+      this.fail(`PLC-Datentyp „${e.unit.name}“ enthält sich selbst`, span);
+    }
+    if (e.state === 'error') this.fail(`PLC-Datentyp „${e.unit.name}“ ist fehlerhaft`, span);
+    return e.type!;
+  }
+
   /** Datentyp einer Deklaration (Text aus der Tabelle oder geparst aus der Quelle). */
   private varType(d: Decl): VarType {
     let te = d.type;
@@ -729,6 +822,8 @@ class CodeGen {
       case 'name': {
         const t = te.quoted ? undefined : ELEMENTARY[te.name.toUpperCase()];
         if (t && te.len === undefined) return { k: 'elem', t };
+        const udt = this.udts.get(te.name.toLowerCase());
+        if (udt && te.len === undefined) return this.udtType(udt, at(te.span));
         if (instanceType(te.name) || this.units.has(te.name.toLowerCase())) {
           this.fail(
             `Instanzen (${te.name}) können nicht Element eines Feldes oder einer Struktur sein`,

@@ -18,7 +18,7 @@ import { setCompletionSymbols } from '../monaco-setup';
 import { formatValue, useBoolFormat } from '../state/prefs';
 import { updateProject } from '../state/edit';
 import { emptyFup, isFupBody } from '@zyklus/fup-model';
-import { DbPanel, INSTANCE_TYPES } from './DbPanel';
+import { DbPanel, INSTANCE_TYPES, udtNames } from './DbPanel';
 import { FupEditor } from './FupEditor';
 import { SclEditor } from './SclEditor';
 import { TagTable } from './TagTable';
@@ -335,8 +335,13 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
                       withInit={s !== 'Temp' && s !== 'InOut'}
                       types={
                         s === 'Static'
-                          ? [...ELEMENTARY_TYPES, ...INSTANCE_TYPES, ...userFbs]
-                          : ELEMENTARY_TYPES
+                          ? [
+                              ...ELEMENTARY_TYPES,
+                              ...udtNames(project),
+                              ...INSTANCE_TYPES,
+                              ...userFbs,
+                            ]
+                          : [...ELEMENTARY_TYPES, ...udtNames(project)]
                       }
                     />
                   </div>
@@ -424,7 +429,12 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
       )}
       {tab === 'dbs' && (
         <div className="scroll">
-          <DbPanel project={project} onChange={(p) => change(() => p)} userFbs={userFbs} />
+          <DbPanel
+            project={project}
+            onChange={(p) => change(() => p)}
+            userFbs={userFbs}
+            errorRows={errorRows}
+          />
         </div>
       )}
 

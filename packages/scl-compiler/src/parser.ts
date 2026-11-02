@@ -250,7 +250,9 @@ class Parser {
         // bis zum nächsten Bausteinende springen
         const ends = Object.values(BLOCK_KEYWORDS).map((b) => b.end);
         const atBlockEnd = (t: Token) =>
-          t.kind === 'eof' || (t.kind === 'keyword' && ends.includes(t.value));
+          t.kind === 'eof' ||
+          (t.kind === 'keyword' && ends.includes(t.value)) ||
+          this.isIdent('END_TYPE', t);
         while (!atBlockEnd(this.t)) this.next();
         this.next();
         if (this.p === start) this.next();
@@ -259,12 +261,55 @@ class Parser {
     return blocks;
   }
 
+  /** TYPE "Name" … STRUCT … END_STRUCT; END_TYPE */
+  private typeBlock(): SourceBlock {
+    const head = this.next();
+    const nameTok = this.next();
+    if (nameTok.kind !== 'quoted' && nameTok.kind !== 'ident') {
+      this.error(`Name des Datentyps erwartet, gefunden ${describe(nameTok)}`, nameTok);
+    }
+    let title: string | undefined;
+    for (;;) {
+      if (this.isIdent('TITLE')) {
+        title = this.next().text;
+      } else if (this.isOp('{')) {
+        this.skipAttributes();
+      } else if (this.isIdent('VERSION') || this.isIdent('AUTHOR') || this.isIdent('FAMILY')) {
+        this.next();
+        this.expectOp(':');
+        this.next();
+      } else {
+        break;
+      }
+    }
+    const open = this.t;
+    if (!this.isKw('STRUCT')) this.error(`STRUCT erwartet, gefunden ${describe(open)}`);
+    this.next();
+    const decls = this.declLines('END_STRUCT', 'Static', open);
+    this.next();
+    this.optionalSemicolon();
+    if (!this.isIdent('END_TYPE')) this.error(`END_TYPE erwartet, gefunden ${describe(this.t)}`);
+    const end = this.next();
+    return {
+      kind: 'TYPE',
+      name: nameTok.value,
+      nameSpan: nameTok,
+      title,
+      decls,
+      body: [],
+      bodyText: '',
+      bodyLine: end.end.line,
+      span: joinSpans(head, end),
+    };
+  }
+
   private sourceBlock(): SourceBlock {
     const head = this.t;
+    if (this.isIdent('TYPE')) return this.typeBlock();
     const info = head.kind === 'keyword' ? BLOCK_KEYWORDS[head.value] : undefined;
     if (!info) {
       this.error(
-        `Bausteinanfang erwartet (ORGANIZATION_BLOCK, FUNCTION_BLOCK, FUNCTION, DATA_BLOCK), gefunden ${describe(head)}`,
+        `Bausteinanfang erwartet (ORGANIZATION_BLOCK, FUNCTION_BLOCK, FUNCTION, DATA_BLOCK, TYPE), gefunden ${describe(head)}`,
       );
     }
     this.next();

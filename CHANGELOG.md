@@ -1,5 +1,22 @@
 # Changelog
 
+## M8b – STRUCT und PLC-Datentypen (2026-11-02)
+
+- **PLC-Datentypen** (eigene Strukturen) als eigener Ordner im Projekt (`types` im Projektmodell,
+  ältere Spielstände ohne das Feld bleiben gültig); in der Oberfläche unter „Datenbausteine“ →
+  „+ PLC-Datentyp hinzufügen“, Elemente mit Datentyp, Startwert und Kommentar
+- verwendbar in Global-DBs, FB-Statics, Ein-/Ausgängen, Durchgangsparametern, Temp und als
+  Feldelement (`Array[1..10] of "Rezept"`), auch verschachtelt (UDT in UDT); Typvorschläge
+  `"Name"` in allen Variablentabellen
+- Startwerte der Elemente gelten für jede Variable dieses Typs; ganze Variablen gleichen
+  Datentyps lassen sich zuweisen (`"Daten".Aktuell := "Daten".Liste[#nr];`)
+- Prüfungen: Datentyp enthält sich selbst, keine Elemente, doppelte Elemente, Instanzen im
+  Datentyp, Name schon vergeben, unbekanntes Element mit Liste der vorhandenen
+- Externe Quellen: `TYPE "Name" … STRUCT … END_STRUCT; END_TYPE` lesen und schreiben
+- Fehlerzeilen in Global-DBs und Datentypen werden in der Tabelle markiert
+- Vereinfachung: PLC-Variablen (Eingänge/Ausgänge/Merker) bleiben elementar
+- 652 Tests
+
 ## M8a – Felder (ARRAY) (2026-11-02)
 
 - Datentyp `Array[lo..hi] of Typ`, auch mehrdimensional (`Array[0..2, 1..4] of Int`) und

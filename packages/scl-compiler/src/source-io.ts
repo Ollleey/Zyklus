@@ -5,6 +5,7 @@ import {
   type IfaceSection,
   type ObEvent,
   type PlcProject,
+  type PlcType,
   type Tag,
   type VarDecl,
 } from '@zyklus/sim-core';
@@ -103,6 +104,19 @@ export function projectToSource(project: PlcProject): string {
   const order = (b: Block) => (b.kind === 'DB' || b.kind === 'IDB' ? 0 : b.kind === 'OB' ? 2 : 1);
   const blocks = [...project.blocks].sort((a, b) => order(a) - order(b));
   const out: string[] = [];
+  // PLC-Datentypen zuerst: Bausteine verwenden sie
+  for (const t of project.types ?? []) {
+    out.push(
+      `TYPE "${t.name}"`,
+      'VERSION : 0.1',
+      '   STRUCT',
+      ...declLines(t.fields, '      '),
+      '   END_STRUCT;',
+      '',
+      'END_TYPE',
+      '',
+    );
+  }
   for (const b of blocks) {
     if (b.kind === 'IDB') {
       out.push(
@@ -175,15 +189,22 @@ export function sourceToProject(
   if (parsed.diagnostics.length) return { diagnostics: parsed.diagnostics };
   const numbers = { OB: 1, FB: 1, FC: 1, DB: 1, cyclic: 30, process: 40 };
   const lines = src.split('\n');
-  const blocks: Block[] = parsed.blocks.map((b) => {
+  const types: PlcType[] = parsed.blocks
+    .filter((b) => b.kind === 'TYPE')
+    .map((b) => ({
+      name: b.name,
+      fields: b.decls.map((d): VarDecl => ({ name: d.name, type: d.typeName, init: d.initText })),
+    }));
+  const blocks: Block[] = parsed.blocks.flatMap((b): Block[] => {
+    if (b.kind === 'TYPE') return [];
     const vars = (section: IfaceSection) =>
       b.decls
         .filter((d) => d.section === section)
         .map((d): VarDecl => ({ name: d.name, type: d.typeName, init: d.initText }));
     if (b.kind === 'DB') {
       const number = numbers.DB++;
-      if (b.instanceOf) return { kind: 'IDB', name: b.name, number, of: b.instanceOf };
-      return { kind: 'DB', name: b.name, number, vars: vars('Static') };
+      if (b.instanceOf) return [{ kind: 'IDB', name: b.name, number, of: b.instanceOf }];
+      return [{ kind: 'DB', name: b.name, number, vars: vars('Static') }];
     }
     const event =
       b.kind === 'OB' ? parseEvent(lines.slice(b.span.start.line - 1, b.bodyLine - 1)) : undefined;
@@ -193,16 +214,21 @@ export function sourceToProject(
       const rows = vars(s);
       if (rows.length) iface[s] = rows;
     }
-    return {
-      kind: b.kind,
-      name: b.name,
-      number,
-      lang: 'SCL',
-      title: b.title,
-      iface,
-      source: dedent(b.bodyText),
-      ...(event ? { event } : {}),
-    };
+    return [
+      {
+        kind: b.kind,
+        name: b.name,
+        number,
+        lang: 'SCL',
+        title: b.title,
+        iface,
+        source: dedent(b.bodyText),
+        ...(event ? { event } : {}),
+      },
+    ];
   });
-  return { project: { tags, blocks }, diagnostics: [] };
+  return {
+    project: { tags, blocks, ...(types.length ? { types } : {}) },
+    diagnostics: [],
+  };
 }

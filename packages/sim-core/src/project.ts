@@ -89,9 +89,18 @@ export interface InstanceDb {
 
 export type Block = CodeBlock | GlobalDb | InstanceDb;
 
+/** PLC-Datentyp (UDT): benannte Struktur, verwendbar in DBs und Schnittstellen als "Name" */
+export interface PlcType {
+  name: string;
+  fields: VarDecl[];
+  comment?: string;
+}
+
 export interface PlcProject {
   tags: Tag[];
   blocks: Block[];
+  /** PLC-Datentypen (fehlt in älteren Spielständen) */
+  types?: PlcType[];
 }
 
 export const MAIN_OB = 'Main';
