@@ -12,6 +12,7 @@ import {
 } from '@zyklus/plant-sim';
 import { t } from '../../i18n';
 import { putCustomLevel, toAuftragFile } from '../../state/customLevels';
+import { FILE_TYPES, platform } from '@zyklus/platform';
 
 interface Props {
   layout: Layout;
@@ -126,12 +127,9 @@ export function PublishDialog({ layout, solution, name, author, onClose, onPubli
   const download = () => {
     const l = finalLevel();
     if (!l) return;
-    const blob = new Blob([toAuftragFile({ level: l, author })], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${l.id}.auftrag.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    void platform.files.save(`${l.id}.auftrag.json`, toAuftragFile({ level: l, author }), [
+      FILE_TYPES.auftrag,
+    ]);
   };
 
   const failures = result

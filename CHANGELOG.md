@@ -1,5 +1,22 @@
 # Changelog
 
+## P1 – Desktop: Plattformschicht (2026-11-02)
+
+- Neues Paket `packages/platform`: eine Schnittstelle für alles, was Browser und
+  Desktop-Anwendung unterscheidet – synchroner Schlüssel-Wert-Speicher, Datei speichern/öffnen,
+  Dateien ins Fenster ziehen, Start und Beenden. Web-Implementierung auf `localStorage`
+  (mit flüchtigem Rückfall bei gesperrtem Speicher), Download und Dateiauswahl.
+- Die Oberfläche nutzt nur noch diese Schnittstelle: alle Speicherzugriffe (Fortschritt,
+  Lösungen, Einstellungen, Panels, Sandkasten, Meine Anlagen, eigene Aufträge, Patience), alle
+  Downloads (Lösung, `.scl`, Anlage, Auftrag) und Importe (Lösung, Anlage, Auftrag, Ziehen
+  ins Fenster). Speicherschlüssel und Verhalten im Browser sind unverändert, vorhandene
+  Spielstände bleiben lesbar.
+- Start: erst `platform.init()`, dann wird die Oberfläche geladen (Desktop lädt dort später die
+  Spielstände aus Dateien)
+- Dateitypen zentral (`FILE_TYPES`): `.anlage`/`.auftrag` vorbereitet, `.anlage.json` und
+  `.auftrag.json` werden weiter gelesen
+- 602 Tests
+
 ## W4 – Werkstücke drehen sich mit (2026-10-30)
 
 - Werkstücke haben einen Drehwinkel: Auf dem Drehtisch drehen sie mit dem Teller, in der Kurve

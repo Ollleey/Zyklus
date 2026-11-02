@@ -34,25 +34,17 @@ import {
 } from '../state/layouts';
 import { plantOf } from '../sim/types';
 import { LevelScreen, type PlantSlot, type SlotContext } from './LevelScreen';
+import { FILE_TYPES, platform } from '@zyklus/platform';
 
 /** Autosave in „Meine Anlagen“ */
 const AUTOSAVE_MS = 30_000;
-
-function download(name: string, text: string) {
-  const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
 
 const COACH_KEY = 'zyklus.sandkasten.einfuehrung';
 
 /** Stand des geführten Einstiegs; beim ersten Besuch wird er angeboten (-1) */
 function loadCoach(): number | null {
   try {
-    const raw = localStorage.getItem(COACH_KEY);
+    const raw = platform.storage.getItem(COACH_KEY);
     if (raw === null) return -1;
     const n = JSON.parse(raw) as number | null;
     return typeof n === 'number' ? n : null;
@@ -63,7 +55,7 @@ function loadCoach(): number | null {
 
 function saveCoach(n: number | null): void {
   try {
-    localStorage.setItem(COACH_KEY, JSON.stringify(n));
+    platform.storage.setItem(COACH_KEY, JSON.stringify(n));
   } catch {
     /* ohne Speicher nur für diese Sitzung */
   }
@@ -93,7 +85,6 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
   const [dialog, setDialog] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
   /** zuletzt gesehener Arbeitsplatz (Lösung, Simulation) für Aktionen außerhalb der Panels */
   const ctxRef = useRef<SlotContext | null>(null);
   /** Stand beim letzten Speichern (ohne Zeitstempel) */
@@ -197,23 +188,12 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
   // Datei ins Fenster ziehen
   const importRef = useRef(importText);
   importRef.current = importText;
-  useEffect(() => {
-    const over = (e: DragEvent) => {
-      if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
-    };
-    const drop = (e: DragEvent) => {
-      const f = e.dataTransfer?.files[0];
-      if (!f) return;
-      e.preventDefault();
-      void f.text().then((text) => importRef.current(text));
-    };
-    window.addEventListener('dragover', over);
-    window.addEventListener('drop', drop);
-    return () => {
-      window.removeEventListener('dragover', over);
-      window.removeEventListener('drop', drop);
-    };
-  }, []);
+  useEffect(() => platform.onFileDrop((f) => importRef.current(f.text)), []);
+
+  const openFile = async () => {
+    const f = await platform.files.open([FILE_TYPES.anlage]);
+    if (f) importText(f.text);
+  };
 
   const createNew = (name?: string) => {
     store();
@@ -332,12 +312,16 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
       {
         label: t('anlage.download'),
         onSelect: () =>
-          download(anlageFileName(meta.name), toAnlageFile(fileData(new Date().toISOString()))),
+          void platform.files.save(
+            anlageFileName(meta.name),
+            toAnlageFile(fileData(new Date().toISOString())),
+            [FILE_TYPES.anlage],
+          ),
       },
       {
         label: t('anlage.import'),
         title: t('anlage.importTitle'),
-        onSelect: () => fileInput.current?.click(),
+        onSelect: () => void openFile(),
       },
       { label: t('anlage.new'), onSelect: () => createNew() },
       { label: t('coach.menu'), onSelect: startCoach },
@@ -353,17 +337,6 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
   return (
     <>
       <LevelScreen level={level} onBack={onBack} onProgress={() => {}} sandbox plant={slot} />
-      <input
-        ref={fileInput}
-        type="file"
-        accept=".json,application/json"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = '';
-          if (f) void f.text().then(importText);
-        }}
-      />
       {notice && (
         <div className="notice notice-float" role="alert">
           <span>{notice}</span>
@@ -401,7 +374,7 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
             setDialog(false);
           }}
           onNew={() => createNew()}
-          onImport={() => fileInput.current?.click()}
+          onImport={() => void openFile()}
           onSaveCurrent={() => store(true)}
           onTemplate={importText}
         />

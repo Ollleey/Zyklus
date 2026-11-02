@@ -36,6 +36,7 @@ import type { Layout } from '@zyklus/plant-sim';
 import { PlantEditor } from '../components/plant/PlantEditor';
 import { plantOf, type RunView } from '../sim/types';
 import { useSimulation, type SimControls } from '../state/useSimulation';
+import { FILE_TYPES, platform } from '@zyklus/platform';
 
 /** Standardanordnung der Aufträge: wie bisher Schrank links, Programm rechts, Simulation unten */
 const LEVEL_DOCK: DockLayout = {
@@ -165,15 +166,6 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
     if (v.passed) onProgress(recordSolved(level.id, v.metrics));
   };
 
-  const download = (name: string, text: string, type: string) => {
-    const blob = new Blob([text], { type: `${type};charset=utf-8` });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
-
   /** Externe Quelle je CPU (bei mehreren CPUs eine Datei je CPU) */
   const exportScl = () => {
     const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
@@ -181,13 +173,14 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
       const project = solution.projects[cpu.id];
       if (!project) continue;
       const name = cpus.length > 1 ? `${level.id}.${cpu.id}.scl` : `${level.id}.scl`;
-      download(name, projectToSource(project), 'text/plain');
+      void platform.files.save(name, projectToSource(project), [FILE_TYPES.scl]);
     }
   };
 
-  const fileInput = useRef<HTMLInputElement>(null);
-  const importSolution = async (file: File) => {
-    const parsed = parseSolutionFile(await file.text(), level.id, () => level);
+  const importSolution = async () => {
+    const file = await platform.files.open([FILE_TYPES.loesung]);
+    if (!file) return;
+    const parsed = parseSolutionFile(file.text, level.id, () => level);
     if (!parsed.ok) {
       setNotice(`${t('level.import.failed')}: ${parsed.error}`);
       return;
@@ -452,16 +445,16 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                       title: t('level.save.title'),
                       disabled: !solution.modules.length,
                       onSelect: () =>
-                        download(
+                        void platform.files.save(
                           `${level.id}.zyklus.json`,
                           toSolutionFile(level.id, solution),
-                          'application/json',
+                          [FILE_TYPES.loesung],
                         ),
                     },
                     {
                       label: t('level.load'),
                       title: t('level.load.title'),
-                      onSelect: () => fileInput.current?.click(),
+                      onSelect: () => void importSolution(),
                     },
                   ]),
               {
@@ -476,17 +469,6 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                 onSelect: () => setConfirmReset(true),
               },
             ]}
-          />
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".json,application/json"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (f) void importSolution(f);
-            }}
           />
           {!sandbox && (
             <button

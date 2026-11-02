@@ -8,15 +8,22 @@ import '@fontsource/ibm-plex-sans-condensed/500.css';
 import '@fontsource/ibm-plex-sans-condensed/600.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
+import { platform } from '@zyklus/platform';
 import { applyTheme } from './theme';
 import './monaco-setup';
 import './styles.css';
-import { App } from './App';
-import { LEVELS } from '@zyklus/levels';
-import { SANDBOX } from './sandbox';
-import { migrate } from './state/persistence';
 
 applyTheme();
+
+// Plattform zuerst bereitstellen (Desktop lädt die Spielstände aus Dateien), dann die Oberfläche
+// laden – Module, die beim Laden schon lesen (z. B. Einstellungen), sehen so den echten Speicher
+await platform.init();
+const [{ App }, { LEVELS }, { SANDBOX }, { migrate }] = await Promise.all([
+  import('./App'),
+  import('@zyklus/levels'),
+  import('./sandbox'),
+  import('./state/persistence'),
+]);
 migrate([...LEVELS, SANDBOX]);
 
 createRoot(document.getElementById('root')!).render(

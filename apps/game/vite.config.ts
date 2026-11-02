@@ -11,6 +11,7 @@ export default defineConfig({
       '@zyklus/fup-model',
       '@zyklus/levels',
       '@zyklus/plant-sim',
+      '@zyklus/platform',
     ],
   },
   server: { port: 5173 },

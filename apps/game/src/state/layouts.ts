@@ -1,14 +1,15 @@
 import { parseAnlageFile, type AnlageMeta, type Layout } from '@zyklus/plant-sim';
+import { platform } from '@zyklus/platform';
 
 const CURRENT_KEY = 'zyklus.anlage.aktuell';
 const META_KEY = 'zyklus.anlage.angaben';
 const ACTIVE_KEY = 'zyklus.anlage.aktiv';
 const LIST_KEY = 'zyklus.anlagen';
 
-// localStorage kann fehlen oder werfen – dann nur für diese Sitzung
+// Speicher über die Plattformschicht; Fehler nur für diese Sitzung
 function read<T>(key: string): T | undefined {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = platform.storage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : undefined;
   } catch {
     return undefined;
@@ -17,8 +18,8 @@ function read<T>(key: string): T | undefined {
 
 function write(key: string, value: unknown): void {
   try {
-    if (value === undefined) localStorage.removeItem(key);
-    else localStorage.setItem(key, JSON.stringify(value));
+    if (value === undefined) platform.storage.removeItem(key);
+    else platform.storage.setItem(key, JSON.stringify(value));
   } catch {
     /* ohne Speicher nur für diese Sitzung */
   }

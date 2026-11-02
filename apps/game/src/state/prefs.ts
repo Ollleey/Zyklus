@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { platform } from '@zyklus/platform';
 
 /** Anzeige von BOOL-Werten: 0/1 (Standard) oder TRUE/FALSE */
 export type BoolFormat = '01' | 'text';
@@ -8,7 +9,7 @@ const listeners = new Set<() => void>();
 
 function read(): BoolFormat {
   try {
-    return localStorage.getItem(KEY) === 'text' ? 'text' : '01';
+    return platform.storage.getItem(KEY) === 'text' ? 'text' : '01';
   } catch {
     return '01';
   }
@@ -19,7 +20,7 @@ let current: BoolFormat = read();
 export function setBoolFormat(f: BoolFormat): void {
   current = f;
   try {
-    localStorage.setItem(KEY, f);
+    platform.storage.setItem(KEY, f);
   } catch {
     // ohne Speicher nur für diese Sitzung
   }

@@ -1,4 +1,5 @@
 import { validateLevel, type Level, type Metrics } from '@zyklus/sim-core';
+import { platform } from '@zyklus/platform';
 
 /** Eigene Aufträge aus dem Sandkasten (veröffentlicht oder importiert) */
 const KEY = 'zyklus.eigeneAuftraege';
@@ -13,7 +14,7 @@ export interface CustomLevel {
 
 export function listCustomLevels(): CustomLevel[] {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = platform.storage.getItem(KEY);
     const list = raw ? (JSON.parse(raw) as CustomLevel[]) : [];
     return Array.isArray(list) ? list : [];
   } catch {
@@ -23,7 +24,7 @@ export function listCustomLevels(): CustomLevel[] {
 
 function save(list: CustomLevel[]): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(list));
+    platform.storage.setItem(KEY, JSON.stringify(list));
   } catch {
     /* ohne Speicher nur für diese Sitzung */
   }

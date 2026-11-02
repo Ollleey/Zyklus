@@ -5,12 +5,13 @@ import {
   type Metrics,
   type Solution,
 } from '@zyklus/sim-core';
+import { platform } from '@zyklus/platform';
 
 const SOLUTION_KEY = (levelId: string) => `zyklus.loesung.${levelId}`;
 const PROGRESS_KEY = 'zyklus.fortschritt';
 const VERSION_KEY = 'zyklus.version';
 
-/** Version des Speicherformats im localStorage. Bei Änderungen erhöhen und in `migrate` umbauen. */
+/** Version des Speicherformats. Bei Änderungen erhöhen und in `migrate` umbauen. */
 export const STORAGE_VERSION = 3;
 
 export type Best = Metrics;
@@ -30,10 +31,10 @@ export interface LevelProgress {
 
 const HISTORY_LENGTH = 10;
 
-// localStorage kann in privaten Fenstern fehlen oder werfen – das Spiel läuft dann ohne Speichern
+// Speicher über die Plattformschicht (Browser: localStorage, Desktop: Dateien)
 function read<T>(key: string): T | undefined {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = platform.storage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : undefined;
   } catch {
     return undefined;
@@ -42,7 +43,7 @@ function read<T>(key: string): T | undefined {
 
 function write(key: string, value: unknown): void {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    platform.storage.setItem(key, JSON.stringify(value));
   } catch {
     /* Speichern nicht möglich */
   }
@@ -82,7 +83,7 @@ export function saveSolution(levelId: string, s: Solution): void {
 
 export function clearSolution(levelId: string): void {
   try {
-    localStorage.removeItem(SOLUTION_KEY(levelId));
+    platform.storage.removeItem(SOLUTION_KEY(levelId));
   } catch {
     /* egal */
   }

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { tr, type Level } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
@@ -10,6 +10,7 @@ import {
   type CustomLevel,
 } from '../state/customLevels';
 import type { LevelProgress } from '../state/persistence';
+import { FILE_TYPES, platform } from '@zyklus/platform';
 
 /** `sandbox` ist das Testpult (Schlüssel bleibt wegen gespeicherter Stände) */
 export type Place = 'handbook' | 'sandbox' | 'sandkasten' | 'patience';
@@ -28,25 +29,20 @@ interface Props {
 }
 
 export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: Props) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<CustomLevel | null>(null);
-  const importFile = async (f: File) => {
-    const r = parseAuftragFile(await f.text());
+  const importFile = async () => {
+    const f = await platform.files.open([FILE_TYPES.auftrag]);
+    if (!f) return;
+    const r = parseAuftragFile(f.text);
     if (!r.ok) setError(r.error);
     else {
       setError(null);
       onCustom(putCustomLevel(r.value));
     }
   };
-  const download = (c: CustomLevel) => {
-    const blob = new Blob([toAuftragFile(c)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${c.level.id}.auftrag.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  const download = (c: CustomLevel) =>
+    void platform.files.save(`${c.level.id}.auftrag.json`, toAuftragFile(c), [FILE_TYPES.auftrag]);
   const solved = levels.filter((l) => progress[l.id]?.solved).length;
   const patience = solved >= PATIENCE_UNLOCK;
   return (
@@ -118,21 +114,10 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
       </ul>
       <h2 className="custom-head">
         {t('custom.title')}
-        <button className="btn btn-small" onClick={() => fileInput.current?.click()}>
+        <button className="btn btn-small" onClick={() => void importFile()}>
           {t('custom.import')}
         </button>
       </h2>
-      <input
-        ref={fileInput}
-        type="file"
-        accept=".json,application/json"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = '';
-          if (f) void importFile(f);
-        }}
-      />
       {error && (
         <p className="pe-error" role="alert">
           {error}

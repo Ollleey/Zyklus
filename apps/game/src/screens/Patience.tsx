@@ -14,6 +14,7 @@ import {
   type Source,
   type Target,
 } from '../patience/rules';
+import { platform } from '@zyklus/platform';
 
 const STORE = 'zyklus.patience';
 
@@ -24,7 +25,7 @@ interface Stats {
 
 function loadStats(): Stats {
   try {
-    const s = JSON.parse(localStorage.getItem(STORE) ?? '') as Stats;
+    const s = JSON.parse(platform.storage.getItem(STORE) ?? '') as Stats;
     if (typeof s.seed === 'number' && typeof s.wins === 'number') return s;
   } catch {
     // erster Start oder Speicher nicht verfügbar
@@ -34,7 +35,7 @@ function loadStats(): Stats {
 
 function saveStats(s: Stats) {
   try {
-    localStorage.setItem(STORE, JSON.stringify(s));
+    platform.storage.setItem(STORE, JSON.stringify(s));
   } catch {
     // ohne Speicher spielbar
   }

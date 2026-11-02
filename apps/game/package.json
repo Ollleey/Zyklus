@@ -18,6 +18,7 @@
     "@zyklus/fup-model": "*",
     "@zyklus/levels": "*",
     "@zyklus/plant-sim": "*",
+    "@zyklus/platform": "*",
     "@zyklus/scl-compiler": "*",
     "@zyklus/sim-core": "*",
     "monaco-editor": "^0.57.0",

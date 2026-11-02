@@ -1,8 +1,9 @@
 import { useCallback, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { platform } from '@zyklus/platform';
 
 const KEY = (name: string) => `zyklus.ui.${name}`;
 
-/** Zahl, die im localStorage überlebt (Panelgrößen); ohne Speicher gilt der Standardwert. */
+/** Zahl, die im Speicher überlebt (Panelgrößen); ohne Speicher gilt der Standardwert. */
 export function useStoredNumber(
   name: string,
   initial: number,
@@ -10,8 +11,8 @@ export function useStoredNumber(
 ): [number, (v: number) => void] {
   const [value, setValue] = useState(() => {
     try {
-      const v = Number(localStorage.getItem(KEY(name)));
-      return localStorage.getItem(KEY(name)) !== null && v >= min && v <= max ? v : initial;
+      const v = Number(platform.storage.getItem(KEY(name)));
+      return platform.storage.getItem(KEY(name)) !== null && v >= min && v <= max ? v : initial;
     } catch {
       return initial;
     }
@@ -21,7 +22,7 @@ export function useStoredNumber(
       const c = Math.min(max, Math.max(min, v));
       setValue(c);
       try {
-        localStorage.setItem(KEY(name), String(c));
+        platform.storage.setItem(KEY(name), String(c));
       } catch {
         // ohne Speicher nur für diese Sitzung
       }

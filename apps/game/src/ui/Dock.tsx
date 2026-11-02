@@ -2,6 +2,7 @@ import { useCallback, useState, type DragEvent, type ReactNode } from 'react';
 import { t, type MessageKey } from '../i18n';
 import { Menu, type MenuItem } from './Menu';
 import { Splitter, useStoredNumber } from './Split';
+import { platform } from '@zyklus/platform';
 
 export type AreaId = 'left' | 'right' | 'bottom';
 const AREAS: AreaId[] = ['left', 'right', 'bottom'];
@@ -43,7 +44,7 @@ export function useDockLayout(
 ): [DockLayout, (l: DockLayout) => void, () => void] {
   const [layout, setLayout] = useState<DockLayout>(() => {
     try {
-      const raw = localStorage.getItem(KEY(name));
+      const raw = platform.storage.getItem(KEY(name));
       const l = raw ? (JSON.parse(raw) as unknown) : undefined;
       return valid(l, ids) ? l : defaults;
     } catch {
@@ -54,7 +55,7 @@ export function useDockLayout(
     (l: DockLayout) => {
       setLayout(l);
       try {
-        localStorage.setItem(KEY(name), JSON.stringify(l));
+        platform.storage.setItem(KEY(name), JSON.stringify(l));
       } catch {
         // ohne Speicher nur für diese Sitzung
       }
