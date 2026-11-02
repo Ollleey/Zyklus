@@ -11,7 +11,10 @@
   "scripts": {
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "dev:desktop": "npm run dev -w @zyklus/desktop",
+    "build:desktop": "npm run build -w @zyklus/desktop",
+    "build:web": "npm run build -w @zyklus/game"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

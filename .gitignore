@@ -3,3 +3,6 @@ dist/
 coverage/
 *.log
 .DS_Store
+dist-desktop/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/

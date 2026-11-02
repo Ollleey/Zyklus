@@ -1,5 +1,24 @@
 # Changelog
 
+## P2 – Desktop: Tauri-Hülle (2026-11-02)
+
+- Neue Desktop-Anwendung `apps/desktop` (Tauri 2, System-WebView): lädt den Build aus
+  `apps/game` im Modus `desktop` (eigener Ordner `dist-desktop`, Web-Build bleibt unberührt).
+  Kein doppelter Code, Spiellogik und Oberfläche unverändert.
+- Fenster 1440 × 900 (mindestens 1100 × 680); Größe, Position und Maximiert-Zustand werden über
+  Neustarts gemerkt (Plugin `window-state`)
+- Sicherheitsrichtlinie (CSP) ohne externe Quellen: Skripte, Schriften, Bilder und Worker nur aus
+  der App selbst
+- Root-Skripte: `npm run dev:desktop`, `npm run build:desktop`, `npm run build:web`
+- Versionsnummer an einer Stelle (Root-`package.json`): Tauri liest sie direkt, die Oberfläche über
+  `__APP_VERSION__`
+- App-Icon aus Code (`scripts/make-icon.mjs`): stilisierte Baugruppe mit Anzeige, LEDs und Klemmen;
+  `npm run icon -w @zyklus/desktop` erzeugt alle Größen
+- Offline-Prüfung `scripts/offline-check.mjs`: Build über lokalen Server, jede externe Anfrage wird
+  gesperrt und gemeldet; Posteingang, Auftrag mit Monaco und Sandkasten mit Worker ohne externe
+  Anfrage und ohne Fehler, Posteingang nach 0,8 s
+- Release-Build: `zyklus.exe` 10 MB, Fenster nach 0,2 s, 36 MB Arbeitsspeicher für die Hülle
+
 ## P1 – Desktop: Plattformschicht (2026-11-02)
 
 - Neues Paket `packages/platform`: eine Schnittstelle für alles, was Browser und
