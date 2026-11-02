@@ -107,6 +107,8 @@ export interface Decl {
   init?: Expr;
   /** Quelltext des Startwerts (für den Import in das Projektmodell) */
   initText?: string;
+  /** remanent (VAR RETAIN, Retain-Spalte) */
+  retain?: boolean;
   span: Span;
 }
 

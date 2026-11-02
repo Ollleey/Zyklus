@@ -245,6 +245,7 @@ function rowsToDecls(
       typeSpan: NO_SPAN,
       init,
       initText: v.init,
+      ...(v.retain ? { retain: true } : {}),
       span: NO_SPAN,
       row,
     };
@@ -690,9 +691,23 @@ class CodeGen {
     }
   }
 
-  private newSlot(name: string, t: DataType, init?: Value, temp = false): Operand {
+  private newSlot(name: string, t: DataType, init?: Value, temp = false, retain = false): Operand {
     this.slotTypes.push(t);
-    return temp ? this.b.temp(name, t, init) : this.b.slot(name, t, init);
+    return temp ? this.b.temp(name, t, init) : this.b.slot(name, t, init, retain);
+  }
+
+  /** Remanenz nur in Global-DBs und in Input/Output/Static eines FB (wie S7-1500) */
+  private checkRetain(d: Decl, kind: Unit['kind']): boolean {
+    if (!d.retain) return false;
+    const ok =
+      kind === 'DB' || (kind === 'FB' && ['Input', 'Output', 'Static'].includes(d.section));
+    if (!ok) {
+      this.fail(
+        'Remanent sind nur Variablen in Global-DBs und Input/Output/Static eines FB',
+        d.span,
+      );
+    }
+    return true;
   }
 
   private globalDb(u: Unit): void {
@@ -704,8 +719,15 @@ class CodeGen {
         const key = d.name.toLowerCase();
         if (db.vars.has(key)) this.fail(`${d.name} ist im Datenbaustein doppelt vorhanden`, d.span);
         const it = instanceType(d.typeName);
+        const retain = this.checkRetain(d, 'DB');
         if (it) {
           if (d.init) this.fail('Instanzen haben keinen Startwert', d.init.span);
+          if (retain) {
+            this.warn(
+              'Zeiten und Zähler starten hier bei jedem Neustart neu (nicht remanent)',
+              d.span,
+            );
+          }
           db.vars.set(key, {
             inst: {
               key: `${u.name}.${d.name}`.toLowerCase(),
@@ -719,12 +741,13 @@ class CodeGen {
         const vt = this.varType(d);
         if (vt.k !== 'elem') {
           const init = d.init ? this.initValues(vt, d.init) : undefined;
-          db.vars.set(key, { place: this.allocate(`${u.name}.${d.name}`, vt, init, false).place });
+          const { place } = this.allocate(`${u.name}.${d.name}`, vt, init, false, retain);
+          db.vars.set(key, { place });
           return;
         }
         const t = vt.t;
         const init = d.init ? this.constantValue(d.init, t) : undefined;
-        db.vars.set(key, { t, op: this.newSlot(`${u.name}.${d.name}`, t, init) });
+        db.vars.set(key, { t, op: this.newSlot(`${u.name}.${d.name}`, t, init, false, retain) });
       });
     }
   }
@@ -911,12 +934,13 @@ class CodeGen {
     t: VarType,
     init: (Value | undefined)[] | undefined,
     temp: boolean,
+    retain = false,
   ): { place: Place; inits: Value[] } {
     const ls = leaves(t, name);
     const inits = ls.map((l, i) => normalize(l.t, init?.[i] ?? l.init ?? defaultValue(l.t)));
     let base = -1;
     ls.forEach((l, i) => {
-      const o = this.newSlot(l.name, l.t, inits[i], temp);
+      const o = this.newSlot(l.name, l.t, inits[i], temp, retain);
       if (i === 0 && o.k === 'slot') base = o.i;
     });
     return { place: { base, type: t, off: 0 }, inits };
@@ -1118,6 +1142,7 @@ class CodeGen {
     }
     const key = d.name.toLowerCase();
     if (this.locals.has(key)) this.fail(`#${d.name} ist bereits deklariert`, d.span);
+    this.checkRetain(d, 'OB');
     if (instanceType(d.typeName)) {
       this.fail(
         `Instanzen (${d.typeName}) gehören in einen Instanz-DB, z. B. "${d.name}_DB" vom Typ ${d.typeName}`,
@@ -1148,15 +1173,22 @@ class CodeGen {
     const ev = ob.event;
     if (!ev) {
       this.fail(
-        `Nur OB1 „Main“ läuft ohne Ereignis – weise „${ob.name}“ einen Weck- oder Prozessalarm zu`,
+        `Nur OB1 „Main“ läuft ohne Ereignis – weise „${ob.name}“ einen Weck-, Prozessalarm oder Anlauf zu`,
         NO_SPAN,
       );
     }
     const [lo, hi] = OB_NUMBERS[ev.kind];
-    const label = ev.kind === 'cyclic' ? 'Weckalarm' : 'Prozessalarm';
+    const label =
+      ev.kind === 'cyclic' ? 'Weckalarm' : ev.kind === 'process' ? 'Prozessalarm' : 'Anlauf';
     if (ob.number !== undefined && (ob.number < lo || ob.number > hi)) {
-      this.fail(`${label}-OBs haben die Nummern ${lo} … ${hi} (ist ${ob.number})`, NO_SPAN);
+      this.fail(
+        lo === hi
+          ? `${label}-OBs haben die Nummer ${lo} (ist ${ob.number})`
+          : `${label}-OBs haben die Nummern ${lo} … ${hi} (ist ${ob.number})`,
+        NO_SPAN,
+      );
     }
+    if (ev.kind === 'startup') return { kind: 'startup', name: ob.name, start: 0, end: 0 };
     if (ev.kind === 'cyclic') {
       if (!Number.isInteger(ev.intervalMs) || ev.intervalMs < 1 || ev.intervalMs > 60000) {
         this.fail('Weckalarm: Takt muss 1 … 60000 ms betragen', NO_SPAN);
@@ -1234,6 +1266,7 @@ class CodeGen {
   private makeSym(u: Unit, d: Decl & { row?: number }, slotName: string, temp: boolean): Sym {
     const sys = instanceType(d.typeName);
     const user = this.units.get(unquote(d.typeName).toLowerCase());
+    const retain = this.checkRetain(d, u.kind) && !temp;
     if (sys || user) {
       if (d.section !== 'Static') {
         this.fail(
@@ -1273,7 +1306,7 @@ class CodeGen {
     if (vt.k !== 'elem') {
       if (d.section === 'Constant') this.fail('Konstanten haben einen elementaren Typ', d.typeSpan);
       const init = d.init ? this.initValues(vt, d.init) : undefined;
-      const { place, inits } = this.allocate(slotName, vt, init, temp);
+      const { place, inits } = this.allocate(slotName, vt, init, temp, retain);
       return { k: 'agg', name: d.name, place, inits, decl: d, used: false };
     }
     const t = vt.t;
@@ -1286,7 +1319,7 @@ class CodeGen {
       k: 'var',
       name: d.name,
       t,
-      op: this.newSlot(slotName, t, init, temp),
+      op: this.newSlot(slotName, t, init, temp, retain),
       decl: d,
       used: false,
     };

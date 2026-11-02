@@ -327,6 +327,7 @@ class Parser {
 
     let title: string | undefined;
     let instanceOf: string | undefined;
+    let dbRetain = false;
     const decls: Decl[] = [];
     // Kopf: TITLE, Attribute, VERSION, NON_RETAIN, bei Instanz-DBs der Typ
     for (;;) {
@@ -346,6 +347,7 @@ class Parser {
         this.isIdent('NAME')
       ) {
         const kw = this.next();
+        if (kw.value.toUpperCase() === 'RETAIN') dbRetain = true;
         if (kw.value.toUpperCase() !== 'NON_RETAIN' && kw.value.toUpperCase() !== 'RETAIN') {
           this.expectOp(':');
           this.next();
@@ -367,6 +369,8 @@ class Parser {
     ) {
       decls.push(...this.declSection());
     }
+    // DATA_BLOCK … RETAIN: alle Variablen remanent
+    if (info.kind === 'DB' && dbRetain) for (const d of decls) d.retain = true;
 
     const begin = this.expectKw('BEGIN', 'vor dem Anweisungsteil');
     const body = this.stmtList(() => this.isKw(info.end));
@@ -394,9 +398,13 @@ class Parser {
       this.next();
       section = 'Constant';
     }
-    while (this.isIdent('RETAIN') || this.isIdent('NON_RETAIN') || this.isIdent('DB_SPECIFIC'))
+    let retain = false;
+    while (this.isIdent('RETAIN') || this.isIdent('NON_RETAIN') || this.isIdent('DB_SPECIFIC')) {
+      if (this.isIdent('RETAIN')) retain = true;
       this.next();
+    }
     const decls = this.declLines(endKw, section, head);
+    if (retain) for (const d of decls) d.retain = true;
     this.next();
     this.optionalSemicolon();
     return decls;

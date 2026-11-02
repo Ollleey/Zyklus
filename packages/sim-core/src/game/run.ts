@@ -188,6 +188,13 @@ export class LevelRun {
     return [...this.forces.keys()];
   }
 
+  /** Spannung aus und sofort wieder ein (Neustart wie nach Netzausfall, Sandkasten) */
+  powerCycle(cpuId: string): void {
+    const c = this.cpus.get(cpuId);
+    c?.powerOff(this.sim.time);
+    c?.powerOn(this.sim.time);
+  }
+
   /** Betriebsartenschalter einer CPU (Sandkasten) */
   setCpuSwitch(cpuId: string, mode: 'RUN' | 'STOP'): void {
     this.cpus.get(cpuId)?.setSwitch(mode, this.sim.time);
@@ -201,6 +208,10 @@ export class LevelRun {
   }
 
   private applyInputs(t: number): void {
+    for (const [off, on] of this.opts.test?.power ?? []) {
+      if (t === off) for (const c of this.cpus.values()) c.powerOff(t);
+      if (t === on) for (const c of this.cpus.values()) c.powerOn(t);
+    }
     for (const d of this.devices) {
       let v: boolean | number;
       if (d.kind === 'DI') {

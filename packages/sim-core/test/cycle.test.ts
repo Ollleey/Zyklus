@@ -269,7 +269,7 @@ describe('Validierung', () => {
 });
 
 describe('Betriebsartenschalter', () => {
-  it('STOP schaltet Ausgänge ab, RUN läuft mit erhaltenen Merkern weiter', () => {
+  it('STOP schaltet Ausgänge ab, RUN ist ein Warmstart (Merker neu)', () => {
     const b = new ProgramBuilder();
     b.emit({ op: 'bin', fn: 'add', t: 'INT', dst: io('%MW0'), a: io('%MW0'), b: c.int(1) });
     b.emit({ op: 'mov', dst: io('%Q0.0'), src: c.bool(true) });
@@ -284,8 +284,85 @@ describe('Betriebsartenschalter', () => {
     expect(cpu.read('%MW0')).toBe(3);
     cpu.setSwitch('RUN', sim.time);
     sim.run(2);
-    expect(cpu.read('%MW0')).toBe(5);
+    expect(cpu.read('%MW0')).toBe(2);
     expect(cpu.read('%Q0.0')).toBe(true);
     expect(cpu.load).toBeCloseTo(2 / 100);
+  });
+});
+
+describe('Neustart, Anlauf-OB, Remanenz', () => {
+  /** OB1 zählt Slot 0 (remanent) und Slot 1 hoch; OB100 setzt Slot 2 und %M1.0 */
+  function program() {
+    const b = new ProgramBuilder();
+    const kept = b.slot('DB.Behalten', 'INT', 10, true);
+    const lost = b.slot('DB.Weg', 'INT', 10);
+    const runs = b.slot('DB.Anlaeufe', 'INT');
+    b.emit({ op: 'bin', fn: 'add', t: 'INT', dst: kept, a: kept, b: c.int(1) });
+    b.emit({ op: 'bin', fn: 'add', t: 'INT', dst: lost, a: lost, b: c.int(1) });
+    b.emit({ op: 'mov', dst: io('%Q0.0'), src: io('%M1.0') });
+    const mainEnd = 3;
+    b.emit({ op: 'bin', fn: 'add', t: 'INT', dst: runs, a: runs, b: c.int(1) });
+    b.emit({ op: 'mov', dst: io('%M1.0'), src: c.bool(true) });
+    const p = b.build();
+    p.mainEnd = mainEnd;
+    p.tasks = [{ kind: 'startup', name: 'Startup', start: mainEnd, end: p.code.length }];
+    return p;
+  }
+
+  it('OB100 läuft einmal vor dem ersten Zyklus', () => {
+    const cpu = new Cpu({ name: 'A', cycleMs: 1, maxOpsPerCycle: 100 }, program());
+    const sim = new Simulation([cpu]);
+    sim.run(5);
+    expect(cpu.readSlot('DB.Anlaeufe')).toBe(1);
+    expect(cpu.read('%Q0.0')).toBe(true);
+    expect(cpu.metrics.cycles).toBe(5);
+  });
+
+  it('STOP → RUN: remanente Werte bleiben, andere starten mit dem Startwert', () => {
+    const cpu = new Cpu({ name: 'A', cycleMs: 1, maxOpsPerCycle: 100 }, program());
+    const sim = new Simulation([cpu]);
+    sim.run(5);
+    cpu.setSwitch('STOP', sim.time);
+    cpu.setSwitch('RUN', sim.time);
+    sim.run(1);
+    expect(cpu.readSlot('DB.Behalten')).toBe(16);
+    expect(cpu.readSlot('DB.Weg')).toBe(11);
+    expect(cpu.readSlot('DB.Anlaeufe')).toBe(1);
+  });
+
+  it('Spannung aus/ein: steht, Ausgänge aus, Neustart; Schalter auf STOP bleibt STOP', () => {
+    const cpu = new Cpu({ name: 'A', cycleMs: 1, maxOpsPerCycle: 100 }, program());
+    const sim = new Simulation([cpu]);
+    sim.run(3);
+    cpu.powerOff(sim.time);
+    expect(cpu.stopInfo?.reason).toBe('POWER');
+    expect(cpu.read('%Q0.0')).toBe(false);
+    sim.run(10);
+    expect(cpu.readSlot('DB.Behalten')).toBe(13);
+    cpu.setSwitch('RUN', sim.time); // ohne Spannung wirkungslos
+    expect(cpu.mode).toBe('STOP');
+    cpu.powerOn(sim.time);
+    sim.run(2);
+    expect(cpu.readSlot('DB.Behalten')).toBe(15);
+    expect(cpu.readSlot('DB.Weg')).toBe(12);
+    expect(cpu.read('%Q0.0')).toBe(true);
+
+    cpu.setSwitch('STOP', sim.time);
+    cpu.powerOff(sim.time);
+    cpu.powerOn(sim.time);
+    expect(cpu.mode).toBe('STOP');
+    expect(cpu.stopInfo?.reason).toBe('SWITCH');
+  });
+
+  it('Programmierfehler-STOP wird durch Spannung aus/ein verlassen', () => {
+    const b = new ProgramBuilder();
+    const i = b.slot('i', 'INT', 5);
+    b.emit({ op: 'chk', dst: b.slot('k', 'DINT'), a: i, lo: 0, hi: 3, msg: 'Feld' });
+    const cpu = new Cpu({ name: 'A', cycleMs: 1, maxOpsPerCycle: 100 }, b.build());
+    cpu.scan(0);
+    expect(cpu.stopInfo?.reason).toBe('PROGRAM_ERROR');
+    cpu.powerOff(1);
+    cpu.powerOn(1);
+    expect(cpu.mode).toBe('RUN');
   });
 });

@@ -122,6 +122,8 @@ export interface TestCase {
   /** Parameter des Anlagenmodells für diesen Test (überschreibt Level-Parameter) */
   plant?: Record<string, unknown>;
   checks?: Check[];
+  /** Spannungsausfälle der Steuerung: [aus ab, wieder ein ab] in ms */
+  power?: [number, number][];
 }
 
 export interface Level {
@@ -214,6 +216,14 @@ export function validateLevel(json: unknown): Level {
   for (const tc of l.tests ?? []) {
     if (!(tc.durationMs > 0)) p.push(`Test ${tc.id}: durationMs fehlt`);
     if (!Array.isArray(tc.seeds) || !tc.seeds.length) p.push(`Test ${tc.id}: seeds fehlt`);
+    let lastOn = -1;
+    for (const iv of tc.power ?? []) {
+      if (!Array.isArray(iv) || !(iv[0] > lastOn) || !(iv[1] > iv[0]) || iv[1] > tc.durationMs) {
+        p.push(`Test ${tc.id}: power braucht aufsteigende Abschnitte [aus, ein] im Testzeitraum`);
+        break;
+      }
+      lastOn = iv[1];
+    }
     for (const [dev, edges] of Object.entries(tc.stimuli ?? {})) {
       const d = devices.get(dev);
       if (!d || (d.kind !== 'DI' && d.kind !== 'AI'))

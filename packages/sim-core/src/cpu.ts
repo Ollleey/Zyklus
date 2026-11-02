@@ -22,8 +22,8 @@ export type CpuMode = 'RUN' | 'STOP';
 
 export interface StopInfo {
   time: number;
-  /** Zykluszeitüberschreitung (Fehler) oder Betriebsartenschalter */
-  reason: 'CYCLE_OVERRUN' | 'PROGRAM_ERROR' | 'SWITCH';
+  /** Fehler (Zykluszeit, Programmierfehler), Betriebsartenschalter oder Spannung aus */
+  reason: 'CYCLE_OVERRUN' | 'PROGRAM_ERROR' | 'SWITCH' | 'POWER';
   message: string;
 }
 
@@ -59,6 +59,11 @@ export class Cpu {
 
   private readonly energy: number[];
   private readonly tempSlots: number[];
+  /** Anlauf-OBs liefen seit dem letzten Neustart */
+  private started = false;
+  private powered = true;
+  /** Stellung des Betriebsartenschalters */
+  private switchPos: CpuMode = 'RUN';
 
   constructor(
     readonly config: CpuConfig,
@@ -95,6 +100,7 @@ export class Cpu {
    */
   step(now: number): void {
     if (this.mode !== 'RUN') return;
+    if (!this.started && !this.startup(now)) return;
     for (const task of this.program.tasks ?? []) {
       if (task.kind === 'process' && task.input) {
         const v = this.inputs.read('BOOL', task.input.byte, task.input.bit) as boolean;
@@ -124,6 +130,39 @@ export class Cpu {
     if (!this.runCode(now, task.start, task.end)) return;
     this.outputs.copyFrom(this.paa);
     this.metrics.interrupts++;
+  }
+
+  /**
+   * Anlauf: Anlauf-OBs (OB100) einmal ausführen. **Spielregel:** Das PAE ist schon aktuell,
+   * Ausgänge wirken erst mit dem ersten Zyklus. false, wenn die CPU dabei in STOP geht.
+   */
+  private startup(now: number): boolean {
+    this.started = true;
+    for (const task of this.program.tasks ?? []) {
+      if (task.kind !== 'startup') continue;
+      this.pae.copyFrom(this.inputs);
+      if (!this.runCode(now, task.start, task.end)) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Neustart (Warmstart): nicht remanente Daten auf Startwerte, Instanzen (Zeiten, Zähler)
+   * zurückgesetzt, Merker und Prozessabbilder gelöscht; remanente Daten bleiben.
+   * Danach laufen die Anlauf-OBs vor dem ersten Zyklus.
+   */
+  private warmRestart(): void {
+    this.program.slots.forEach((s, i) => {
+      if (!s.retain) this.slots[i] = s.init;
+    });
+    this.program.instances.forEach((d, i) => {
+      this.instances[i] = createInstance(d.kind);
+    });
+    this.m.clear();
+    this.pae.clear();
+    this.paa.clear();
+    this.lastInputs.clear();
+    this.started = false;
   }
 
   /** Führt einen Codebereich aus; false bei Zykluszeitüberschreitung (CPU in STOP). */
@@ -159,6 +198,7 @@ export class Cpu {
   /** Ein vollständiger Zyklus zum Zeitpunkt `now` (ms). In STOP passiert nichts. */
   scan(now: number): void {
     if (this.mode !== 'RUN') return;
+    if (!this.started && !this.startup(now)) return;
     this.pae.copyFrom(this.inputs);
     const ok = this.runCode(now);
     this.metrics.cycles++;
@@ -174,20 +214,43 @@ export class Cpu {
   }
 
   /**
-   * Betriebsartenschalter. STOP → RUN ist ein Neustart: Prozessabbilder und Temp-Variablen
-   * beginnen neu, Merker, Datenbausteine und Instanzen behalten ihre Werte.
+   * Betriebsartenschalter. STOP → RUN ist ein Neustart (Warmstart): nur remanente Daten
+   * behalten ihre Werte, danach laufen die Anlauf-OBs.
    */
   setSwitch(mode: CpuMode, time: number): void {
-    if (mode === this.mode) return;
+    this.switchPos = mode;
+    if (!this.powered || mode === this.mode) return;
     if (mode === 'STOP') {
       this.stop(time, 'Betriebsartenschalter auf STOP', 'SWITCH');
       return;
     }
+    this.warmRestart();
     this.mode = 'RUN';
     this.stopInfo = undefined;
-    this.pae.clear();
-    this.paa.clear();
-    this.lastInputs.clear();
+  }
+
+  /** Spannung aus: CPU steht, Ausgänge aus. */
+  powerOff(time: number): void {
+    if (!this.powered) return;
+    this.powered = false;
+    this.stop(time, 'Spannung aus', 'POWER');
+  }
+
+  /** Spannung ein: Neustart wie nach STOP → RUN, sofern der Schalter auf RUN steht. */
+  powerOn(time: number): void {
+    if (this.powered) return;
+    this.powered = true;
+    this.warmRestart();
+    if (this.switchPos === 'RUN') {
+      this.mode = 'RUN';
+      this.stopInfo = undefined;
+    } else {
+      this.stopInfo = { time, reason: 'SWITCH', message: 'Betriebsartenschalter auf STOP' };
+    }
+  }
+
+  get isPowered(): boolean {
+    return this.powered;
   }
 
   /** Mittlere Auslastung des Befehlsbudgets je Zyklus (0…1) */

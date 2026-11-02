@@ -35,6 +35,7 @@ const BLOCK_HEADER: Record<CodeBlock['kind'], [string, string]> = {
 };
 
 function eventText(e: ObEvent): string {
+  if (e.kind === 'startup') return 'Anlauf';
   return e.kind === 'cyclic'
     ? `Weckalarm, Takt ${e.intervalMs} ms, Phase ${e.phaseMs ?? 0} ms`
     : `Prozessalarm, ${e.edge === 'rising' ? 'steigende' : 'fallende'} Flanke an ${e.input}`;
@@ -43,6 +44,7 @@ function eventText(e: ObEvent): string {
 /** Liest die Ereignis-Zeile, die `projectToSource` in den Bausteinkopf schreibt. */
 function parseEvent(header: string[]): ObEvent | undefined {
   for (const l of header) {
+    if (/\/\/\s*Ereignis:\s*Anlauf\s*$/.test(l)) return { kind: 'startup' };
     const c = /\/\/\s*Ereignis:\s*Weckalarm, Takt (\d+) ms(?:, Phase (\d+) ms)?/.exec(l);
     if (c) return { kind: 'cyclic', intervalMs: Number(c[1]), phaseMs: Number(c[2] ?? 0) };
     const p = /\/\/\s*Ereignis:\s*Prozessalarm, (steigende|fallende) Flanke an (.+?)\s*$/.exec(l);
@@ -87,6 +89,17 @@ function declLines(vars: VarDecl[], indent: string): string[] {
     const comment = v.comment ? `   // ${v.comment}` : '';
     return `${indent}${v.name} : ${v.type}${init};${comment}`;
   });
+}
+
+/** Abschnitt(e) einer Schnittstelle; remanente Variablen in einem eigenen „… RETAIN“-Abschnitt */
+function varSections(header: string, vars: VarDecl[]): string[] {
+  const plain = vars.filter((v) => !v.retain);
+  const kept = vars.filter((v) => v.retain);
+  const out: string[] = [];
+  if (plain.length || !kept.length)
+    out.push(`   ${header} `, ...declLines(plain, '      '), '   END_VAR');
+  if (kept.length) out.push(`   ${header} RETAIN`, ...declLines(kept, '      '), '   END_VAR');
+  return out;
 }
 
 function indentBody(src: string): string {
@@ -137,9 +150,7 @@ export function projectToSource(project: PlcProject): string {
         `{ S7_Optimized_Access := 'TRUE' }`,
         'VERSION : 0.1',
         'NON_RETAIN',
-        '   VAR ',
-        ...declLines(b.vars, '      '),
-        '   END_VAR',
+        ...varSections('VAR', b.vars),
         '',
         '',
         'BEGIN',
@@ -159,7 +170,7 @@ export function projectToSource(project: PlcProject): string {
       for (const s of IFACE_SECTIONS) {
         const rows = b.iface[s];
         if (!rows?.length) continue;
-        out.push(`   ${SECTION_HEADER[s]} `, ...declLines(rows, '      '), '   END_VAR', '');
+        out.push(...varSections(SECTION_HEADER[s], rows), '');
       }
       const body = rewriteBoolLiterals(
         b.source,
@@ -202,7 +213,12 @@ export function sourceToProject(
     const vars = (section: IfaceSection) =>
       b.decls
         .filter((d) => d.section === section)
-        .map((d): VarDecl => ({ name: d.name, type: d.typeName, init: d.initText }));
+        .map((d): VarDecl => ({
+          name: d.name,
+          type: d.typeName,
+          init: d.initText,
+          ...(d.retain ? { retain: true } : {}),
+        }));
     if (b.kind === 'DB') {
       const number = numbers.DB++;
       if (b.instanceOf) return [{ kind: 'IDB', name: b.name, number, of: b.instanceOf }];
@@ -210,7 +226,11 @@ export function sourceToProject(
     }
     const event =
       b.kind === 'OB' ? parseEvent(lines.slice(b.span.start.line - 1, b.bodyLine - 1)) : undefined;
-    const number = event ? numbers[event.kind]++ : numbers[b.kind]++;
+    const number = event
+      ? event.kind === 'startup'
+        ? 100
+        : numbers[event.kind]++
+      : numbers[b.kind]++;
     const iface: CodeBlock['iface'] = {};
     for (const s of IFACE_SECTIONS) {
       const rows = vars(s);

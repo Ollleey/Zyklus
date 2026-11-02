@@ -512,3 +512,121 @@ END_ORGANIZATION_BLOCK`;
     expect(projectToSource(p)).toContain('FUNCTION "Halb" : Real');
   });
 });
+
+describe('Anlauf-OB100 und Remanenz', () => {
+  const zaehler = block('FB', 'Zaehler', '#Gesamt := #Gesamt + 1; #Heute := #Heute + 1;', {
+    Static: [
+      ['Gesamt', 'DInt'],
+      ['Heute', 'DInt'],
+    ],
+  });
+  zaehler.iface.Static![0]!.retain = true;
+
+  function make(): Cpu {
+    const db: Block = {
+      kind: 'DB',
+      name: 'Daten',
+      number: 1,
+      vars: [
+        { name: 'Auswahl', type: 'Int', init: '1', retain: true },
+        { name: 'Anlaeufe', type: 'Int' },
+        { name: 'Tabelle', type: 'Array[0..2] of Int', init: '[5, 6, 7]', retain: true },
+      ],
+    };
+    return cpu(
+      project([
+        block(
+          'OB',
+          'Main',
+          '"Z_DB"(); "Daten".Auswahl := "Daten".Auswahl + 1; "Daten".Tabelle[1] := 0;',
+        ),
+        block(
+          'OB',
+          'Startup',
+          '"Daten".Anlaeufe := "Daten".Anlaeufe + 1; "Motor" := TRUE;',
+          {},
+          {
+            number: 100,
+            event: { kind: 'startup' },
+          },
+        ),
+        zaehler,
+        { kind: 'IDB', name: 'Z_DB', number: 2, of: 'Zaehler' },
+        db,
+      ]),
+    );
+  }
+
+  it('OB100 einmal je Anlauf; remanente Werte überstehen Spannung aus/ein', () => {
+    const c = make();
+    for (let t = 0; t < 4; t++) c.scan(t);
+    expect(c.readSlot('Daten.Anlaeufe')).toBe(1);
+    expect(c.read('%Q0.0')).toBe(true);
+    expect(c.readSlot('Daten.Auswahl')).toBe(5);
+    expect(c.readSlot('Z_DB.Gesamt')).toBe(4);
+    c.powerOff(4);
+    c.powerOn(5);
+    c.scan(5);
+    expect(c.readSlot('Daten.Anlaeufe')).toBe(1); // nicht remanent: Startwert 0, dann OB100
+    expect(c.readSlot('Daten.Auswahl')).toBe(6);
+    expect(c.readSlot('Z_DB.Gesamt')).toBe(5);
+    expect(c.readSlot('Z_DB.Heute')).toBe(1);
+    expect(c.readSlot('Daten.Tabelle[1]')).toBe(0);
+    expect(c.readSlot('Daten.Tabelle[2]')).toBe(7);
+  });
+
+  it('Fehler: Remanenz an falscher Stelle, OB100 mit falscher Nummer', () => {
+    const fc = block('FC', 'F', '#x := 1;', { Temp: [['x', 'Int']] });
+    fc.iface.Temp![0]!.retain = true;
+    expect(errors(project([block('OB', 'Main', '"F"();'), fc]))[0]).toMatch(/Remanent sind nur/);
+    const ob = block('OB', 'Anlauf2', '', {}, { number: 101, event: { kind: 'startup' } });
+    expect(errors(project([block('OB', 'Main', ''), ob]))[0]).toMatch(/Nummer 100 \(ist 101\)/);
+  });
+
+  it('Quelle: VAR RETAIN, DATA_BLOCK … RETAIN, Ereignis Anlauf', () => {
+    const src = `DATA_BLOCK "D"
+RETAIN
+VAR
+  a : Int;
+END_VAR
+BEGIN
+END_DATA_BLOCK
+
+DATA_BLOCK "E"
+NON_RETAIN
+VAR
+  b : Int;
+END_VAR
+VAR RETAIN
+  c : Int;
+END_VAR
+BEGIN
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Startup"
+// Ereignis: Anlauf
+BEGIN
+  "E".b := 1;
+END_ORGANIZATION_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+BEGIN
+  "D".a := "E".c;
+END_ORGANIZATION_BLOCK`;
+    const p = sourceToProject(src, TAGS).project!;
+    expect(p.blocks.find((b) => b.name === 'D')).toMatchObject({
+      vars: [{ name: 'a', retain: true }],
+    });
+    const e = p.blocks.find((b) => b.name === 'E');
+    expect(e && 'vars' in e ? e.vars.map((v) => !!v.retain) : []).toEqual([false, true]);
+    expect(p.blocks.find((b) => b.name === 'Startup')).toMatchObject({
+      number: 100,
+      event: { kind: 'startup' },
+    });
+    const again = sourceToProject(projectToSource(p), TAGS).project!;
+    expect(again).toEqual(p);
+    const c = cpu(compileProject(p));
+    c.scan(0);
+    expect(c.readSlot('E.b')).toBe(1);
+  });
+});

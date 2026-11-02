@@ -41,8 +41,13 @@ export class ProgramBuilder {
   private readonly instances: InstanceDecl[] = [];
   private readonly code: Instr[] = [];
 
-  slot(name: string, t: DataType, init?: Value): Operand {
-    this.slots.push({ name, t, init: normalize(t, init ?? defaultValue(t)) });
+  slot(name: string, t: DataType, init?: Value, retain = false): Operand {
+    this.slots.push({
+      name,
+      t,
+      init: normalize(t, init ?? defaultValue(t)),
+      ...(retain ? { retain: true } : {}),
+    });
     return { k: 'slot', i: this.slots.length - 1 };
   }
 

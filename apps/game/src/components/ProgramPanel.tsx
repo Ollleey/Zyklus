@@ -504,6 +504,13 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
 /** Startereignis eines Alarm-OBs (in TIA: Eigenschaften des OB bzw. des Eingangskanals) */
 function EventEditor({ event, onChange }: { event: ObEvent; onChange: (e: ObEvent) => void }) {
   const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
+  if (event.kind === 'startup') {
+    return (
+      <div className="event-bar">
+        <span className="event-kind">Anlauf (OB100)</span>
+      </div>
+    );
+  }
   return (
     <div className="event-bar">
       {event.kind === 'cyclic' ? (

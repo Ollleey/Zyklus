@@ -1,5 +1,17 @@
 # Changelog
 
+## M8d – Anlauf-OB100, Remanenz, Neustart (Kern und Compiler, 2026-11-02)
+
+- Ereignis **Anlauf** (OB100): läuft einmal nach jedem Neustart vor dem ersten OB1-Zyklus
+- **Remanenz** je Variable (`retain` in Global-DBs und FB-Input/Output/Static, Quellen
+  `VAR RETAIN`, `DATA_BLOCK … RETAIN`); Fehler bei Remanenz an anderer Stelle
+- **Warmstart** wie an der S7: STOP → RUN und Spannung aus/ein setzen nicht remanente Daten auf
+  Startwerte, Zeiten/Zähler zurück und löschen Merker (vorher blieben Merker und DBs erhalten –
+  betrifft nur den Betriebsartenschalter im Sandkasten)
+- `Cpu.powerOff/powerOn`, `GameRun.powerCycle`, Testschritt `power: [[aus, ein], …]` in Aufträgen
+- offen: Retain-Spalte und „Neustart“-Knopf in der Oberfläche, OB100 im Menü „+ Baustein“
+- 662 Tests
+
 ## M8c – FC mit Rückgabewert (2026-11-02)
 
 - FC-Schnittstelle mit **Return `Ret_Val`** (Datentyp in der Oberfläche, `Void` = keiner); im

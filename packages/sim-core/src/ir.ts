@@ -100,6 +100,8 @@ export interface SlotDecl {
   init: Value;
   /** TEMP-Variablen werden zu Beginn jedes OB-Durchlaufs auf `init` gesetzt. */
   temp?: boolean;
+  /** remanent: behält den Wert bei Neustart (STOP → RUN, Spannung aus/ein) */
+  retain?: boolean;
 }
 
 export interface InstanceDecl {
@@ -113,7 +115,8 @@ export interface InstanceDecl {
  * - process (OB40): bei Flanke an einem Eingangsbit der Peripherie
  */
 export interface IrTask {
-  kind: 'cyclic' | 'process';
+  /** startup: Anlauf-OB (OB100), läuft einmal vor dem ersten Zyklus nach jedem Neustart */
+  kind: 'cyclic' | 'process' | 'startup';
   name: string;
   start: number;
   end: number;

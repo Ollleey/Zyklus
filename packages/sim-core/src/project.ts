@@ -33,6 +33,8 @@ export interface VarDecl {
   /** Startwert als Literaltext, z. B. "T#500ms", "100", "TRUE" */
   init?: string;
   comment?: string;
+  /** remanent (nur Global-DB und FB-Schnittstelle außer Temp/InOut/Constant) */
+  retain?: boolean;
 }
 
 export type CodeBlockKind = 'OB' | 'FB' | 'FC';
@@ -43,11 +45,14 @@ export type CodeBlockKind = 'OB' | 'FB' | 'FC';
  */
 export type ObEvent =
   | { kind: 'cyclic'; intervalMs: number; phaseMs?: number }
-  | { kind: 'process'; input: string; edge: 'rising' | 'falling' };
+  | { kind: 'process'; input: string; edge: 'rising' | 'falling' }
+  /** Anlauf: einmal nach jedem Neustart, vor dem ersten Zyklus von OB1 */
+  | { kind: 'startup' };
 
 export const OB_NUMBERS = {
   cyclic: [30, 38],
   process: [40, 47],
+  startup: [100, 100],
 } as const satisfies Record<ObEvent['kind'], readonly [number, number]>;
 
 export interface CodeBlock {
