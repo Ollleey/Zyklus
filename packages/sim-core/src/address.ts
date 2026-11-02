@@ -36,6 +36,21 @@ export function formatAddress(a: Address): string {
 
 export function sizeOfType(t: DataType): AccessSize {
   switch (t) {
+    case 'SINT':
+    case 'USINT':
+      return 'B';
+    case 'UINT':
+      return 'W';
+    case 'UDINT':
+      return 'D';
+    case 'LWORD':
+    case 'LINT':
+    case 'ULINT':
+    case 'LREAL':
+      // Spielvereinfachung: 64-bit-Werte gibt es nur in Datenbausteinen und Temp
+      throw new AddressError(
+        `${t} ist nur in Datenbausteinen und lokal möglich, nicht im E/A- oder Merkerbereich`,
+      );
     case 'BOOL':
       return 'X';
     case 'BYTE':

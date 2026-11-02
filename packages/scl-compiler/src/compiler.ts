@@ -8,8 +8,11 @@ import {
   defaultValue,
   integerRange,
   io,
+  DATA_TYPES,
   isArithmeticType,
   isBitStringType,
+  isIntType,
+  isRealType,
   normalize,
   parseAddress,
   tiaTypeForSize,
@@ -341,8 +344,11 @@ export function countStatements(body: Stmt[]): number {
 // Übersetzung
 // ---------------------------------------------------------------------------------------------
 
-const CONV_RE =
-  /^(BOOL|BYTE|WORD|DWORD|INT|DINT|REAL|TIME)_TO_(BOOL|BYTE|WORD|DWORD|INT|DINT|REAL|TIME)$/;
+const CONV_RE = new RegExp(`^(${DATA_TYPES.join('|')})_TO_(${DATA_TYPES.join('|')})$`);
+
+/** Zahlentypen für + - * / (mit TIME) und für Funktionen wie MIN/MAX/LIMIT */
+const ARITH_TYPES: DataType[] = DATA_TYPES.filter(isArithmeticType);
+const NUMBER_TYPES: DataType[] = ARITH_TYPES.filter((t) => t !== 'TIME');
 
 const FUNCTIONS: Record<string, { params: string[]; variadic?: boolean }> = {
   ABS: { params: ['IN'] },
@@ -1039,11 +1045,19 @@ class CodeGen {
             return;
           }
           const nat = this.infer(e);
-          if (nat !== 'INT' && nat !== 'DINT' && nat !== 'ANY_INT') {
+          if (nat !== 'ANY_INT' && !(nat && !isLiteralType(nat) && isIntType(nat))) {
             if (!nat) this.invalid(e);
             this.fail(`Feldindex muss eine Ganzzahl sein, ist ${typeName(nat)}`, e.span);
           }
-          const a = this.genAs(e, nat === 'INT' ? 'INT' : 'DINT');
+          let a: Operand;
+          if (nat === 'INT') a = this.genAs(e, 'INT');
+          else if (nat === 'ANY_INT' || implicitOk(nat, 'DINT')) a = this.genAs(e, 'DINT');
+          else {
+            // UDInt, LInt, ULInt: gesättigt nach DInt, die Grenzprüfung meldet dann den Fehler
+            const v = this.gen(e);
+            a = this.temp('DINT');
+            this.b.emit({ op: 'conv', dst: a, src: v.o, mode: 'round' });
+          }
           const o = this.temp('DINT');
           this.b.emit({ op: 'chk', dst: o, a, lo, hi, msg: refHead(r, i) });
           terms.push({ o, n, stride });
@@ -1909,10 +1923,14 @@ class CodeGen {
   private caseStmt(s: Extract<Stmt, { k: 'case' }>): void {
     const natural = this.infer(s.sel);
     const t =
-      natural === 'DINT' ? 'DINT' : natural === 'INT' || natural === 'ANY_INT' ? 'INT' : undefined;
+      natural === 'ANY_INT'
+        ? 'INT'
+        : natural && !isLiteralType(natural) && isIntType(natural)
+          ? natural
+          : undefined;
     if (!t) {
       this.fail(
-        `CASE-Ausdruck muss Int oder DInt sein, ist ${typeName(natural ?? 'BOOL')}`,
+        `CASE-Ausdruck muss eine Ganzzahl sein (SInt … ULInt), ist ${typeName(natural ?? 'BOOL')}`,
         s.sel.span,
       );
     }
@@ -1965,8 +1983,7 @@ class CodeGen {
     if (v.o.k === 'islot') {
       this.fail('Laufvariable braucht einen festen Speicherplatz (kein variabler Index)', s.v.span);
     }
-    if (v.t !== 'INT' && v.t !== 'DINT')
-      this.fail('Laufvariable muss Int oder DInt sein', s.v.span);
+    if (!isIntType(v.t)) this.fail('Laufvariable muss eine Ganzzahl sein (SInt … ULInt)', s.v.span);
     this.store(this.gen(s.from, v.t), v, s.from.span, s.from);
 
     // Endwert wird einmal vor der Schleife ausgewertet
@@ -2418,11 +2435,11 @@ class CodeGen {
       if (want && acceptsIntLiteral(want)) t = want;
       else t = (e.v as number) >= -32768 && (e.v as number) <= 32767 ? 'INT' : 'DINT';
     } else if (e.t === 'ANY_REAL') {
-      t = 'REAL';
+      t = want === 'LREAL' ? 'LREAL' : 'REAL';
     } else {
       t = e.t;
     }
-    if (t !== 'BOOL' && t !== 'REAL') {
+    if (t !== 'BOOL' && !isRealType(t)) {
       const [lo, hi] = integerRange(t);
       const n = e.v as number;
       if (!Number.isInteger(n) || n < lo || n > hi) {
@@ -2491,7 +2508,7 @@ class CodeGen {
   /** Arbeitstyp für Operanden, deren gemeinsamer Typ u ist (Literale passen sich dem hint an). */
   private workType(u: LiteralType, hint: DataType | undefined, allowed: DataType[]): DataType {
     if (isLiteralType(u)) {
-      if (hint && allowed.includes(hint) && (u === 'ANY_INT' || hint === 'REAL')) return hint;
+      if (hint && allowed.includes(hint) && (u === 'ANY_INT' || isRealType(hint))) return hint;
       return concrete(u);
     }
     return u;
@@ -2508,7 +2525,7 @@ class CodeGen {
       this.b.emit({ op: 'un', fn: 'not', t, dst: o, a });
       return { o, t };
     }
-    const t = arithmeticOf(this.workType(nat, hint, ['INT', 'DINT', 'REAL', 'TIME']));
+    const t = arithmeticOf(this.workType(nat, hint, ARITH_TYPES));
     if (!isArithmeticType(t))
       this.fail(`Vorzeichen „-“ ist auf ${typeName(nat)} nicht anwendbar`, e.span);
     const a = this.genAs(e.e, t);
@@ -2573,11 +2590,10 @@ class CodeGen {
       return { o, t: 'BOOL' };
     }
 
-    const t = arithmeticOf(this.workType(u, hint, ['INT', 'DINT', 'REAL']));
+    const t = arithmeticOf(this.workType(u, hint, NUMBER_TYPES));
     if (!isArithmeticType(t))
       this.fail(`Operator ${op} ist nicht auf ${typeName(u)} anwendbar`, e.span);
-    if (op === 'MOD' && t !== 'INT' && t !== 'DINT')
-      this.fail('MOD ist nur auf Int und DInt anwendbar', e.span);
+    if (op === 'MOD' && !isIntType(t)) this.fail('MOD ist nur auf Ganzzahlen anwendbar', e.span);
     if (t === 'TIME' && (op === '*' || op === '/' || op === 'MOD')) {
       this.fail(`Time ${op} Time ist nicht sinnvoll – multipliziere mit einer Zahl`, e.span);
     }
@@ -2747,7 +2763,7 @@ class CodeGen {
       return { o, t: to };
     }
 
-    const numeric: DataType[] = ['INT', 'DINT', 'REAL', 'TIME'];
+    const numeric = ARITH_TYPES;
     const common = (es: Expr[], allowed: DataType[], what: string): DataType => {
       const u = this.unifyAll(es);
       if (!u) {
@@ -2787,22 +2803,14 @@ class CodeGen {
       }
       case 'SEL': {
         const g = this.genAs(args[0]!, 'BOOL');
-        const t = common(
-          args.slice(1),
-          ['BOOL', 'BYTE', 'WORD', 'DWORD', ...numeric],
-          'gleicher Typ für IN0 und IN1',
-        );
+        const t = common(args.slice(1), [...DATA_TYPES], 'gleicher Typ für IN0 und IN1');
         return emitFn('sel', t, t, [g, this.genAs(args[1]!, t), this.genAs(args[2]!, t)]);
       }
       case 'MUX': {
         const k = this.genAs(args[0]!, 'INT');
         const elseArg = e.args.find((a) => a.name === 'INELSE')?.e;
         const valueArgs = elseArg ? [...args.slice(1), elseArg] : args.slice(1);
-        const t = common(
-          valueArgs,
-          ['BOOL', 'BYTE', 'WORD', 'DWORD', ...numeric],
-          'gleicher Typ für alle Eingänge',
-        );
+        const t = common(valueArgs, [...DATA_TYPES], 'gleicher Typ für alle Eingänge');
         const ins = args.slice(1).map((a) => this.genAs(a, t));
         const alt = elseArg ? this.genAs(elseArg, t) : undefined;
         const o = this.result(t, dst);
@@ -2855,7 +2863,7 @@ class CodeGen {
       }
       case 'ROUND':
       case 'TRUNC': {
-        const a = this.genAs(args[0]!, 'REAL');
+        const a = this.genAs(args[0]!, this.infer(args[0]!) === 'LREAL' ? 'LREAL' : 'REAL');
         const o = this.result('DINT', dst);
         this.b.emit({ op: 'conv', dst: o, src: a, mode: e.name === 'ROUND' ? 'round' : 'trunc' });
         return { o, t: 'DINT' };

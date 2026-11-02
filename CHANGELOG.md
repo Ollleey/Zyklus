@@ -1,5 +1,19 @@
 # Changelog
 
+## M8e – weitere Elementartypen (2026-11-02)
+
+- Neue Typen **SInt, USInt, UInt, UDInt, LInt, ULInt, LReal, LWord** in Datenbausteinen,
+  Schnittstellen, Feldern und Datentypen; SInt/USInt/UInt/UDInt auch als PLC-Variable
+  (`%MB`, `%MW`, `%MD`)
+- Überlauf wie auf der Hardware (Zweierkomplement bzw. modulo); typisierte Literale
+  (`USINT#5`, `LREAL#1.5`, `LWORD#16#FF`), alle `X_TO_Y`-Konvertierungen
+- Implizite Erweiterungen nach S7-1500 (z. B. SInt → Int → DInt → LInt, Real → LReal,
+  USInt → UInt → UDInt → ULInt); Verengungen brauchen eine Konvertierungsfunktion
+- FOR-Laufvariable, CASE-Ausdruck und Feldindex: jede Ganzzahl
+- **Spielvereinfachung:** LInt/ULInt/LWord sind auf ±(2^53 − 1) begrenzt (Sättigung statt
+  Überlauf); 64-bit-Typen gibt es nicht im E/A- und Merkerbereich
+- 674 Tests
+
 ## M8d – Anlauf-OB100, Remanenz, Neustart (Kern und Compiler, 2026-11-02)
 
 - Ereignis **Anlauf** (OB100): läuft einmal nach jedem Neustart vor dem ersten OB1-Zyklus

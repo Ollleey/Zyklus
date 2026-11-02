@@ -1,8 +1,9 @@
-import type { DataType, Tag } from '@zyklus/sim-core';
+import { bitWidth, type DataType, type Tag } from '@zyklus/sim-core';
 import { TIA_NAMES } from '@zyklus/scl-compiler';
 import { t } from '../i18n';
 
-const TYPES = Object.keys(TIA_NAMES) as DataType[];
+// 64-bit-Typen gibt es im Spiel nur in Datenbausteinen
+const TYPES = (Object.keys(TIA_NAMES) as DataType[]).filter((ty) => bitWidth(ty) < 64);
 
 interface Props {
   tags: Tag[];

@@ -1,9 +1,27 @@
 /**
  * Elementare Datentypen der Spiel-SPS (Auswahl wie S7-1500).
  * TIME wird als vorzeichenbehaftete Millisekunden (32 bit) geführt.
- * BYTE, WORD, DWORD sind Bitfolgen (vorzeichenlos).
+ * BYTE, WORD, DWORD, LWORD sind Bitfolgen (vorzeichenlos).
+ * **Spielvereinfachung:** 64-bit-Typen (LINT, ULINT, LWORD) sind JS-Zahlen und auf ±(2^53 − 1)
+ * begrenzt (Sättigung statt Überlauf); LREAL ist 64-bit-Gleitkomma.
  */
-export type DataType = 'BOOL' | 'BYTE' | 'WORD' | 'DWORD' | 'INT' | 'DINT' | 'REAL' | 'TIME';
+export type DataType =
+  | 'BOOL'
+  | 'BYTE'
+  | 'WORD'
+  | 'DWORD'
+  | 'LWORD'
+  | 'SINT'
+  | 'USINT'
+  | 'INT'
+  | 'UINT'
+  | 'DINT'
+  | 'UDINT'
+  | 'LINT'
+  | 'ULINT'
+  | 'REAL'
+  | 'LREAL'
+  | 'TIME';
 
 export type Value = boolean | number;
 
@@ -12,9 +30,17 @@ export const DATA_TYPES: readonly DataType[] = [
   'BYTE',
   'WORD',
   'DWORD',
+  'LWORD',
+  'SINT',
+  'USINT',
   'INT',
+  'UINT',
   'DINT',
+  'UDINT',
+  'LINT',
+  'ULINT',
   'REAL',
+  'LREAL',
   'TIME',
 ];
 
@@ -25,18 +51,38 @@ export const DINT_MAX = 2147483647;
 export const BYTE_MAX = 0xff;
 export const WORD_MAX = 0xffff;
 export const DWORD_MAX = 0xffffffff;
+/** Grenze der 64-bit-Typen im Spiel (sicherer Ganzzahlbereich von JS) */
+export const LONG_MAX = Number.MAX_SAFE_INTEGER;
 
 export function isBitStringType(t: DataType): boolean {
-  return t === 'BYTE' || t === 'WORD' || t === 'DWORD';
+  return t === 'BYTE' || t === 'WORD' || t === 'DWORD' || t === 'LWORD';
+}
+
+/** Ganzzahlen mit Vorzeichen oder ohne (SINT … ULINT), ohne TIME und Bitfolgen */
+export function isIntType(t: DataType): boolean {
+  return (
+    t === 'SINT' ||
+    t === 'USINT' ||
+    t === 'INT' ||
+    t === 'UINT' ||
+    t === 'DINT' ||
+    t === 'UDINT' ||
+    t === 'LINT' ||
+    t === 'ULINT'
+  );
+}
+
+export function isRealType(t: DataType): boolean {
+  return t === 'REAL' || t === 'LREAL';
 }
 
 export function isIntegerType(t: DataType): boolean {
-  return t === 'INT' || t === 'DINT' || t === 'TIME' || isBitStringType(t);
+  return isIntType(t) || t === 'TIME' || isBitStringType(t);
 }
 
 /** Typen, auf denen + - * / erlaubt sind. */
 export function isArithmeticType(t: DataType): boolean {
-  return t === 'INT' || t === 'DINT' || t === 'REAL' || t === 'TIME';
+  return isIntType(t) || isRealType(t) || t === 'TIME';
 }
 
 /** Typen, auf denen AND/OR/XOR/NOT erlaubt sind. */
@@ -50,10 +96,18 @@ export function bitWidth(t: DataType): number {
     case 'BOOL':
       return 1;
     case 'BYTE':
+    case 'SINT':
+    case 'USINT':
       return 8;
     case 'WORD':
     case 'INT':
+    case 'UINT':
       return 16;
+    case 'LWORD':
+    case 'LINT':
+    case 'ULINT':
+    case 'LREAL':
+      return 64;
     default:
       return 32;
   }
@@ -68,6 +122,19 @@ export function integerRange(t: DataType): [number, number] {
   switch (t) {
     case 'INT':
       return [INT_MIN, INT_MAX];
+    case 'SINT':
+      return [-128, 127];
+    case 'USINT':
+      return [0, 255];
+    case 'UINT':
+      return [0, WORD_MAX];
+    case 'UDINT':
+      return [0, DWORD_MAX];
+    case 'LINT':
+      return [-LONG_MAX, LONG_MAX];
+    case 'ULINT':
+    case 'LWORD':
+      return [0, LONG_MAX];
     case 'BYTE':
       return [0, BYTE_MAX];
     case 'WORD':
@@ -97,8 +164,24 @@ export function normalize(t: DataType, v: Value): Value {
       return typeof v === 'boolean' ? v : v !== 0;
     case 'INT':
       return (toNumber(v) << 16) >> 16;
+    case 'SINT':
+      return (toNumber(v) << 24) >> 24;
+    case 'USINT':
     case 'BYTE':
       return toNumber(v) & BYTE_MAX;
+    case 'UINT':
+      return toNumber(v) & WORD_MAX;
+    case 'UDINT':
+      return toNumber(v) >>> 0;
+    case 'LINT':
+    case 'ULINT':
+    case 'LWORD': {
+      const [lo, hi] = integerRange(t);
+      const n = Math.trunc(toNumber(v));
+      return n < lo ? lo : n > hi ? hi : n === 0 ? 0 : n;
+    }
+    case 'LREAL':
+      return typeof v === 'boolean' ? (v ? 1 : 0) : v;
     case 'WORD':
       return toNumber(v) & WORD_MAX;
     case 'DWORD':

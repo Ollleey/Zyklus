@@ -2,7 +2,24 @@ import { useId } from 'react';
 import type { VarDecl } from '@zyklus/sim-core';
 import { t } from '../i18n';
 
-export const ELEMENTARY_TYPES = ['Bool', 'Byte', 'Word', 'DWord', 'Int', 'DInt', 'Real', 'Time'];
+export const ELEMENTARY_TYPES = [
+  'Bool',
+  'Byte',
+  'Word',
+  'DWord',
+  'Int',
+  'DInt',
+  'Real',
+  'Time',
+  'SInt',
+  'USInt',
+  'UInt',
+  'UDInt',
+  'LInt',
+  'ULInt',
+  'LReal',
+  'LWord',
+];
 
 interface Props {
   rows: VarDecl[];

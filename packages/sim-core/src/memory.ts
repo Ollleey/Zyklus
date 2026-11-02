@@ -37,18 +37,25 @@ export class ByteArea {
       case 'BOOL':
         return (this.bytes[byte]! & (1 << bit)) !== 0;
       case 'BYTE':
+      case 'USINT':
         return this.bytes[byte]!;
+      case 'SINT':
+        return this.view.getInt8(byte);
       case 'INT':
         return this.view.getInt16(byte, false);
       case 'WORD':
+      case 'UINT':
         return this.view.getUint16(byte, false);
       case 'DWORD':
+      case 'UDINT':
         return this.view.getUint32(byte, false);
       case 'DINT':
       case 'TIME':
         return this.view.getInt32(byte, false);
       case 'REAL':
         return this.view.getFloat32(byte, false);
+      default:
+        throw new RangeError(`${t} liegt nicht in ${this.name}`);
     }
   }
 
@@ -61,15 +68,21 @@ export class ByteArea {
         else this.bytes[byte]! &= ~(1 << bit);
         return;
       case 'BYTE':
+      case 'USINT':
         this.bytes[byte] = v as number;
+        return;
+      case 'SINT':
+        this.view.setInt8(byte, v as number);
         return;
       case 'INT':
         this.view.setInt16(byte, v as number, false);
         return;
       case 'WORD':
+      case 'UINT':
         this.view.setUint16(byte, v as number, false);
         return;
       case 'DWORD':
+      case 'UDINT':
         this.view.setUint32(byte, v as number, false);
         return;
       case 'DINT':

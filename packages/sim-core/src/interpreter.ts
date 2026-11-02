@@ -4,8 +4,10 @@ import type { Instr, IrProgram, Operand } from './ir';
 import type { ByteArea } from './memory';
 import { energyOf } from './metrics/weights';
 import {
+  LONG_MAX,
   bitWidth,
   isIntegerType,
+  isRealType,
   normalize,
   roundHalfEven,
   saturate,
@@ -205,7 +207,9 @@ export function convert(
   const n = typeof v === 'boolean' ? (v ? 1 : 0) : v;
   if (to === 'BOOL') return n !== 0;
   if (to === 'REAL') return Math.fround(n);
-  if (from === 'REAL') {
+  if (to === 'LREAL') return n;
+  if (isRealType(from)) {
+    if (!Number.isFinite(n)) return 0;
     const i = mode === 'trunc' ? Math.trunc(n) : roundHalfEven(n);
     return saturate(to, i);
   }
@@ -216,14 +220,24 @@ export function convert(
 /** Typpaare gleicher Breite, bei denen das Bitmuster übernommen wird. */
 function sameBitPattern(a: DataType, b: DataType): boolean {
   const pair = (x: DataType, y: DataType) => (a === x && b === y) || (a === y && b === x);
-  return pair('INT', 'WORD') || pair('DINT', 'DWORD') || pair('TIME', 'DWORD');
+  return (
+    pair('INT', 'WORD') ||
+    pair('DINT', 'DWORD') ||
+    pair('TIME', 'DWORD') ||
+    pair('SINT', 'BYTE') ||
+    pair('USINT', 'BYTE') ||
+    pair('UINT', 'WORD') ||
+    pair('UDINT', 'DWORD')
+  );
 }
 
 function unary(fn: 'not' | 'neg' | 'abs', t: DataType, a: Value): Value {
   switch (fn) {
     case 'not':
       // normalize beim Schreiben schneidet auf die Breite des Typs zu
-      return t === 'BOOL' ? !a : ~(a as number);
+      if (t === 'BOOL') return !a;
+      // LWORD: 53 bit im Spiel
+      return bitWidth(t) === 64 ? LONG_MAX - (a as number) : ~(a as number);
     case 'neg':
       return -(a as number);
     case 'abs':
@@ -242,6 +256,8 @@ function binary(fn: Extract<Instr, { op: 'bin' }>['fn'], t: DataType, av: Value,
   const a = av as number;
   const b = bv as number;
   const int = isIntegerType(t);
+  const wide = bitWidth(t) === 64;
+  const big = (f: (x: bigint, y: bigint) => bigint) => Number(f(BigInt(a), BigInt(b)));
   switch (fn) {
     case 'add':
       return a + b;
@@ -249,23 +265,25 @@ function binary(fn: Extract<Instr, { op: 'bin' }>['fn'], t: DataType, av: Value,
       return a - b;
     case 'mul':
       // Math.imul liefert exakt die unteren 32 bit (Überlauf wie bei DINT)
-      return int ? Math.imul(a, b) : a * b;
+      return int && !wide ? Math.imul(a, b) : a * b;
     case 'div':
       if (!int) return a / b;
       return b === 0 ? 0 : Math.trunc(a / b);
     case 'mod':
       return b === 0 ? 0 : a % b;
     case 'and':
-      return a & b;
+      return wide ? big((x, y) => x & y) : a & b;
     case 'or':
-      return a | b;
+      return wide ? big((x, y) => x | y) : a | b;
     case 'xor':
-      return a ^ b;
+      return wide ? big((x, y) => x ^ y) : a ^ b;
     case 'shl':
       // a · 2^b ist exakt; normalize schneidet auf die Typbreite zu
       return b <= 0 ? a : b >= bitWidth(t) ? 0 : a * 2 ** b;
     case 'shr':
-      return b <= 0 ? a : b >= bitWidth(t) ? 0 : a >>> b;
+      if (b <= 0) return a;
+      if (b >= bitWidth(t)) return 0;
+      return wide ? Math.floor(a / 2 ** b) : a >>> b;
   }
 }
 

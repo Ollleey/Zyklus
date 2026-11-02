@@ -117,7 +117,15 @@ const TYPE_PREFIXES: Record<string, DataType> = {
   DWORD: 'DWORD',
   INT: 'INT',
   DINT: 'DINT',
+  LWORD: 'LWORD',
+  SINT: 'SINT',
+  USINT: 'USINT',
+  UINT: 'UINT',
+  UDINT: 'UDINT',
+  LINT: 'LINT',
+  ULINT: 'ULINT',
   REAL: 'REAL',
+  LREAL: 'LREAL',
   TIME: 'TIME',
   T: 'TIME',
   B: 'BYTE',
@@ -349,7 +357,8 @@ export function tokenize(src: string): Token[] {
           }
           if (!isDigit(src[i])) fail(`Zahl nach ${word}# erwartet`, start);
           const r = readNumber(start);
-          if (r.isReal && type !== 'REAL') fail(`${word}# erwartet eine ganze Zahl`, start);
+          if (r.isReal && type !== 'REAL' && type !== 'LREAL')
+            fail(`${word}# erwartet eine ganze Zahl`, start);
           num = sign * r.num;
           if (isIdentPart(src[i])) fail('Ungültige Zahl', start);
         }

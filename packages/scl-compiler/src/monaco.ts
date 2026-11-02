@@ -13,7 +13,24 @@ import { KEYWORDS } from './lexer';
 
 export const SCL_LANGUAGE_ID = 'scl';
 
-export const SCL_TYPES = ['BOOL', 'BYTE', 'WORD', 'DWORD', 'INT', 'DINT', 'REAL', 'TIME'];
+export const SCL_TYPES = [
+  'BOOL',
+  'BYTE',
+  'WORD',
+  'DWORD',
+  'LWORD',
+  'SINT',
+  'USINT',
+  'INT',
+  'UINT',
+  'DINT',
+  'UDINT',
+  'LINT',
+  'ULINT',
+  'REAL',
+  'LREAL',
+  'TIME',
+];
 
 /** Instanztypen und Anweisungsnamen der Systembausteine */
 export const SCL_FB_TYPES = [
@@ -71,7 +88,7 @@ export const sclMonarch = {
       [/\/\*/, 'comment', '@commentSlash'],
       [/(?:T|TIME)#-?(?:\d+(?:\.\d+)?(?:ms|d|h|m|s)_?)+/i, 'number.time'],
       [
-        /(?:INT|DINT|BYTE|WORD|DWORD|REAL|BOOL|B|W|DW)#[-+]?(?:16#[0-9A-F_]+|8#[0-7_]+|2#[01_]+|[\w.]+)/i,
+        /(?:U?S?INT|U?D?INT|U?LINT|L?REAL|L?D?WORD|BYTE|BOOL|B|W|DW)#[-+]?(?:16#[0-9A-F_]+|8#[0-7_]+|2#[01_]+|[\w.]+)/i,
         'number',
       ],
       [/(?:16#[0-9A-F_]+|8#[0-7_]+|2#[01_]+)/i, 'number.hex'],
