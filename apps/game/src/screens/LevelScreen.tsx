@@ -36,6 +36,7 @@ import type { Layout } from '@zyklus/plant-sim';
 import { PlantEditor } from '../components/plant/PlantEditor';
 import { plantOf, type RunView } from '../sim/types';
 import { useSimulation, type SimControls } from '../state/useSimulation';
+import { showNotice, useCommand, useWindowTitle } from '../state/commands';
 import { FILE_TYPES, platform } from '@zyklus/platform';
 
 /** Standardanordnung der Aufträge: wie bisher Schrank links, Programm rechts, Simulation unten */
@@ -107,6 +108,21 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
 
   const compiled = useMemo(() => compileSolution(level, solution), [level, solution]);
   const sim = useSimulation(level, solution, compiled, sandbox ? 'manual' : 'test', !!plant);
+
+  const saveSolutionFile = () =>
+    void platform.files.save(`${level.id}.zyklus.json`, toSolutionFile(level.id, solution), [
+      FILE_TYPES.loesung,
+    ]);
+  // Menü und Tastatur: Aufträge speichern laufend, „Speichern“ schreibt sofort und bestätigt
+  useCommand(
+    'save',
+    () => void platform.flush().then(() => showNotice(t('level.savedNow'))),
+    !plant,
+  );
+  useCommand('export', saveSolutionFile, !plant);
+  useCommand('importSolution', (text) => void importSolution(text), !plant);
+  useCommand('toggleSim', () => (sim.running ? sim.pause() : sim.play()));
+  useWindowTitle(plant ? 'ZYKLUS – Sandkasten' : `ZYKLUS – ${tr(level.title)}`);
   const run = sim.run;
 
   const values = useMemo(() => {
@@ -177,8 +193,8 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
     }
   };
 
-  const importSolution = async () => {
-    const file = await platform.files.open([FILE_TYPES.loesung]);
+  const importSolution = async (text?: string) => {
+    const file = text === undefined ? await platform.files.open([FILE_TYPES.loesung]) : { text };
     if (!file) return;
     const parsed = parseSolutionFile(file.text, level.id, () => level);
     if (!parsed.ok) {
@@ -444,12 +460,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                       label: t('level.save'),
                       title: t('level.save.title'),
                       disabled: !solution.modules.length,
-                      onSelect: () =>
-                        void platform.files.save(
-                          `${level.id}.zyklus.json`,
-                          toSolutionFile(level.id, solution),
-                          [FILE_TYPES.loesung],
-                        ),
+                      onSelect: saveSolutionFile,
                     },
                     {
                       label: t('level.load'),

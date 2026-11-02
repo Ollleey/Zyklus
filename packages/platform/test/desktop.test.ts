@@ -182,11 +182,67 @@ describe('Desktop-Speicherung', () => {
     const p = desktopPlatform(deps(m.fs));
     expect(await p.files.save('b.anlage', 'inhalt', [])).toBe('b.anlage');
     expect(m.files.get('/export/b.anlage')).toBe('inhalt');
-    expect(await p.files.open([])).toEqual({ name: 'a.anlage', text: '{"x":1}' });
+    expect(await p.files.open([])).toEqual({
+      name: 'a.anlage',
+      text: '{"x":1}',
+      path: '/export/a.anlage',
+    });
     const cancel = desktopPlatform(
       deps(m.fs, { saveDialog: async () => null, openDialog: async () => null }),
     );
     expect(await cancel.files.save('c', 'x', [])).toBeNull();
     expect(await cancel.files.open([])).toBeNull();
+  });
+
+  it('merkt sich zuletzt geöffnete Dateien und meldet sie dem Menü', async () => {
+    const m = memFs();
+    m.files.set('/export/a.anlage', '{"x":1}');
+    let menu: string[] = [];
+    const p = desktopPlatform(deps(m.fs, { setRecentMenu: async (l) => void (menu = l) }));
+    await p.init();
+    await p.files.save('b.anlage', 'B', []);
+    await p.files.open([]);
+    expect(p.recent!.list()).toEqual(['/export/a.anlage', '/export/b.anlage']);
+    expect(menu).toEqual(['/export/a.anlage', '/export/b.anlage']);
+    expect(await p.recent!.open(1)).toMatchObject({ name: 'b.anlage', text: 'B' });
+    // verschobene Datei verschwindet aus der Liste
+    m.files.delete('/export/a.anlage');
+    expect(await p.recent!.open(1)).toBeNull();
+    expect(p.recent!.list()).toEqual(['/export/b.anlage']);
+  });
+
+  it('übergibt beim Start geöffnete Dateien an die Oberfläche', async () => {
+    const m = memFs();
+    let pushOpen: ((f: { name: string; text: string; path?: string }) => void) | undefined;
+    const p = desktopPlatform(
+      deps(m.fs, {
+        takeLaunchFiles: async () => [{ name: 'x.anlage', text: '{}', path: 'C:/x.anlage' }],
+        onOpen: (fn) => {
+          pushOpen = fn;
+          return () => {};
+        },
+      }),
+    );
+    await p.init();
+    const got: string[] = [];
+    p.onOpenFile((f) => got.push(f.name));
+    pushOpen!({ name: 'y.anlage', text: '{}', path: 'C:/y.anlage' });
+    expect(got).toEqual(['x.anlage', 'y.anlage']);
+  });
+
+  it('Schließen: Rückfrage nur bei ungespeicherten Änderungen', async () => {
+    const m = memFs();
+    let handler: (() => Promise<boolean>) | undefined;
+    const p = desktopPlatform(deps(m.fs, { onCloseRequested: (fn) => ((handler = fn), () => {}) }));
+    let dirty = false;
+    let asked = 0;
+    p.guardClose(
+      () => dirty,
+      async () => (asked++, false),
+    );
+    expect(await handler!()).toBe(true);
+    dirty = true;
+    expect(await handler!()).toBe(false);
+    expect(asked).toBe(1);
   });
 });

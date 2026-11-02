@@ -34,6 +34,7 @@ import {
 } from '../state/layouts';
 import { plantOf } from '../sim/types';
 import { LevelScreen, type PlantSlot, type SlotContext } from './LevelScreen';
+import { useCommand, useWindowTitle } from '../state/commands';
 import { FILE_TYPES, platform, platformFileName } from '@zyklus/platform';
 
 /** Autosave in „Meine Anlagen“ */
@@ -74,7 +75,18 @@ function firstVisit(): void {
  * Sandkasten: eigene Anlage bauen, verdrahten, programmieren und live simulieren. Technisch ein
  * Level, das zur Laufzeit aus der Anlage entsteht; Schrank, Compiler und SPS bleiben dieselben.
  */
-export function SandboxScreen({ onBack }: { onBack: () => void }) {
+/** Sandkasten mit einer Datei bzw. einer neuen Anlage öffnen (Menü, Doppelklick) */
+export type SandboxStart = { kind: 'import'; text: string } | { kind: 'new' };
+
+export function SandboxScreen({
+  onBack,
+  start,
+  onStarted,
+}: {
+  onBack: () => void;
+  start?: SandboxStart | null;
+  onStarted?: () => void;
+}) {
   // erster Besuch: mit der Sortierstation beginnen (vor dem ersten Laden des Schaltschranks)
   useState(firstVisit);
   const hist = useHistory<Layout>(() => loadLayout() ?? emptyLayout());
@@ -89,6 +101,8 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
   const ctxRef = useRef<SlotContext | null>(null);
   /** Stand beim letzten Speichern (ohne Zeitstempel) */
   const savedRef = useRef<string>('');
+  // beim Öffnen des Sandkastens gilt der geladene Stand als gespeichert (beim Verlassen wird gesichert)
+  const markSaved = useRef(true);
 
   useEffect(() => saveLayout(layout), [layout]);
   // Hinweise blenden sich aus; Fehlermeldungen bleiben, bis sie geschlossen werden
@@ -163,6 +177,8 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
     ctxRef.current?.sim.setSpeed(file.sim.speed);
     setActiveId(id);
     savedRef.current = '';
+    // der geöffnete Stand ist gespeichert; Vergleichswert nach dem nächsten Zeichnen übernehmen
+    markSaved.current = true;
   };
 
   const importText = (text: string) => {
@@ -221,6 +237,67 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
   const startCoach = () => {
     createNew(t('coach.layoutName'));
     setCoach(0);
+  };
+
+  // Menü und Tastatur
+  useCommand('save', () => {
+    store(true);
+    setNotice(t('anlage.saved', { name: meta.name }));
+  });
+  useCommand(
+    'export',
+    () =>
+      void platform.files.save(
+        platformFileName(anlageFileName(meta.name)),
+        toAnlageFile(fileData(new Date().toISOString())),
+        [FILE_TYPES.anlage],
+      ),
+  );
+  useCommand('new', () => createNew());
+  useCommand('importAnlage', (text) => text && importText(text));
+
+  // Start mit Datei oder neuer Anlage (Dateizuordnung, Menü „Neu“)
+  useEffect(() => {
+    if (!start) return;
+    if (start.kind === 'import') importText(start.text);
+    else createNew();
+    onStarted?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start]);
+
+  // ungespeicherte Änderungen: Stand weicht vom zuletzt gespeicherten ab
+  const isDirty = () => layout.parts.length > 0 && toAnlageFile(fileData('')) !== savedRef.current;
+  const dirtyRef = useRef(isDirty);
+  const fileDataRef = useRef(fileData);
+  fileDataRef.current = fileData;
+  dirtyRef.current = isDirty;
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (markSaved.current) {
+        markSaved.current = false;
+        savedRef.current = toAnlageFile(fileDataRef.current(''));
+      }
+      setDirty(dirtyRef.current());
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  useWindowTitle(`ZYKLUS – ${t('sandkasten.title')}: ${meta.name}${dirty ? ' *' : ''}`);
+
+  // Schließen mit ungespeicherten Änderungen: nachfragen
+  const [closeAsk, setCloseAsk] = useState<((ok: boolean) => void) | null>(null);
+  useEffect(
+    () =>
+      platform.guardClose(
+        () => dirtyRef.current(),
+        () => new Promise<boolean>((resolve) => setCloseAsk(() => resolve)),
+      ),
+    [],
+  );
+  const answerClose = (a: 'save' | 'discard' | 'cancel') => {
+    if (a === 'save') storeRef.current(true);
+    closeAsk?.(a !== 'cancel');
+    setCloseAsk(null);
   };
 
   const slot: PlantSlot = {
@@ -347,6 +424,30 @@ export function SandboxScreen({ onBack }: { onBack: () => void }) {
           >
             ✕
           </button>
+        </div>
+      )}
+      {closeAsk && (
+        <div className="modal-backdrop">
+          <div
+            className="confirm"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="close-title"
+          >
+            <h2 id="close-title">{t('close.title')}</h2>
+            <p>{t('close.text', { name: meta.name })}</p>
+            <div className="confirm-actions">
+              <button className="btn" onClick={() => answerClose('cancel')}>
+                {t('dialog.cancel')}
+              </button>
+              <button className="btn btn-danger" onClick={() => answerClose('discard')}>
+                {t('close.discard')}
+              </button>
+              <button className="btn btn-primary" autoFocus onClick={() => answerClose('save')}>
+                {t('close.save')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {publishing && (

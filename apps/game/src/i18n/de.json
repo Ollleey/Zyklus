@@ -277,5 +277,19 @@
   "coach.finishedText": "Deine Anlage läuft mit deinem Programm. Als Nächstes: Werkstücke sortieren – die Vorlagen unter „Mehr → Meine Anlagen“ zeigen, wie es geht. Die Einführung findest du jederzeit unter „Mehr“.",
   "anlage.folder": "Ordner:",
   "anlage.folderOpen": "Ordner öffnen",
-  "anlage.folderChange": "Ordner ändern …"
+  "anlage.folderChange": "Ordner ändern …",
+  "app.solutionNeedsLevel": "Lösungsdateien öffnest du im passenden Auftrag (Mehr → Lösung laden).",
+  "app.unknownFile": "„{name}“ ist keine Spieldatei (.anlage, .auftrag, .zyklus.json).",
+  "app.nothingToSave": "Hier gibt es nichts zu speichern.",
+  "app.recentMissing": "Die Datei gibt es nicht mehr; sie wurde aus „Zuletzt geöffnet“ entfernt.",
+  "level.savedNow": "Lösung gespeichert.",
+  "about.version": "Version",
+  "about.platform": "Ausgabe",
+  "about.desktop": "Desktop-Anwendung",
+  "about.web": "Browser",
+  "about.offline": "Läuft vollständig offline. Spielstände bleiben auf diesem Rechner.",
+  "close.title": "Ungespeicherte Änderungen",
+  "close.text": "Die Anlage „{name}“ hat Änderungen, die noch nicht unter „Meine Anlagen“ gespeichert sind.",
+  "close.discard": "Nicht speichern",
+  "close.save": "Speichern und beenden"
 }

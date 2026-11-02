@@ -36,6 +36,13 @@ export const platform: Platform = {
     return current.plantsFolder;
   },
   onFileDrop: (fn) => current.onFileDrop(fn),
+  setTitle: (t) => current.setTitle(t),
+  onCommand: (fn) => current.onCommand(fn),
+  onOpenFile: (fn) => current.onOpenFile(fn),
+  guardClose: (d, a) => current.guardClose(d, a),
+  get recent() {
+    return current.recent;
+  },
   init: () => current.init(),
   flush: () => current.flush(),
 };

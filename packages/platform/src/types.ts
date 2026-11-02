@@ -20,7 +20,13 @@ export interface FileFilter {
 export interface OpenedFile {
   name: string;
   text: string;
+  /** Desktop: voller Pfad (für „Zuletzt geöffnet“) */
+  path?: string;
 }
+
+/** Befehle aus Menüleiste bzw. Tastatur */
+export type Command =
+  'new' | 'open' | 'save' | 'export' | 'handbook' | 'about' | 'fullscreen' | `recent:${number}`;
 
 export interface Platform {
   readonly kind: 'web' | 'desktop';
@@ -40,6 +46,19 @@ export interface Platform {
     choose(): Promise<boolean>;
     reveal(): Promise<void>;
   };
+  /** Fenstertitel (Browser: Tab-Titel) */
+  setTitle(title: string): void;
+  /** Befehle aus der Menüleiste (nur Desktop; im Browser kommen sie über die Tastatur) */
+  onCommand(fn: (cmd: Command) => void): () => void;
+  /** Datei per Doppelklick bzw. beim Start übergeben (Dateizuordnung) */
+  onOpenFile(fn: (file: OpenedFile) => void): () => void;
+  /**
+   * Schutz beim Schließen: `dirty` meldet ungespeicherte Änderungen, `ask` fragt nach (true =
+   * schließen). Der Browser kann nur seine eigene Rückfrage zeigen.
+   */
+  guardClose(dirty: () => boolean, ask: () => Promise<boolean>): () => void;
+  /** Desktop: zuletzt geöffnete Dateien */
+  readonly recent?: { list(): string[]; open(index: number): Promise<OpenedFile | null> };
   /** vor dem ersten Lesen aufrufen (Desktop lädt dann die Dateien in den Speicher) */
   init(): Promise<void>;
   /** ausstehende Schreibvorgänge abschließen (Beenden) */

@@ -94,6 +94,20 @@ export function webPlatform(): Platform {
         window.removeEventListener('drop', drop);
       };
     },
+    setTitle(title) {
+      document.title = title;
+    },
+    onCommand: () => () => {},
+    onOpenFile: () => () => {},
+    guardClose(dirty) {
+      const before = (e: BeforeUnloadEvent) => {
+        if (!dirty()) return;
+        e.preventDefault();
+        e.returnValue = '';
+      };
+      window.addEventListener('beforeunload', before);
+      return () => window.removeEventListener('beforeunload', before);
+    },
     init: async () => {},
     flush: async () => {},
   };

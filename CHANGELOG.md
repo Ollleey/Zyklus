@@ -1,5 +1,27 @@
 # Changelog
 
+## P4 – Desktop: Menü, Kürzel, Dateizuordnung (2026-11-02)
+
+- Native Menüleiste:
+  - **Datei:** Neue Anlage, Öffnen …, Zuletzt geöffnet, Speichern, Exportieren …, Beenden
+  - **Ansicht:** Vollbild, Vergrößern/Verkleinern/Originalgröße
+  - **Hilfe:** Handbuch, Über ZYKLUS
+- Tastenkürzel (Desktop über das Menü, im Browser über die Seite): Strg+N, Strg+O, Strg+S,
+  Strg+Umschalt+S, F1, F11, Strg +/−/0; Leertaste startet bzw. hält die Simulation (nicht beim
+  Tippen, auf Knöpfen oder im Editor); Strg+Z/Y bleiben bei Editor und Anlageneditor
+- Öffnen leitet je Dateiart weiter: `.anlage` in den Sandkasten, `.auftrag` in „Eigene Aufträge“,
+  `.zyklus.json` in den offenen Auftrag
+- Dateizuordnung `.anlage` und `.auftrag` (Installer): Doppelklick startet das Spiel mit der Datei;
+  läuft es schon, geht die Datei an das offene Fenster (eine Instanz)
+- „Zuletzt geöffnet“ (10 Dateien) im Menü, verschobene Dateien fallen heraus
+- Fenstertitel mit Auftrag bzw. Anlage, `*` bei ungespeicherten Änderungen im Sandkasten
+- Schließen mit ungespeicherten Änderungen: Rückfrage „Speichern und beenden / Nicht speichern /
+  Abbrechen“; danach werden alle Spielstände geschrieben
+- „Über ZYKLUS“ mit Version aus der Root-`package.json`
+- Erfolgsmeldungen („Lösung gespeichert.“) als kurzer Hinweis statt Fehlerleiste
+- Geprüft in der gebauten App: Menüleiste, Start mit `.anlage`-Datei öffnet den Sandkasten,
+  Titel, sauberes Schließen; 613 Tests
+
 ## P3 – Desktop: Speicherung in Dateien (2026-11-02)
 
 - Desktop-Implementierung der Plattformschicht (`packages/platform/src/desktop.ts`):

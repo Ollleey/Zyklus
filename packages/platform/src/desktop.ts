@@ -37,6 +37,17 @@ export interface DesktopDeps {
   pickFolder?(): Promise<string | null>;
   /** Verzögerung für gebündeltes Schreiben (ms) */
   debounceMs?: number;
+  /** Fenster und Menü (fehlen im Test) */
+  setTitle?(title: string): void;
+  onMenu?(fn: (id: string) => void): () => void;
+  /** Dateizuordnung: beim Start übergebene und per Doppelklick nachgereichte Dateien */
+  takeLaunchFiles?(): Promise<OpenedFile[]>;
+  onOpen?(fn: (f: OpenedFile) => void): () => void;
+  /** Schließen: Handler entscheidet; danach schreibt die Plattform und schließt das Fenster */
+  onCloseRequested?(fn: () => Promise<boolean>): () => void;
+  setRecentMenu?(paths: string[]): Promise<void>;
+  /** Datei lesen, auch außerhalb der freigegebenen Ordner (zuletzt geöffnet) */
+  readOpened?(path: string): Promise<OpenedFile>;
 }
 
 /** Datei, in der ein Schlüssel liegt (Gruppen) bzw. eigene Datei je Lösung */
@@ -53,6 +64,9 @@ export function fileOfKey(key: string): string {
 export const PLANTS_KEY = 'zyklus.anlagen';
 /** Einstellung: Ordner für „Meine Anlagen“ */
 export const PLANTS_DIR_KEY = 'zyklus.desktop.anlagenOrdner';
+/** Einstellung: zuletzt geöffnete Dateien (Pfade, neueste zuerst) */
+export const RECENT_KEY = 'zyklus.desktop.zuletzt';
+const RECENT_MAX = 10;
 const PLANTS_INDEX = 'anlagen-index.json';
 
 const safeName = (s: string) => s.replace(/[^A-Za-z0-9_.-]+/g, '_').slice(0, 80) || 'ohne-name';
@@ -243,8 +257,25 @@ export function desktopPlatform(deps: DesktopDeps): Platform & {
   };
 
   async function readFile(path: string): Promise<OpenedFile> {
-    return { name: path.split(/[\\/]/).pop() ?? path, text: await fs.readText(path) };
+    return { name: path.split(/[\\/]/).pop() ?? path, text: await fs.readText(path), path };
   }
+
+  const recentList = (): string[] => {
+    try {
+      const l = JSON.parse(cache.get(RECENT_KEY) ?? '[]') as unknown;
+      return Array.isArray(l) ? l.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  };
+  function remember(path: string | undefined): void {
+    if (!path) return;
+    const next = [path, ...recentList().filter((p) => p !== path)].slice(0, RECENT_MAX);
+    storage.setItem(RECENT_KEY, JSON.stringify(next));
+    void deps.setRecentMenu?.(next);
+  }
+  let pendingLaunch: OpenedFile[] = [];
+  const openListeners = new Set<(f: OpenedFile) => void>();
 
   return {
     kind: 'desktop',
@@ -254,17 +285,49 @@ export function desktopPlatform(deps: DesktopDeps): Platform & {
         const path = await deps.saveDialog(name, filters);
         if (!path) return null;
         await fs.writeText(path, text);
+        remember(path);
         return path.split(/[\\/]/).pop() ?? path;
       },
       async open(filters) {
         const path = await deps.openDialog(filters);
-        return path ? readFile(path) : null;
+        if (!path) return null;
+        const f = await readFile(path);
+        remember(path);
+        return f;
       },
     },
     onFileDrop(fn) {
       return deps.onDrop((paths) => {
         if (paths[0]) void readFile(paths[0]).then(fn);
       });
+    },
+    setTitle: (t) => deps.setTitle?.(t),
+    onCommand: (fn) => deps.onMenu?.((id) => fn(id as Parameters<typeof fn>[0])) ?? (() => {}),
+    onOpenFile(fn) {
+      openListeners.add(fn);
+      // beim Start übergebene Dateien an den ersten Interessenten
+      for (const f of pendingLaunch.splice(0)) fn(f);
+      return () => openListeners.delete(fn);
+    },
+    guardClose(dirty, ask) {
+      return deps.onCloseRequested?.(async () => !dirty() || (await ask())) ?? (() => {});
+    },
+    recent: {
+      list: recentList,
+      async open(i) {
+        const path = recentList()[i];
+        if (!path) return null;
+        try {
+          const f = deps.readOpened ? await deps.readOpened(path) : await readFile(path);
+          remember(path);
+          return f;
+        } catch {
+          // Datei verschoben oder gelöscht: aus der Liste nehmen
+          storage.setItem(RECENT_KEY, JSON.stringify(recentList().filter((p) => p !== path)));
+          void deps.setRecentMenu?.(recentList());
+          return null;
+        }
+      },
     },
     async init() {
       await ensureDir(deps.appData);
@@ -293,6 +356,14 @@ export function desktopPlatform(deps: DesktopDeps): Platform & {
         }
       }
       await readPlants();
+      void deps.setRecentMenu?.(recentList());
+      pendingLaunch = (await deps.takeLaunchFiles?.()) ?? [];
+      for (const f of pendingLaunch) remember(f.path);
+      deps.onOpen?.((f) => {
+        remember(f.path);
+        if (openListeners.size) for (const l of openListeners) l(f);
+        else pendingLaunch.push(f);
+      });
     },
     async flush() {
       if (timer) clearTimeout(timer);
