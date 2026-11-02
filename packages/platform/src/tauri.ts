@@ -38,6 +38,8 @@ const dialogFilters = (filters: FileFilter[]) =>
 export async function createDesktopPlatform(): Promise<Platform> {
   const win = getCurrentWindow();
   const guards = new Set<() => Promise<boolean>>();
+  // Testordner (ZYKLUS_DATA_DIR / ZYKLUS_DOCS_DIR), sonst die Standardordner
+  const dirs = await invoke<{ data: string | null; documents: string | null }>('dirs');
   const deps: DesktopDeps = {
     fs: {
       readText: (p) => readTextFile(p),
@@ -48,8 +50,8 @@ export async function createDesktopPlatform(): Promise<Platform> {
       mkdir: (p) => mkdir(p, { recursive: true }),
       list: async (d) => (await readDir(d)).filter((e) => e.isFile).map((e) => e.name),
     },
-    appData: await appDataDir(),
-    documents: await documentDir(),
+    appData: dirs.data ?? (await appDataDir()),
+    documents: dirs.documents ?? (await documentDir()),
     sep: sep(),
     saveDialog: (name, filters) => save({ defaultPath: name, filters: dialogFilters(filters) }),
     openDialog: async (filters) => {
@@ -74,7 +76,10 @@ export async function createDesktopPlatform(): Promise<Platform> {
       };
     },
     reveal: (p) => openPath(p),
-    setTitle: (t) => void win.setTitle(t),
+    setTitle: (t) => {
+      document.title = t;
+      void win.setTitle(t);
+    },
     onMenu: (fn) => later(listen<string>('menu', (e) => fn(e.payload))),
     takeLaunchFiles: () => invoke<OpenedFile[]>('take_launch_files'),
     onOpen: (fn) => later(listen<OpenedFile>('open-file', (e) => fn(e.payload))),

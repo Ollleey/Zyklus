@@ -1,5 +1,27 @@
 # Changelog
 
+## P6 – Desktop: Build, Release-Workflow, E2E (2026-11-02)
+
+- `npm run build:desktop` erzeugt für Windows:
+  - `ZYKLUS_0.1.0_x64-setup.exe` (NSIS, Benutzerinstallation, deutsch, 5,7 MB)
+  - `ZYKLUS_0.1.0_x64_de-DE.msi` (6,6 MB)
+  - `ZYKLUS_0.1.0_x64_portable.exe` (ohne Installation)
+- GitHub Actions `.github/workflows/release.yml`: bei Tag `v*` Version prüfen, Typprüfung und Tests,
+  bauen, Release-Entwurf mit Installer, MSI und portabler `.exe`; Linux (`.AppImage`, `.deb`)
+  vorbereitet und über die Repository-Variable `ZYKLUS_LINUX` zuschaltbar
+- E2E-Test der gebauten App (`npm run e2e -w @zyklus/desktop`, tauri-driver + msedgedriver,
+  eigene Testordner über `ZYKLUS_DATA_DIR`/`ZYKLUS_DOCS_DIR`):
+  - Start bis Posteingang 0,9 s
+  - Auftrag 1 prüfen → erfüllt
+  - Neustart → Fortschritt aus Dateien
+  - Anlagendatei an das laufende Spiel → Sandkasten, Titel, Datei unter „Meine Anlagen“
+  - Offline-Kaltstart mit Anlagendatei (toter Proxy für die WebView)
+- Offline-Prüfung `scripts/offline-check.mjs` jetzt gegen den Web-Build (das Desktop-Bundle
+  braucht Tauri); Posteingang nach 0,3 s, keine externen Anfragen
+- Doku `docs/desktop/README.md` (Bauen, Speicherorte, Dateien, Umzug, Offline, Startzeit,
+  Code-Signierung und SmartScreen, Linux, Release) und Checkliste `docs/desktop/CHECKLIST.md`
+- 616 Tests
+
 ## P5 – Desktop: Umzug der Web-Spielstände (2026-11-02)
 
 - Posteingang, Menü **Spielstand** (Browser und Desktop):

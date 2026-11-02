@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+use tauri_plugin_fs::FsExt;
 
 /// Datei, die beim Start oder per Doppelklick geöffnet wurde
 #[derive(Clone, Serialize)]
@@ -77,6 +78,22 @@ fn build_menu<R: Runtime>(app: &AppHandle<R>, recent: &[String]) -> tauri::Resul
     MenuBuilder::new(app).items(&[&file, &view, &help]).build()
 }
 
+/// Ordner für Spielstände und Anlagen. Für Tests über `ZYKLUS_DATA_DIR` bzw. `ZYKLUS_DOCS_DIR`
+/// umlenkbar, damit automatische Tests keine echten Spielstände berühren.
+#[derive(Serialize)]
+struct Dirs {
+    data: Option<String>,
+    documents: Option<String>,
+}
+
+#[tauri::command]
+fn dirs() -> Dirs {
+    Dirs {
+        data: std::env::var("ZYKLUS_DATA_DIR").ok(),
+        documents: std::env::var("ZYKLUS_DOCS_DIR").ok(),
+    }
+}
+
 /// beim Start übergebene Dateien abholen (einmalig)
 #[tauri::command]
 fn take_launch_files(state: State<'_, Launch>) -> Vec<OpenedFile> {
@@ -124,6 +141,13 @@ pub fn run() {
         .setup(|app| {
             let args: Vec<String> = std::env::args().skip(1).collect();
             *app.state::<Launch>().files.lock().unwrap() = files_from_args(&args);
+            // umgelenkte Testordner freigeben
+            for var in ["ZYKLUS_DATA_DIR", "ZYKLUS_DOCS_DIR"] {
+                if let Ok(dir) = std::env::var(var) {
+                    std::fs::create_dir_all(&dir)?;
+                    app.fs_scope().allow_directory(&dir, true)?;
+                }
+            }
             let menu = build_menu(app.handle(), &[])?;
             app.set_menu(menu)?;
             Ok(())
@@ -155,7 +179,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![take_launch_files, set_recent, read_opened])
+        .invoke_handler(tauri::generate_handler![take_launch_files, set_recent, read_opened, dirs])
         .run(tauri::generate_context!())
         .expect("ZYKLUS konnte nicht gestartet werden");
 }

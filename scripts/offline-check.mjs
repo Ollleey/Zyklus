@@ -1,17 +1,17 @@
 // Offline-Prüfung: liefert einen Build über einen lokalen Server aus, sperrt jede Anfrage an andere
 // Adressen und öffnet Posteingang, Auftrag 1 (Monaco) und Sandkasten (Web Worker).
-// Aufruf: node scripts/offline-check.mjs [apps/game/dist-desktop]
+// Aufruf: node scripts/offline-check.mjs [apps/game/dist]
+// Prüft den Web-Build (gleicher Spielcode und gleiche Assets wie die Desktop-App, nur ohne
+// Desktop-Plattformschicht). Die gebaute Desktop-App prüft der E2E-Test offline (toter Proxy).
 // Beendet sich mit Code 1, wenn eine externe Anfrage versucht wurde oder ein Fehler auftrat.
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 
-const dir = resolve(process.argv[2] ?? 'apps/game/dist-desktop');
+const dir = resolve(process.argv[2] ?? 'apps/game/dist');
 if (!existsSync(join(dir, 'index.html'))) {
-  console.error(
-    `Kein Build in ${dir} – erst bauen (npm run build -w @zyklus/game -- --mode desktop)`,
-  );
+  console.error(`Kein Build in ${dir} – erst bauen (npm run build:web)`);
   process.exit(1);
 }
 

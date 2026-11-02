@@ -15,6 +15,17 @@ npm run dev -w @zyklus/game
 
 Dann <http://localhost:5173> öffnen. Läuft komplett offline im Browser; Fortschritt liegt im `localStorage`.
 
+### Desktop-Anwendung (Windows)
+
+```bash
+npm run dev:desktop
+npm run build:desktop
+```
+
+Installer, portable `.exe`, Speicherorte, Umzug der Spielstände und Release: siehe
+[docs/desktop/README.md](docs/desktop/README.md). Voraussetzung: Rust und die Visual Studio Build
+Tools (C++).
+
 ## Tests
 
 ```bash

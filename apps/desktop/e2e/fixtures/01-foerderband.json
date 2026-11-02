@@ -1,0 +1,72 @@
+{
+  "version": 2,
+  "modules": [
+    {
+      "id": "cpu1",
+      "type": "cpu-klein",
+      "x": 0
+    },
+    {
+      "id": "di1",
+      "type": "di8",
+      "x": 6
+    },
+    {
+      "id": "do1",
+      "type": "do8",
+      "x": 7
+    }
+  ],
+  "wires": [
+    {
+      "device": "S1",
+      "module": "di1",
+      "channel": 0
+    },
+    {
+      "device": "S2",
+      "module": "di1",
+      "channel": 1
+    },
+    {
+      "device": "M1",
+      "module": "do1",
+      "channel": 0
+    }
+  ],
+  "projects": {
+    "cpu1": {
+      "tags": [
+        {
+          "name": "Start",
+          "address": "%I0.0",
+          "t": "BOOL",
+          "comment": "Gerät S1"
+        },
+        {
+          "name": "Stopp",
+          "address": "%I0.1",
+          "t": "BOOL",
+          "comment": "Gerät S2"
+        },
+        {
+          "name": "Bandmotor",
+          "address": "%Q0.0",
+          "t": "BOOL",
+          "comment": "Gerät M1"
+        }
+      ],
+      "blocks": [
+        {
+          "kind": "OB",
+          "name": "Main",
+          "number": 1,
+          "lang": "SCL",
+          "title": "Main Program Sweep (Cycle)",
+          "iface": {},
+          "source": "// Selbsthaltung. \"Stopp\" ist ein Öffner: 1 = nicht gedrückt, 0 = gedrückt oder Drahtbruch\n\"Bandmotor\" := (\"Start\" OR \"Bandmotor\") AND \"Stopp\";"
+        }
+      ]
+    }
+  }
+}
