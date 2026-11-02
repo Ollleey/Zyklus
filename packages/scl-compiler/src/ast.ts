@@ -14,8 +14,25 @@ export interface Ref {
   name: string;
   /** Elementzugriffe, z. B. ['Q'] bei "T1_DB".Q oder ['T1', 'ET'] bei "Daten".T1.ET */
   path: string[];
+  /**
+   * Feldindizes: `at` = Anzahl der Pfadelemente davor (0 = direkt nach dem Namen), z. B.
+   * "DB".Werte[#i].x → path ['Werte', 'x'], idx [{ at: 1, es: [#i] }]
+   */
+  idx?: Index[];
   span: Span;
 }
+
+export interface Index {
+  at: number;
+  es: Expr[];
+  span: Span;
+}
+
+/** Datentyp einer Deklaration (Text aus der Schnittstelle bzw. Quelle, geparst) */
+export type TypeExpr =
+  | { k: 'name'; name: string; quoted: boolean; len?: number; span: Span }
+  | { k: 'array'; dims: [number, number][]; of: TypeExpr; span: Span }
+  | { k: 'struct'; fields: Decl[]; span: Span };
 
 /** Ganzzahl-/Gleitkomma-Literal ohne Typpräfix passt sich dem Kontext an. */
 export type LiteralType = DataType | 'ANY_INT' | 'ANY_REAL';
@@ -25,7 +42,9 @@ export type Expr =
   | Ref
   | { k: 'unary'; op: '-' | 'NOT'; e: Expr; span: Span }
   | { k: 'binary'; op: BinaryOp; a: Expr; b: Expr; span: Span }
-  | { k: 'call'; name: string; args: Arg[]; span: Span };
+  | { k: 'call'; name: string; args: Arg[]; span: Span }
+  /** Startwertliste eines Feldes: [1, 2, 3(0)] – nur als Startwert */
+  | { k: 'list'; items: { e: Expr; n: number }[]; span: Span };
 
 export type BinaryOp =
   '+' | '-' | '*' | '/' | 'MOD' | '=' | '<>' | '<' | '<=' | '>' | '>=' | 'AND' | 'OR' | 'XOR';
@@ -79,6 +98,8 @@ export interface Decl {
   name: string;
   typeName: string;
   typeSpan: Span;
+  /** geparster Datentyp (aus Quellen; aus der Tabelle parst der Compiler `typeName`) */
+  type?: TypeExpr;
   init?: Expr;
   /** Quelltext des Startwerts (für den Import in das Projektmodell) */
   initText?: string;

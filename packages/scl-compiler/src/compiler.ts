@@ -30,9 +30,19 @@ import {
   type Value,
   type VarDecl,
 } from '@zyklus/sim-core';
-import type { BinaryOp, Decl, Expr, FbArg, LiteralType, Ref, Stmt } from './ast';
+import type { BinaryOp, Decl, Expr, FbArg, LiteralType, Ref, Stmt, TypeExpr } from './ast';
+import {
+  elementCount,
+  fieldOf,
+  leaves,
+  sameType,
+  sizeOf,
+  typeText,
+  type Field,
+  type VarType,
+} from './datatypes';
 import { SclError, type Diagnostic, type Span } from './diagnostics';
-import { parseBody, parseExpression, parseSource } from './parser';
+import { parseBody, parseExpression, parseSource, parseTypeText } from './parser';
 import {
   FB_INPUTS,
   FB_OUTPUTS,
@@ -347,7 +357,37 @@ type Sym =
   /** Multiinstanz eines Systembausteins im FB (Static vom Typ TON_TIME, IEC_TIMER …) */
   | { k: 'inst'; name: string; entry: InstEntry; decl: Decl & { row?: number }; used: boolean }
   /** Multiinstanz eines eigenen FB */
-  | { k: 'uinst'; name: string; inst: UserInst; decl: Decl & { row?: number }; used: boolean };
+  | { k: 'uinst'; name: string; inst: UserInst; decl: Decl & { row?: number }; used: boolean }
+  /** Feld oder Struktur; `inits` Startwerte aller Slots */
+  | {
+      k: 'agg';
+      name: string;
+      place: Place;
+      inits: Value[];
+      decl: Decl & { row?: number };
+      used: boolean;
+    };
+
+/**
+ * Lage zusammengesetzter Daten: Slots ab `base + off`, bei variablem Index zusätzlich
+ * `dyn` (geprüfter, nullbasierter Index in einem DINT-Slot, Schrittweite in Slots).
+ */
+interface Place {
+  base: number;
+  type: VarType;
+  off: number;
+  dyn?: { o: Operand; len: number; stride: number };
+}
+
+/** Summand eines variablen Index: geprüfter Index o (0 … n−1) mal stride */
+interface Term {
+  o: Operand;
+  n: number;
+  stride: number;
+}
+
+/** größte Anzahl Slots einer Variablen */
+const MAX_SLOTS = 4096;
 
 /** Instanz eines eigenen FB (Instanz-DB oder Multiinstanz) */
 interface UserInst {
@@ -369,13 +409,24 @@ interface InstEntry {
 
 interface DbEntry {
   name: string;
-  vars: Map<string, { t: DataType; op: Operand } | { inst: InstEntry }>;
+  vars: Map<string, { t: DataType; op: Operand } | { inst: InstEntry } | { place: Place }>;
 }
 
 type Resolved =
-  | { k: 'value'; op: Operand; t: DataType; writable: boolean; input?: boolean; isConst?: boolean }
+  | {
+      k: 'value';
+      op: Operand;
+      t: DataType;
+      writable: boolean;
+      input?: boolean;
+      isConst?: boolean;
+      /** Element eines Feldes/einer Struktur (Indizes der Referenz sind verbraucht) */
+      indexed?: boolean;
+    }
   | { k: 'instance'; entry: InstEntry }
-  | { k: 'uinst'; inst: UserInst };
+  | { k: 'uinst'; inst: UserInst }
+  /** ganzes Feld bzw. ganze Struktur */
+  | { k: 'place'; place: Place; writable: boolean };
 
 interface Val {
   o: Operand;
@@ -615,7 +666,13 @@ class CodeGen {
           });
           return;
         }
-        const t = this.elementary(d);
+        const vt = this.varType(d);
+        if (vt.k !== 'elem') {
+          const init = d.init ? this.initValues(vt, d.init) : undefined;
+          db.vars.set(key, { place: this.allocate(`${u.name}.${d.name}`, vt, init, false).place });
+          return;
+        }
+        const t = vt.t;
         const init = d.init ? this.constantValue(d.init, t) : undefined;
         db.vars.set(key, { t, op: this.newSlot(`${u.name}.${d.name}`, t, init) });
       });
@@ -649,10 +706,264 @@ class CodeGen {
     });
   }
 
-  private elementary(d: Decl): DataType {
-    const t = ELEMENTARY[d.typeName.toUpperCase()];
-    if (!t) this.fail(`Unbekannter Datentyp „${d.typeName}“`, d.typeSpan);
-    return t;
+  /** Datentyp einer Deklaration (Text aus der Tabelle oder geparst aus der Quelle). */
+  private varType(d: Decl): VarType {
+    let te = d.type;
+    if (!te) {
+      const r = parseTypeText(d.typeName);
+      if (!r.type) {
+        this.fail(
+          `Datentyp „${d.typeName}“: ${r.diagnostics[0]?.message ?? 'ungültig'}`,
+          d.typeSpan,
+        );
+      }
+      te = r.type;
+    }
+    return this.resolveType(te, d.typeSpan);
+  }
+
+  private resolveType(te: TypeExpr, declSpan: Span): VarType {
+    // Positionen im Typtext gibt es nur bei Quellen; in der Tabelle zählt die Zeile
+    const at = (s: Span) => (this.origin === 'source' ? s : declSpan);
+    switch (te.k) {
+      case 'name': {
+        const t = te.quoted ? undefined : ELEMENTARY[te.name.toUpperCase()];
+        if (t && te.len === undefined) return { k: 'elem', t };
+        if (instanceType(te.name) || this.units.has(te.name.toLowerCase())) {
+          this.fail(
+            `Instanzen (${te.name}) können nicht Element eines Feldes oder einer Struktur sein`,
+            at(te.span),
+          );
+        }
+        this.fail(`Unbekannter Datentyp „${te.name}“`, at(te.span));
+      }
+      case 'array': {
+        for (const [lo, hi] of te.dims) {
+          if (lo > hi) {
+            this.fail(`Feldgrenzen ${lo}..${hi}: Untergrenze größer als Obergrenze`, at(te.span));
+          }
+        }
+        const t: VarType = { k: 'array', dims: te.dims, of: this.resolveType(te.of, declSpan) };
+        if (sizeOf(t) > MAX_SLOTS) {
+          this.fail(`Feld ist zu groß (höchstens ${MAX_SLOTS} Elemente)`, at(te.span));
+        }
+        return t;
+      }
+      case 'struct': {
+        const fields: Field[] = [];
+        for (const f of te.fields) {
+          if (fields.some((x) => x.name.toLowerCase() === f.name.toLowerCase())) {
+            this.fail(`Element ${f.name} ist in der Struktur doppelt vorhanden`, at(f.span));
+          }
+          const type = this.resolveType(f.type!, declSpan);
+          fields.push({
+            name: f.name,
+            type,
+            init: f.init ? this.initValues(type, f.init) : undefined,
+          });
+        }
+        if (!fields.length) this.fail('Struktur ohne Elemente', at(te.span));
+        return { k: 'struct', fields };
+      }
+    }
+  }
+
+  /** Startwerte aller Slots eines Typs aus einem Startwert (Konstante bzw. Liste [1, 2, 3(0)]). */
+  private initValues(t: VarType, e: Expr): (Value | undefined)[] {
+    if (t.k === 'elem') {
+      if (e.k === 'list') this.fail('Startwertliste [ … ] gibt es nur für Felder', e.span);
+      return [this.constantValue(e, t.t)];
+    }
+    if (t.k === 'struct') {
+      this.fail('Strukturen bekommen Startwerte je Element', e.span);
+    }
+    let of: VarType = t.of;
+    let count = elementCount(t);
+    while (of.k === 'array') {
+      count *= elementCount(of);
+      of = of.of;
+    }
+    if (of.k !== 'elem') {
+      this.fail('Startwertlisten gibt es nur für Felder mit elementarem Typ', e.span);
+    }
+    if (e.k !== 'list') {
+      this.fail(`Startwert eines Feldes ist eine Liste, z. B. [1, 2, ${count - 2}(0)]`, e.span);
+    }
+    const out: Value[] = [];
+    for (const it of e.items) {
+      if (it.n < 1) this.fail('Wiederholung braucht mindestens 1', it.e.span);
+      const v = this.constantValue(it.e, of.t);
+      for (let i = 0; i < it.n; i++) out.push(v);
+    }
+    if (out.length > count) {
+      this.fail(`Zu viele Startwerte: ${out.length} für ${count} Elemente`, e.span);
+    }
+    return out;
+  }
+
+  /** Legt die Slots einer zusammengesetzten Variablen an (zusammenhängend). */
+  private allocate(
+    name: string,
+    t: VarType,
+    init: (Value | undefined)[] | undefined,
+    temp: boolean,
+  ): { place: Place; inits: Value[] } {
+    const ls = leaves(t, name);
+    const inits = ls.map((l, i) => normalize(l.t, init?.[i] ?? l.init ?? defaultValue(l.t)));
+    let base = -1;
+    ls.forEach((l, i) => {
+      const o = this.newSlot(l.name, l.t, inits[i], temp);
+      if (i === 0 && o.k === 'slot') base = o.i;
+    });
+    return { place: { base, type: t, off: 0 }, inits };
+  }
+
+  /** Slot-Operand des i-ten elementaren Teils einer Lage */
+  private leafOp(p: Place, i: number): Operand {
+    return p.dyn
+      ? {
+          k: 'islot',
+          base: p.base,
+          idx: p.dyn.o,
+          len: p.dyn.len,
+          stride: p.dyn.stride,
+          off: p.off + i,
+        }
+      : { k: 'slot', i: p.base + p.off + i };
+  }
+
+  private copyPlace(src: Place, dst: Place, span: Span): void {
+    if (!sameType(src.type, dst.type)) {
+      this.fail(
+        `Typkonflikt: ${typeText(src.type)} passt nicht zu ${typeText(dst.type)} – nur gleiche Typen lassen sich als Ganzes zuweisen`,
+        span,
+      );
+    }
+    const n = sizeOf(src.type);
+    for (let i = 0; i < n; i++) {
+      this.b.emit({ op: 'mov', dst: this.leafOp(dst, i), src: this.leafOp(src, i) });
+    }
+  }
+
+  /** Ganzes Feld bzw. ganze Struktur zuweisen: Quelle muss eine Variable gleichen Typs sein. */
+  private assignPlace(dst: Place, e: Expr, what: string): void {
+    const src = e.k === 'ref' ? this.resolve(e) : undefined;
+    if (src?.k !== 'place') {
+      this.fail(
+        `${what} ist vom Typ ${typeText(dst.type)} – zuweisen lässt sich nur eine ganze Variable gleichen Typs`,
+        e.span,
+      );
+    }
+    this.copyPlace(src.place, dst, e.span);
+  }
+
+  /** Konstanter Feldindex (Literal oder Konstante), sonst undefined */
+  private constIndex(e: Expr, quiet: boolean): number | undefined {
+    if (e.k === 'lit' && typeof e.v === 'number' && Number.isInteger(e.v)) return e.v;
+    if (e.k === 'ref' && e.scope !== 'addr' && e.scope !== 'tag' && !e.path.length && !e.idx) {
+      const s = this.locals.get(e.name.toLowerCase());
+      if (s?.k === 'const' && typeof s.v === 'number' && Number.isInteger(s.v)) {
+        if (!quiet) s.used = true;
+        return s.v;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Zugriff in eine Lage: Indizes und Elementnamen der Referenz ab Pfadposition `start`.
+   * Konstante Indizes werden beim Übersetzen geprüft, variable zur Laufzeit (`chk`).
+   * `quiet`: nur Typableitung, kein Code.
+   */
+  private access(p: Place, r: Ref, start: number, writable: boolean, quiet: boolean): Resolved {
+    const idx = r.idx ?? [];
+    const early = idx.find((x) => x.at < start);
+    if (early) this.fail(`${refHead(r, early.at)} ist kein Feld`, early.span);
+    let type = p.type;
+    let off = p.off;
+    const terms: Term[] = p.dyn ? [{ o: p.dyn.o, n: p.dyn.len, stride: p.dyn.stride }] : [];
+    for (let i = start; ; i++) {
+      for (const ix of idx.filter((x) => x.at === i)) {
+        if (type.k !== 'array') {
+          this.fail(`${refHead(r, i)} ist kein Feld (Typ ${typeText(type)})`, ix.span);
+        }
+        if (ix.es.length !== type.dims.length) {
+          this.fail(
+            `${refHead(r, i)} hat ${type.dims.length} Dimension${type.dims.length > 1 ? 'en' : ''}, angegeben ${ix.es.length} Index${ix.es.length > 1 ? 'e' : ''}`,
+            ix.span,
+          );
+        }
+        let stride = sizeOf(type.of) * elementCount(type);
+        type.dims.forEach(([lo, hi], d) => {
+          const e = ix.es[d]!;
+          const n = hi - lo + 1;
+          stride /= n;
+          const c = this.constIndex(e, quiet);
+          if (c !== undefined) {
+            if (c < lo || c > hi) {
+              this.fail(`Index ${c} liegt außerhalb von ${refHead(r, i)} (${lo}..${hi})`, e.span);
+            }
+            off += (c - lo) * stride;
+            return;
+          }
+          if (quiet) {
+            terms.push({ o: { k: 'const', t: 'DINT', v: 0 }, n, stride });
+            return;
+          }
+          const nat = this.infer(e);
+          if (nat !== 'INT' && nat !== 'DINT' && nat !== 'ANY_INT') {
+            if (!nat) this.invalid(e);
+            this.fail(`Feldindex muss eine Ganzzahl sein, ist ${typeName(nat)}`, e.span);
+          }
+          const a = this.genAs(e, nat === 'INT' ? 'INT' : 'DINT');
+          const o = this.temp('DINT');
+          this.b.emit({ op: 'chk', dst: o, a, lo, hi, msg: refHead(r, i) });
+          terms.push({ o, n, stride });
+        });
+        type = type.of;
+      }
+      if (i >= r.path.length) break;
+      const name = r.path[i]!;
+      if (type.k !== 'struct') {
+        this.fail(`${refHead(r, i)} hat kein Element ${name} (Typ ${typeText(type)})`, r.span);
+      }
+      const f = fieldOf(type, name);
+      if (!f) {
+        this.fail(
+          `${refHead(r, i)} hat kein Element ${name} (verfügbar: ${type.fields.map((x) => x.name).join(', ')})`,
+          r.span,
+        );
+      }
+      off += f.off;
+      type = f.field.type;
+    }
+    const dyn = this.combine(terms, quiet);
+    const place: Place = { base: p.base, type, off, dyn };
+    if (type.k === 'elem') {
+      return { k: 'value', op: this.leafOp(place, 0), t: type.t, writable, indexed: true };
+    }
+    return { k: 'place', place, writable };
+  }
+
+  /** Mehrere variable Indizes zu einem zusammenfassen (Schrittweite = ggT). */
+  private combine(terms: Term[], quiet: boolean): Place['dyn'] {
+    if (!terms.length) return undefined;
+    if (terms.length === 1) return { o: terms[0]!.o, len: terms[0]!.n, stride: terms[0]!.stride };
+    const g = terms.reduce((a, t) => gcd(a, t.stride), 0);
+    const len = terms.reduce((a, t) => a + (t.n - 1) * (t.stride / g), 0) + 1;
+    if (quiet) return { o: { k: 'const', t: 'DINT', v: 0 }, len, stride: g };
+    const acc = this.temp('DINT');
+    terms.forEach((t, i) => {
+      const f = this.constant('DINT', t.stride / g);
+      if (i === 0) {
+        this.b.emit({ op: 'bin', fn: 'mul', t: 'DINT', dst: acc, a: t.o, b: f });
+        return;
+      }
+      const tmp = this.temp('DINT');
+      this.b.emit({ op: 'bin', fn: 'mul', t: 'DINT', dst: tmp, a: t.o, b: f });
+      this.b.emit({ op: 'bin', fn: 'add', t: 'DINT', dst: acc, a: acc, b: tmp });
+    });
+    return { o: acc, len, stride: g };
   }
 
   /** IR-Instanz zu einem Eintrag (wird beim ersten Gebrauch angelegt). */
@@ -709,7 +1020,15 @@ class CodeGen {
         d.typeSpan,
       );
     }
-    const t = this.elementary(d);
+    const vt = this.varType(d);
+    if (vt.k !== 'elem') {
+      if (d.section === 'Constant') this.fail('Konstanten haben einen elementaren Typ', d.typeSpan);
+      const init = d.init ? this.initValues(vt, d.init) : undefined;
+      const { place, inits } = this.allocate(this.prefix + d.name, vt, init, true);
+      this.locals.set(key, { k: 'agg', name: d.name, place, inits, decl: d, used: false });
+      return;
+    }
+    const t = vt.t;
     const init = d.init ? this.constantValue(d.init, t) : undefined;
     if (d.section === 'Constant') {
       this.locals.set(key, { k: 'const', name: d.name, t, v: init!, decl: d, used: false });
@@ -846,7 +1165,14 @@ class CodeGen {
         used: false,
       };
     }
-    const t = this.elementary(d);
+    const vt = this.varType(d);
+    if (vt.k !== 'elem') {
+      if (d.section === 'Constant') this.fail('Konstanten haben einen elementaren Typ', d.typeSpan);
+      const init = d.init ? this.initValues(vt, d.init) : undefined;
+      const { place, inits } = this.allocate(slotName, vt, init, temp);
+      return { k: 'agg', name: d.name, place, inits, decl: d, used: false };
+    }
+    const t = vt.t;
     const init = d.init ? this.constantValue(d.init, t) : undefined;
     if (d.section === 'Constant') {
       if (init === undefined) this.fail(`Konstante ${d.name} braucht einen Wert`, d.span);
@@ -899,7 +1225,7 @@ class CodeGen {
   }
 
   /** Zugriff von außen auf eine FB-Instanz: "Motor_DB".Laufzeit, "Motor_DB".T1.Q */
-  private userPath(ui: UserInst, path: string[], r: Ref): Resolved {
+  private userPath(ui: UserInst, path: string[], r: Ref, quiet = false): Resolved {
     const vars = this.instanceScope(ui);
     const s = vars.get(path[0]!.toLowerCase());
     if (!s || s.k === 'const') {
@@ -910,6 +1236,10 @@ class CodeGen {
       );
     }
     s.used = true;
+    if (s.k === 'agg') {
+      const start = r.path.length - path.length + 1;
+      return this.access(s.place, r, start, s.decl.section !== 'Output', quiet);
+    }
     if (s.k === 'var') {
       if (path.length > 1) this.fail(`${refText(r)}: zu viele Elemente`, r.span);
       // Ausgänge schreibt nur der FB selbst
@@ -922,7 +1252,7 @@ class CodeGen {
     }
     return path.length === 1
       ? { k: 'uinst', inst: s.inst }
-      : this.userPath(s.inst, path.slice(1), r);
+      : this.userPath(s.inst, path.slice(1), r, quiet);
   }
 
   /**
@@ -1006,8 +1336,28 @@ class CodeGen {
         if (!a) this.fail(`Durchgangsparameter ${d.name} von „${callee.name}“ fehlt`, span);
         if (a.e!.k !== 'ref')
           this.fail(`Durchgangsparameter ${d.name} braucht eine Variable`, a.span);
-        const v = this.writable(a.e as Ref);
-        const t = this.elementary(d);
+        const res = this.resolve(a.e as Ref);
+        const vt = this.varType(d);
+        if (res.k === 'place' || vt.k !== 'elem') {
+          if (res.k !== 'place' || !sameType(res.place.type, vt)) {
+            this.fail(
+              `Durchgangsparameter ${d.name}: ${res.k === 'place' ? typeText(res.place.type) : res.k === 'value' ? typeName(res.t) : 'Instanz'} passt nicht zu ${typeText(vt)} – die Typen müssen gleich sein`,
+              a.e!.span,
+            );
+          }
+          if (!res.writable) this.fail(`${refText(a.e as Ref)} kann nur gelesen werden`, a.e!.span);
+          scope.set(d.name.toLowerCase(), {
+            k: 'agg',
+            name: d.name,
+            place: res.place,
+            inits: [],
+            decl: d,
+            used: true,
+          });
+          continue;
+        }
+        const v = this.writableOf(res, a.e as Ref);
+        const t = vt.t;
         if (v.t !== t) {
           this.fail(
             `Durchgangsparameter ${d.name}: ${typeName(v.t)} passt nicht zu ${typeName(t)} – die Typen müssen gleich sein`,
@@ -1030,6 +1380,7 @@ class CodeGen {
         continue; // FB: Eingang behält den Wert vom letzten Aufruf
       }
       if (s?.k === 'var') this.assignTo({ o: s.op, t: s.t }, a.e!);
+      if (s?.k === 'agg') this.assignPlace(s.place, a.e!, `Eingang ${d.name}`);
     }
 
     // Rumpf einsetzen
@@ -1055,6 +1406,12 @@ class CodeGen {
       // schon die CPU zu Zyklusbeginn, weil jede Aufrufstelle eigene Temp-Variablen hat.
       if (this.loopDepth > 0) {
         for (const s of scope.values()) {
+          if (s.k === 'agg' && s.decl.section === 'Temp') {
+            s.inits.forEach((v, i) => {
+              const o = this.leafOp(s.place, i);
+              this.b.emit({ op: 'mov', dst: o, src: this.constant(this.typeOfOp(o)!, v) });
+            });
+          }
           if (s.k !== 'var' || s.decl.section !== 'Temp') continue;
           const v = s.decl.init ? this.constantValue(s.decl.init, s.t) : defaultValue(s.t);
           this.b.emit({ op: 'mov', dst: s.op, src: this.constant(s.t, v) });
@@ -1085,6 +1442,18 @@ class CodeGen {
     for (const a of args) {
       if (!a.out) continue;
       const s = scope.get(a.name.toLowerCase());
+      if (s?.k === 'agg') {
+        const res = this.resolve(a.out);
+        if (res.k !== 'place') {
+          this.fail(
+            `Ausgang ${s.name} ist vom Typ ${typeText(s.place.type)} – verschalte ihn mit einer Variablen gleichen Typs`,
+            a.span,
+          );
+        }
+        if (!res.writable) this.fail(`${refText(a.out)} kann nur gelesen werden`, a.span);
+        this.copyPlace(s.place, res.place, a.span);
+        continue;
+      }
       if (s?.k !== 'var') continue;
       this.store({ o: s.op, t: s.t }, this.writable(a.out), a.span);
     }
@@ -1241,7 +1610,13 @@ class CodeGen {
   }
 
   private assign(target: Ref, e: Expr): void {
-    this.assignTo(this.writable(target), e);
+    const res = this.resolve(target);
+    if (res.k === 'place') {
+      if (!res.writable) this.fail(`${refText(target)} kann nur gelesen werden`, target.span);
+      this.assignPlace(res.place, e, refText(target));
+      return;
+    }
+    this.assignTo(this.writableOf(res, target), e);
   }
 
   private assignTo(dst: Val, e: Expr): void {
@@ -1286,7 +1661,16 @@ class CodeGen {
   }
 
   private writable(r: Ref): Val {
-    const res = this.resolve(r);
+    return this.writableOf(this.resolve(r), r);
+  }
+
+  private writableOf(res: Resolved, r: Ref): Val {
+    if (res.k === 'place') {
+      this.fail(
+        `${refText(r)} ist vom Typ ${typeText(res.place.type)} – greife auf ein Element zu`,
+        r.span,
+      );
+    }
     if (res.k !== 'value') this.fail(`Instanz ${refText(r)} kann nicht zugewiesen werden`, r.span);
     if (res.isConst) this.fail(`${r.name} ist eine Konstante`, r.span);
     if (!res.writable) this.fail(`${refText(r)} kann nur gelesen werden`, r.span);
@@ -1371,6 +1755,9 @@ class CodeGen {
 
   private forStmt(s: Extract<Stmt, { k: 'for' }>): void {
     const v = this.writable(s.v);
+    if (v.o.k === 'islot') {
+      this.fail('Laufvariable braucht einen festen Speicherplatz (kein variabler Index)', s.v.span);
+    }
     if (v.t !== 'INT' && v.t !== 'DINT')
       this.fail('Laufvariable muss Int oder DInt sein', s.v.span);
     this.store(this.gen(s.from, v.t), v, s.from.span, s.from);
@@ -1536,6 +1923,15 @@ class CodeGen {
   // ---------- Namensauflösung ----------
 
   private resolve(r: Ref, quiet = false): Resolved {
+    const res = this.resolveRef(r, quiet);
+    const ix = r.idx?.[0];
+    if (ix && res.k !== 'place' && !(res.k === 'value' && res.indexed)) {
+      this.fail(`${refHead(r, ix.at)} ist kein Feld`, ix.span);
+    }
+    return res;
+  }
+
+  private resolveRef(r: Ref, quiet: boolean): Resolved {
     switch (r.scope) {
       case 'addr':
         return this.address(r);
@@ -1545,7 +1941,7 @@ class CodeGen {
         return this.fromSym(s, r, quiet);
       }
       case 'tag':
-        return this.global(r);
+        return this.global(r, quiet);
       case 'auto': {
         const s = this.locals.get(r.name.toLowerCase());
         if (s) return this.fromSym(s, r, quiet);
@@ -1554,7 +1950,7 @@ class CodeGen {
           this.dbs.has(r.name.toLowerCase()) ||
           this.idbs.has(r.name.toLowerCase()) ||
           this.uinsts.has(r.name.toLowerCase());
-        if (known) return this.global(r);
+        if (known) return this.global(r, quiet);
         this.fail(
           `„${r.name}“ ist weder lokal deklariert noch eine PLC-Variable oder ein Datenbaustein`,
           r.span,
@@ -1571,8 +1967,9 @@ class CodeGen {
       return this.member(s.entry, r.path[0]!, r);
     }
     if (s.k === 'uinst') {
-      return r.path.length ? this.userPath(s.inst, r.path, r) : { k: 'uinst', inst: s.inst };
+      return r.path.length ? this.userPath(s.inst, r.path, r, quiet) : { k: 'uinst', inst: s.inst };
     }
+    if (s.k === 'agg') return this.access(s.place, r, 0, true, quiet);
     if (r.path.length) this.fail(`#${s.name} hat keine Elemente`, r.span);
     if (s.k === 'const') {
       return { k: 'value', op: this.constant(s.t, s.v), t: s.t, writable: false, isConst: true };
@@ -1581,10 +1978,10 @@ class CodeGen {
   }
 
   /** "Tag", "DB".Variable, "DB".Instanz.Element, "IDB".Element */
-  private global(r: Ref): Resolved {
+  private global(r: Ref, quiet = false): Resolved {
     const key = r.name.toLowerCase();
     const ui = this.uinsts.get(key);
-    if (ui) return r.path.length ? this.userPath(ui, r.path, r) : { k: 'uinst', inst: ui };
+    if (ui) return r.path.length ? this.userPath(ui, r.path, r, quiet) : { k: 'uinst', inst: ui };
     const idb = this.idbs.get(key);
     if (idb) {
       if (r.path.length === 0) return { k: 'instance', entry: idb };
@@ -1598,6 +1995,7 @@ class CodeGen {
       }
       const v = db.vars.get(r.path[0]!.toLowerCase());
       if (!v) this.fail(`„${r.name}“ hat kein Element ${r.path[0]}`, r.span);
+      if ('place' in v) return this.access(v.place, r, 1, true, quiet);
       if ('inst' in v) {
         if (r.path.length === 1) return { k: 'instance', entry: v.inst };
         if (r.path.length > 2) this.fail(`${refText(r)}: zu viele Elemente`, r.span);
@@ -1675,6 +2073,8 @@ class CodeGen {
           return this.binaryType(e.op, this.infer(e.a), this.infer(e.b));
         case 'call':
           return this.callType(e);
+        case 'list':
+          return undefined;
       }
     } catch (err) {
       if (err instanceof SclError) return undefined;
@@ -1760,6 +2160,7 @@ class CodeGen {
 
   private typeOfOp(o: Operand): DataType | undefined {
     if (o.k === 'slot') return this.slotTypes[o.i];
+    if (o.k === 'islot') return this.slotTypes[o.base + o.off];
     if (o.k === 'io' || o.k === 'const') return o.t;
     return undefined;
   }
@@ -1828,6 +2229,12 @@ class CodeGen {
       }
       case 'ref': {
         const r = this.resolve(e);
+        if (r.k === 'place') {
+          this.fail(
+            `${refText(e)} ist vom Typ ${typeText(r.place.type)} – greife auf ein Element zu`,
+            e.span,
+          );
+        }
         if (r.k !== 'value') {
           this.fail(
             r.k === 'instance'
@@ -1844,6 +2251,8 @@ class CodeGen {
         return this.binary(e, hint, dst);
       case 'call':
         return this.call(e, hint, dst);
+      case 'list':
+        this.fail('Eine Liste [ … ] gibt es nur als Startwert eines Feldes', e.span);
     }
   }
 
@@ -2269,6 +2678,27 @@ function isIntish(t: LiteralType): boolean {
 }
 
 export function refText(r: Ref): string {
-  const base = r.scope === 'local' ? `#${r.name}` : r.scope === 'tag' ? `"${r.name}"` : r.name;
-  return [base, ...r.path].join('.');
+  return refHead(r, r.path.length + 1);
+}
+
+/** Referenz bis vor Pfadelement n, mit den Indizes davor: #Werte[#i].Teil */
+function refHead(r: Ref, n: number): string {
+  let s = r.scope === 'local' ? `#${r.name}` : r.scope === 'tag' ? `"${r.name}"` : r.name;
+  for (let i = 0; i <= Math.min(n, r.path.length); i++) {
+    for (const ix of r.idx ?? []) {
+      if (ix.at === i && i < n) s += `[${ix.es.map(exprText).join(', ')}]`;
+    }
+    if (i < n && i < r.path.length) s += `.${r.path[i]}`;
+  }
+  return s;
+}
+
+function exprText(e: Expr): string {
+  if (e.k === 'lit') return String(e.v);
+  if (e.k === 'ref') return refText(e);
+  return '…';
+}
+
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
 }

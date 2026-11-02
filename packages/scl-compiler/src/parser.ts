@@ -1,5 +1,17 @@
 import type { IfaceSection } from '@zyklus/sim-core';
-import type { Arg, BinaryOp, CaseLabel, Decl, Expr, FbArg, Ref, SourceBlock, Stmt } from './ast';
+import type {
+  Arg,
+  BinaryOp,
+  CaseLabel,
+  Decl,
+  Expr,
+  FbArg,
+  Index,
+  Ref,
+  SourceBlock,
+  Stmt,
+  TypeExpr,
+} from './ast';
 import { SclError, joinSpans, type Diagnostic, type Span } from './diagnostics';
 import { tokenize, type Token } from './lexer';
 
@@ -80,6 +92,21 @@ export function parseExpression(src: string): { expr?: Expr; diagnostics: Diagno
     const expr = p.expr();
     p.expectEof();
     return { expr, diagnostics: [] };
+  } catch (e) {
+    if (!(e instanceof SclError)) throw e;
+    return { diagnostics: [{ severity: 'error', message: e.message, ...e.span }] };
+  }
+}
+
+/** Parst einen Datentyp aus der Schnittstellentabelle (Int, Array[1..5] of Real, "Rezept" …). */
+export function parseTypeText(src: string): { type?: TypeExpr; diagnostics: Diagnostic[] } {
+  const { tokens, diagnostics } = lex(src);
+  if (!tokens) return { diagnostics };
+  const p = new Parser(tokens, src);
+  try {
+    const type = p.typeExpr();
+    p.expectEof();
+    return { type, diagnostics: [] };
   } catch (e) {
     if (!(e instanceof SclError)) throw e;
     return { diagnostics: [{ severity: 'error', message: e.message, ...e.span }] };
@@ -320,6 +347,14 @@ class Parser {
     }
     while (this.isIdent('RETAIN') || this.isIdent('NON_RETAIN') || this.isIdent('DB_SPECIFIC'))
       this.next();
+    const decls = this.declLines(endKw, section, head);
+    this.next();
+    this.optionalSemicolon();
+    return decls;
+  }
+
+  /** Deklarationszeilen bis `endKw` (ohne es zu verbrauchen) */
+  private declLines(endKw: string, section: IfaceSection, head: Token): Decl[] {
     const decls: Decl[] = [];
     while (!this.isKw(endKw)) {
       if (this.t.kind === 'eof') this.error(`${endKw} fehlt`, head);
@@ -333,10 +368,9 @@ class Parser {
         this.skipAttributes();
       } while (this.isOp(','));
       this.expectOp(':', 'nach dem Variablennamen');
-      if (this.t.kind !== 'ident' && this.t.kind !== 'quoted') {
-        this.error(`Datentyp erwartet, gefunden ${describe(this.t)}`);
-      }
-      const typeTok = this.next();
+      const typeStart = this.t;
+      const type = this.typeExpr();
+      const typeEnd = this.tokens[this.p - 1]!;
       let init: Expr | undefined;
       let initText: string | undefined;
       if (this.isOp(':=')) {
@@ -352,17 +386,74 @@ class Parser {
         decls.push({
           section,
           name: n.value,
-          typeName: typeTok.value,
-          typeSpan: typeTok,
+          // einfache Typen wie bisher ohne Anführungszeichen, sonst der Quelltext
+          typeName:
+            type.k === 'name' && type.len === undefined
+              ? type.name
+              : this.src.slice(typeStart.from, typeEnd.to),
+          typeSpan: joinSpans(typeStart, typeEnd),
+          type,
           init,
           initText,
           span: joinSpans(n, semi),
         });
       }
     }
-    this.next();
-    this.optionalSemicolon();
     return decls;
+  }
+
+  /** Datentyp: Int, "UDT", String[20], Array[0..9, 1..3] of Typ, Struct … END_STRUCT */
+  typeExpr(): TypeExpr {
+    const t = this.t;
+    if (this.isKw('STRUCT')) {
+      this.next();
+      const fields = this.declLines('END_STRUCT', 'Static', t);
+      const end = this.next();
+      return { k: 'struct', fields, span: joinSpans(t, end) };
+    }
+    if (this.isIdent('ARRAY') && this.isOp('[', this.peek())) {
+      this.next();
+      this.next();
+      const dims: [number, number][] = [];
+      do {
+        if (dims.length) this.next(); // Komma
+        const lo = this.bound();
+        this.expectOp('..', 'im Indexbereich (z. B. 0..9)');
+        const hi = this.bound();
+        dims.push([lo, hi]);
+      } while (this.isOp(','));
+      this.expectOp(']', 'nach dem Indexbereich');
+      this.expectKw('OF', 'nach Array[…]');
+      const of = this.typeExpr();
+      return { k: 'array', dims, of, span: joinSpans(t, of.span) };
+    }
+    if (t.kind !== 'ident' && t.kind !== 'quoted') {
+      this.error(`Datentyp erwartet, gefunden ${describe(t)}`);
+    }
+    this.next();
+    if (this.isOp('[')) {
+      this.next();
+      if (this.t.kind !== 'int') this.error('Länge erwartet, z. B. String[20]');
+      const len = this.next().num!;
+      const end = this.expectOp(']', 'nach der Länge');
+      return {
+        k: 'name',
+        name: t.value,
+        quoted: t.kind === 'quoted',
+        len,
+        span: joinSpans(t, end),
+      };
+    }
+    return { k: 'name', name: t.value, quoted: t.kind === 'quoted', span: t };
+  }
+
+  /** Feldgrenze: ganze Zahl, auch negativ */
+  private bound(): number {
+    const neg = this.isOp('-');
+    if (neg) this.next();
+    if (this.t.kind !== 'int') this.error(`Feldgrenze erwartet, gefunden ${describe(this.t)}`);
+    const n = this.next().num!;
+    return neg ? -n : n;
   }
 
   // ---------- Anweisungen ----------
@@ -710,6 +801,7 @@ class Parser {
           const close = this.expectOp(')', 'zum Schließen der Klammer');
           return { ...e, span: joinSpans(t, close) } as Expr;
         }
+        if (t.value === '[') return this.list();
         break;
       case 'ident':
         if (this.isOp('(', this.peek())) return this.call();
@@ -720,6 +812,27 @@ class Parser {
         return this.ref();
     }
     this.error(`Ausdruck erwartet, gefunden ${describe(t)}`);
+  }
+
+  /** Startwertliste [1, 2, 3(0)] */
+  private list(): Expr {
+    const open = this.next();
+    const items: { e: Expr; n: number }[] = [];
+    while (!this.isOp(']')) {
+      if (items.length) this.expectOp(',', 'zwischen Startwerten');
+      if (this.t.kind === 'eof') this.error('„]“ fehlt', open);
+      if (this.t.kind === 'int' && this.isOp('(', this.peek())) {
+        const n = this.next().num!;
+        this.next();
+        const e = this.expr();
+        this.expectOp(')', 'nach dem wiederholten Startwert');
+        items.push({ e, n });
+      } else {
+        items.push({ e: this.expr(), n: 1 });
+      }
+    }
+    const close = this.next();
+    return { k: 'list', items, span: joinSpans(open, close) };
   }
 
   private call(): Expr {
@@ -762,6 +875,21 @@ class Parser {
               : this.error(`Variable erwartet, gefunden ${describe(t)}`, t);
     let span: Span = t;
     const path: string[] = [];
+    const idx: Index[] = [];
+    const indices = () => {
+      while (this.isOp('[') && scope !== 'addr') {
+        const open = this.next();
+        const es: Expr[] = [];
+        do {
+          if (es.length) this.next(); // Komma
+          es.push(this.expr());
+        } while (this.isOp(','));
+        const close = this.expectOp(']', 'nach dem Feldindex');
+        idx.push({ at: path.length, es, span: joinSpans(open, close) });
+        span = joinSpans(t, close);
+      }
+    };
+    indices();
     while (this.isOp('.') && scope !== 'addr') {
       this.next();
       const m = this.t;
@@ -771,8 +899,10 @@ class Parser {
       this.next();
       path.push(m.value);
       span = joinSpans(t, m);
+      indices();
     }
-    if (this.isOp('[')) this.error('Arrays werden nicht unterstützt');
-    return { k: 'ref', scope, name: t.value, path, span };
+    return idx.length
+      ? { k: 'ref', scope, name: t.value, path, idx, span }
+      : { k: 'ref', scope, name: t.value, path, span };
   }
 }

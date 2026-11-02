@@ -34,6 +34,8 @@ export function typeOf(p: IrProgram, o: Operand): DataType | undefined {
       const decl = p.instances[o.i];
       return decl ? INSTANCE_FIELDS[decl.kind][o.f] : undefined;
     }
+    case 'islot':
+      return p.slots[o.base + o.off]?.t;
   }
 }
 
@@ -70,6 +72,17 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
         err(`${what}: Adresse außerhalb des Bereichs ${o.area}`);
       }
       if (o.k === 'io' && (o.bit < 0 || o.bit > 7)) err(`${what}: Bitnummer ${o.bit} ungültig`);
+      if (o.k === 'islot') {
+        const last = o.base + o.off + (o.len - 1) * o.stride;
+        if (o.len < 1 || o.stride < 1 || last >= p.slots.length)
+          err(`${what}: Feld außerhalb der Variablen`);
+        // dazwischen können andere Elemente liegen, wenn der Compiler mehrere Indizes
+        // zusammenfasst (Feld in Struktur in Feld); erstes und letztes Element gehören sicher dazu
+        if (p.slots[o.base + o.off]?.t !== t || p.slots[last]?.t !== t) {
+          err(`${what}: Feldelemente haben unterschiedliche Typen`);
+        }
+        operand(o.idx, `${what}: Index`, ['INT', 'DINT']);
+      }
       if (expect) {
         const list = Array.isArray(expect) ? expect : [expect];
         if (!list.includes(t)) err(`${what} hat Typ ${t}, erwartet ${list.join('/')}`);
@@ -204,6 +217,11 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
       }
       case 'jmp':
         jump(ins.to);
+        break;
+      case 'chk':
+        operand(ins.a, 'Index', ['INT', 'DINT']);
+        target(ins.dst, 'Ziel', 'DINT');
+        if (!(ins.lo <= ins.hi)) err(`Indexbereich ${ins.lo}..${ins.hi} ungültig`);
         break;
       case 'jz':
       case 'jnz':

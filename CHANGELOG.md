@@ -1,5 +1,20 @@
 # Changelog
 
+## M8a – Felder (ARRAY) (2026-11-02)
+
+- Datentyp `Array[lo..hi] of Typ`, auch mehrdimensional (`Array[0..2, 1..4] of Int`) und
+  verschachtelt; in Datenbausteinen, FB-Statics, Ein-/Ausgängen, Durchgangsparametern und Temp
+- Zugriff `"DB".Werte[#i]`, `#Feld[#i, #j]`, `"Lager".Faecher[#i].Teil`; konstanter Index wird beim
+  Übersetzen geprüft, variabler zur Laufzeit: außerhalb der Grenzen → **Programmierfehler**, CPU geht
+  in STOP (Fehler-LED, Meldung „Programmierfehler: … Index 4 außerhalb 0…3“)
+- Startwertlisten `[1, 2, 3(0)]` (mit Wiederholung), ganze Felder gleichen Typs zuweisen und als
+  Parameter übergeben (Eingang/Ausgang kopiert, Durchgangsparameter als Verweis)
+- Strukturen inline in Quellen (`Struct … END_STRUCT` als Feldelement)
+- IR: Operand `islot` (Slot = Basis + Index · Schrittweite + Versatz) und Befehl `chk`
+  (Indexprüfung); zusammengesetzte Daten liegen flach in aufeinanderfolgenden Slots
+- Variablentabellen: Datentyp als freier Text mit Vorschlägen (für `Array[…] of …`)
+- 639 Tests
+
 ## P6 – Desktop: Build, Release-Workflow, E2E (2026-11-02)
 
 - `npm run build:desktop` erzeugt für Windows:

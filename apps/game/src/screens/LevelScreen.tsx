@@ -136,7 +136,11 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
     const m = new Map<string, CpuStatus>();
     if (run) {
       for (const [id, c] of run.cpus) {
-        m.set(id, { mode: c.mode, error: c.stopInfo?.reason === 'CYCLE_OVERRUN', load: c.load });
+        m.set(id, {
+          mode: c.mode,
+          error: !!c.stopInfo && c.stopInfo.reason !== 'SWITCH',
+          load: c.load,
+        });
       }
     }
     return m;

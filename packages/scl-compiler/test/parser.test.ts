@@ -22,6 +22,8 @@ function show(e: Expr): string {
       return `(${show(e.a)} ${e.op} ${show(e.b)})`;
     case 'call':
       return `${e.name}(${e.args.map((a) => (a.name ? `${a.name}:=` : '') + show(a.e)).join(', ')})`;
+    case 'list':
+      return `[${e.items.map((i) => (i.n > 1 ? `${i.n}(${show(i.e)})` : show(i.e))).join(', ')}]`;
   }
 }
 
@@ -168,7 +170,6 @@ describe('Syntaxfehler', () => {
     ['"T".TON(TRUE, T#1s);', /benannte Parameter/],
     ['VAR a : INT; END_VAR', /in der Bausteinschnittstelle deklariert/],
     ['REGION x\n a := 1;', /END_REGION erwartet/],
-    ['x := a[1];', /Arrays/],
     ['END_IF;', /Unerwartetes Schlüsselwort END_IF/],
   ])('%s', (src, re) => {
     const d = errs(src);

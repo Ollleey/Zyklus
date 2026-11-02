@@ -23,7 +23,7 @@ export type CpuMode = 'RUN' | 'STOP';
 export interface StopInfo {
   time: number;
   /** Zykluszeitüberschreitung (Fehler) oder Betriebsartenschalter */
-  reason: 'CYCLE_OVERRUN' | 'SWITCH';
+  reason: 'CYCLE_OVERRUN' | 'PROGRAM_ERROR' | 'SWITCH';
   message: string;
 }
 
@@ -144,10 +144,13 @@ export class Cpu {
     this.metrics.energy += res.energy;
     this.metrics.maxOpsInCycle = Math.max(this.metrics.maxOpsInCycle, res.ops);
     if (!res.ok) {
-      this.stop(
-        now,
-        `Zykluszeitüberschreitung: mehr als ${this.config.maxOpsPerCycle} Befehle in einem Zyklus`,
-      );
+      if (res.reason === 'PROGRAM_ERROR')
+        this.stop(now, `Programmierfehler: ${res.message}`, 'PROGRAM_ERROR');
+      else
+        this.stop(
+          now,
+          `Zykluszeitüberschreitung: mehr als ${this.config.maxOpsPerCycle} Befehle in einem Zyklus`,
+        );
       return false;
     }
     return true;

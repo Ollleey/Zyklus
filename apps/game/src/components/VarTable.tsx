@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { VarDecl } from '@zyklus/sim-core';
 import { t } from '../i18n';
 
@@ -20,6 +21,7 @@ export function VarTable({
   errorRows,
   withInit = true,
 }: Props) {
+  const listId = useId();
   const set = (i: number, patch: Partial<VarDecl>) =>
     onChange(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)));
   return (
@@ -44,12 +46,13 @@ export function VarTable({
               />
             </td>
             <td>
-              <select value={r.type} onChange={(e) => set(i, { type: e.target.value })}>
-                {!types.includes(r.type) && <option value={r.type}>{r.type}</option>}
-                {types.map((ty) => (
-                  <option key={ty}>{ty}</option>
-                ))}
-              </select>
+              {/* freier Text mit Vorschlägen: auch Array[0..9] of Int */}
+              <input
+                value={r.type}
+                list={listId}
+                onChange={(e) => set(i, { type: e.target.value })}
+                spellCheck={false}
+              />
             </td>
             {withInit && (
               <td>
@@ -90,6 +93,11 @@ export function VarTable({
           </td>
         </tr>
       </tbody>
+      <datalist id={listId}>
+        {[...types, 'Array[0..9] of Int'].map((ty) => (
+          <option key={ty} value={ty} />
+        ))}
+      </datalist>
     </table>
   );
 }

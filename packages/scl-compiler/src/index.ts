@@ -5,6 +5,7 @@ export {
   parseBody,
   parseExpression,
   parseSource,
+  parseTypeText,
   looksLikeSource,
   type BodyResult,
   type SourceResult,
@@ -21,6 +22,7 @@ export {
   type Location,
   type ProjectDiagnostic,
 } from './compiler';
+export { sizeOf, typeText, type VarType, type Field } from './datatypes';
 export { projectToSource, sourceToProject } from './source-io';
 export { instanceType, FB_INPUTS, FB_OUTPUTS } from './systemblocks';
 export { ELEMENTARY, TIA_NAMES, implicitOk } from './typerules';

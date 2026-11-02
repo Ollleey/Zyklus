@@ -13,7 +13,12 @@ export type Operand =
   /** Variable aus Global-DB, Instanz-DB (statisch) oder TEMP. */
   | { k: 'slot'; i: number }
   /** Ausgang einer FB-Instanz (z. B. TON.Q, CTU.CV); nur lesbar. */
-  | { k: 'inst'; i: number; f: InstanceField };
+  | { k: 'inst'; i: number; f: InstanceField }
+  /**
+   * Feldelement mit variablem Index: Slot `base + idx · stride + off`. `idx` ist schon geprüft und
+   * nullbasiert (Befehl `chk`); `len` Anzahl der Elemente zur Sicherheit.
+   */
+  | { k: 'islot'; base: number; idx: Operand; len: number; stride: number; off: number };
 
 export type InstanceKind =
   'TP' | 'TON' | 'TOF' | 'TONR' | 'CTU' | 'CTD' | 'CTUD' | 'R_TRIG' | 'F_TRIG';
@@ -80,7 +85,12 @@ export type Instr =
   /** Springe, wenn cond FALSE ist. */
   | { op: 'jz'; cond: Operand; to: number }
   /** Springe, wenn cond TRUE ist. */
-  | { op: 'jnz'; cond: Operand; to: number };
+  | { op: 'jnz'; cond: Operand; to: number }
+  /**
+   * Feldindex prüfen: liegt `a` außerhalb [lo, hi], ist das ein Programmierfehler (CPU geht in
+   * STOP, Meldung `msg`); sonst `dst := a − lo`.
+   */
+  | { op: 'chk'; dst: Operand; a: Operand; lo: number; hi: number; msg: string };
 
 export type OpCode = Instr['op'];
 

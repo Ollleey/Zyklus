@@ -48,5 +48,7 @@ export function energyOf(ins: Instr): number {
     case 'jz':
     case 'jnz':
       return ENERGY.jump;
+    case 'chk':
+      return ENERGY.integer;
   }
 }
