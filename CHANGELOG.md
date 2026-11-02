@@ -1,5 +1,20 @@
 # Changelog
 
+## P5 – Desktop: Umzug der Web-Spielstände (2026-11-02)
+
+- Posteingang, Menü **Spielstand** (Browser und Desktop):
+  - **Alles exportieren** schreibt `spielstand-export.json` mit Fortschritt, Lösungen,
+    Einstellungen, eigenen Aufträgen, Sandkasten und allen Anlagen
+  - **Spielstand importieren …** prüft die Datei (zod, deutsche Meldungen, neuere Versionen
+    werden abgewiesen, beschädigte Einträge erkannt), fragt vor dem Ersetzen nach und lädt das
+    Spiel mit dem übernommenen Stand neu
+- Desktop, erster Start ohne Fortschritt: „Spielstand aus der Web-Version übernehmen?“ mit
+  Dateiauswahl; die Antwort wird gemerkt, später geht es über das Menü
+- Gerätebezogene Einstellungen (Anlagen-Ordner, zuletzt geöffnet) wandern nicht mit
+- Tests: Round-Trip Web → Datei → Desktop, Fehlerfälle; im Browser geprüft (2/17 erledigt →
+  exportiert → Speicher geleert → importiert → 2/17); Angebot beim ersten Desktop-Start geprüft;
+  616 Tests
+
 ## P4 – Desktop: Menü, Kürzel, Dateizuordnung (2026-11-02)
 
 - Native Menüleiste:

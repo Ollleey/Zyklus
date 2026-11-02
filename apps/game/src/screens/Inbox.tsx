@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { tr, type Level } from '@zyklus/sim-core';
 import { t } from '../i18n';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { SavegameMenu } from '../ui/Savegame';
 import {
   parseAuftragFile,
   putCustomLevel,
@@ -75,6 +76,7 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
           >
             {patience ? '▦' : '🔒'} {t('patience.title')}
           </button>
+          <SavegameMenu />
         </nav>
       </header>
       <p className="inbox-progress">

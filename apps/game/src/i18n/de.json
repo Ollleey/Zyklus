@@ -291,5 +291,15 @@
   "close.title": "Ungespeicherte Änderungen",
   "close.text": "Die Anlage „{name}“ hat Änderungen, die noch nicht unter „Meine Anlagen“ gespeichert sind.",
   "close.discard": "Nicht speichern",
-  "close.save": "Speichern und beenden"
+  "close.save": "Speichern und beenden",
+  "savegame.menu": "Spielstand",
+  "savegame.export": "Alles exportieren",
+  "savegame.exportTitle": "Fortschritt, Lösungen, Einstellungen, eigene Aufträge und alle Anlagen in eine Datei (für den Umzug in die Desktop-Version)",
+  "savegame.import": "Spielstand importieren …",
+  "savegame.confirm": "Der Spielstand vom {date} mit {n} Einträgen ersetzt deinen aktuellen Fortschritt, deine Lösungen und Anlagen. Danach lädt das Spiel neu.",
+  "savegame.replace": "Ersetzen",
+  "savegame.offerTitle": "Spielstand aus der Web-Version übernehmen?",
+  "savegame.offerText": "Wenn du schon im Browser gespielt hast: Dort im Posteingang unter „Spielstand → Alles exportieren“ die Datei spielstand-export.json speichern und hier auswählen. Das geht auch später über das Menü „Spielstand“.",
+  "savegame.offerYes": "Datei wählen …",
+  "savegame.offerNo": "Nein, neu beginnen"
 }

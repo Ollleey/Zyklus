@@ -3,6 +3,7 @@ import { webPlatform } from './web';
 
 export type * from './types';
 export { webPlatform, webStore } from './web';
+export * from './savegame';
 
 /** Endungen der Spieldateien (neue Endung zuerst, ältere werden weiter gelesen) */
 export const FILE_TYPES = {
