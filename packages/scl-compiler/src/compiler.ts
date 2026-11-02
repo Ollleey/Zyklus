@@ -121,6 +121,13 @@ interface Unit {
   /** OB: Startereignis (Alarm-OB) */
   event?: ObEvent;
   number?: number;
+  /** FC: Rückgabetyp (Text), undefined = Void */
+  returnType?: string;
+}
+
+/** Rückgabetyp ohne „Void“ */
+function returnTypeOf(t: string | undefined): string | undefined {
+  return t && t.trim().toUpperCase() !== 'VOID' ? t.trim() : undefined;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -154,6 +161,7 @@ export function compileSource(
     name: b.name,
     decls: b.decls,
     instanceOf: b.instanceOf,
+    returnType: returnTypeOf(b.returnType),
     body: b.body,
     origin: 'source',
     errors: [],
@@ -296,6 +304,7 @@ function unitFromBlock(b: Block): Unit {
     intrinsics: b.generatedFrom === 'FUP',
     event: b.kind === 'OB' ? b.event : undefined,
     number: b.number,
+    returnType: b.kind === 'FC' ? returnTypeOf(b.returnType) : undefined,
   };
 }
 
@@ -1358,10 +1367,10 @@ class CodeGen {
   private callUser(
     callee: Unit,
     inst: UserInst | undefined,
-    args: FbArg[],
+    givenArgs: FbArg[],
     span: Span,
     dry = false,
-  ): void {
+  ): Map<string, Sym> {
     const key = callee.name.toLowerCase();
     if (this.callStack.includes(key)) {
       // auch innerhalb eines stummen Einsetzens melden: Rekursion zeigt sich erst hier
@@ -1369,7 +1378,7 @@ class CodeGen {
       this.mute = 0;
       this.push('error', `Rekursiver Aufruf von „${callee.name}“ ist nicht möglich`, span);
       this.mute = mute;
-      return;
+      return new Map();
     }
     if (!dry) this.called.add(key);
     const where = this.where;
@@ -1399,12 +1408,46 @@ class CodeGen {
       (d) => `${callee.name}#${n}.${d.name}`,
       true,
     );
+    if (callee.kind === 'FC' && callee.returnType) {
+      // Rückgabewert: im Baustein #Ret_Val, beim Aufrufer der Wert des Ausdrucks
+      const ret: Decl = {
+        section: 'Output',
+        name: 'Ret_Val',
+        typeName: callee.returnType,
+        typeSpan: NO_SPAN,
+        span: NO_SPAN,
+      };
+      this.where = { block: callee.name, part: 'interface' };
+      const t = this.varType(ret);
+      if (t.k !== 'elem') {
+        this.fail(`Rückgabewert von „${callee.name}“: nur elementare Datentypen`, NO_SPAN);
+      }
+      scope.set('ret_val', this.makeSym(callee, ret, `${callee.name}#${n}.Ret_Val`, true));
+    }
     this.where = where;
 
     // Parameter binden (im Kontext des Aufrufers)
     const params = callee.decls.filter(
       (d) => d.section === 'Input' || d.section === 'Output' || d.section === 'InOut',
     );
+    // Positionsparameter der Reihe nach auf Eingänge und Durchgangsparameter; Ausgänge
+    // bleiben benannt (NAME => ziel)
+    let args = givenArgs;
+    const positional = args.filter((a) => !a.name);
+    if (positional.length) {
+      if (args.some((a) => a.name && !a.out)) {
+        this.fail('Eingänge entweder alle benannt oder alle ohne Namen angeben', span);
+      }
+      const ins = params.filter((d) => d.section !== 'Output');
+      if (positional.length > ins.length) {
+        this.fail(
+          `„${callee.name}“ hat ${ins.length} Eingänge/Durchgangsparameter, angegeben ${positional.length}`,
+          span,
+        );
+      }
+      let i = 0;
+      args = args.map((a) => (a.name ? a : { ...a, name: ins[i++]!.name.toUpperCase() }));
+    }
     const byName = new Map(params.map((d) => [d.name.toUpperCase(), d]));
     const given = new Map<string, FbArg>();
     for (const a of args) {
@@ -1552,6 +1595,37 @@ class CodeGen {
       if (s?.k !== 'var') continue;
       this.store({ o: s.op, t: s.t }, this.writable(a.out), a.span);
     }
+    return scope;
+  }
+
+  /** FC-Aufruf in einem Ausdruck bzw. als Anweisung: Argumente wie beim Bausteinaufruf */
+  private callFc(e: Extract<Expr, { k: 'call' }>, unit: Unit, needValue: boolean): Val | undefined {
+    if (unit.kind === 'FB') {
+      this.fail(
+        `„${unit.name}“ ist ein FB – rufe seinen Instanz-DB als Anweisung auf, z. B. "${unit.name}_DB"(…);`,
+        e.span,
+      );
+    }
+    if (needValue && !unit.returnType) {
+      this.fail(
+        `„${unit.name}“ liefert keinen Wert (Rückgabetyp Void) – rufe sie als Anweisung auf`,
+        e.span,
+      );
+    }
+    const args: FbArg[] = e.args.map((a) => ({
+      name: a.name ?? '',
+      ...(a.out ? { out: a.out } : { e: a.e }),
+      span: a.span,
+    }));
+    const scope = this.callUser(unit, undefined, args, e.span);
+    const ret = scope.get('ret_val');
+    return ret?.k === 'var' ? { o: ret.op, t: ret.t } : undefined;
+  }
+
+  /** Eigene FC zu einem Aufruf (Name in Anführungszeichen oder kein Standardbefehl) */
+  private userFc(e: Extract<Expr, { k: 'call' }>): Unit | undefined {
+    if (!e.quoted && isBuiltinFunction(e.name)) return undefined;
+    return this.units.get((e.raw ?? e.name).toLowerCase());
   }
 
   /** Wert eines konstanten Ausdrucks (nur Literale bzw. lokale Konstanten). */
@@ -1679,6 +1753,11 @@ class CodeGen {
       case 'fbcall':
         return this.fbCall(s.inst, s.args, s.span);
       case 'exprstmt': {
+        const user = s.e.k === 'call' ? this.userFc(s.e) : undefined;
+        if (user && s.e.k === 'call') {
+          this.callFc(s.e, user, false);
+          return;
+        }
         const name = s.e.k === 'call' ? s.e.name : 'des Ausdrucks';
         if (s.e.k === 'call' && !isBuiltinFunction(name)) {
           this.fail('Bausteinaufrufe brauchen benannte Parameter, z. B. IN := …, PT := …', s.span);
@@ -1909,6 +1988,13 @@ class CodeGen {
     if (user) {
       this.callUser(user.unit, user.inst, args, span);
       return;
+    }
+    const positional = args.find((a) => !a.name);
+    if (positional) {
+      this.fail(
+        'Bausteinaufrufe brauchen benannte Parameter, z. B. IN := …, PT := …',
+        positional.span,
+      );
     }
 
     let entry: InstEntry;
@@ -2191,6 +2277,18 @@ class CodeGen {
   }
 
   private callType(e: Extract<Expr, { k: 'call' }>): LiteralType | undefined {
+    const user = this.userFc(e);
+    if (user) {
+      if (user.kind !== 'FC' || !user.returnType) return undefined;
+      const t = this.varType({
+        section: 'Output',
+        name: 'Ret_Val',
+        typeName: user.returnType,
+        typeSpan: NO_SPAN,
+        span: NO_SPAN,
+      });
+      return t.k === 'elem' ? t.t : undefined;
+    }
     const conv = CONV_RE.exec(e.name);
     if (conv) return conv[2] as DataType;
     if (
@@ -2474,6 +2572,8 @@ class CodeGen {
     const conv = CONV_RE.test(e.name);
     const spec = conv ? { params: ['IN'] } : FUNCTIONS[e.name];
     if (!spec) this.fail(`Unbekannte Funktion ${e.name}`, e.span);
+    const outArg = e.args.find((a) => a.out);
+    if (outArg) this.fail(`${e.name} hat keine Ausgänge (${outArg.name} =>)`, outArg.span);
     const named = e.args.filter((a) => a.name);
     if (named.length && named.length !== e.args.length) {
       this.fail('Parameter entweder alle benannt oder alle ohne Namen angeben', e.span);
@@ -2589,16 +2689,10 @@ class CodeGen {
       const v = this.intrinsic(e, dst);
       if (v) return v;
     }
+    const user = this.userFc(e);
+    if (user) return this.callFc(e, user, true)!;
     if (!isBuiltinFunction(e.name)) {
-      const unit = this.units.get(e.name.toLowerCase());
-      if (unit) {
-        this.fail(
-          unit.kind === 'FC'
-            ? `Funktionen mit Rückgabewert werden nicht unterstützt – rufe „${unit.name}“ als Anweisung auf und verschalte einen Ausgang mit =>`
-            : `„${unit.name}“ ist ein FB – rufe seinen Instanz-DB als Anweisung auf, z. B. "${unit.name}_DB"(…);`,
-          e.span,
-        );
-      }
+      if (e.quoted) this.fail(`Baustein „${e.raw}“ ist nicht definiert`, e.span);
       if (e.name === 'IN_RANGE' || e.name === 'OUT_RANGE') {
         this.fail(
           `${e.name} gibt es nur in FUP/KOP – in SCL mit Vergleichen formulieren, z. B. (#x >= 10) AND (#x <= 20)`,

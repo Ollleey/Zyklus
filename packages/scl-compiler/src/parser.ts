@@ -317,9 +317,12 @@ class Parser {
     if (nameTok.kind !== 'quoted' && nameTok.kind !== 'ident') {
       this.error(`Bausteinname erwartet, gefunden ${describe(nameTok)}`, nameTok);
     }
+    let returnType: string | undefined;
     if (info.kind === 'FC' && this.isOp(':')) {
       this.next();
-      this.next(); // Rückgabetyp, z. B. Void
+      const from = this.t;
+      this.typeExpr();
+      returnType = this.src.slice(from.from, this.tokens[this.p - 1]!.to);
     }
 
     let title: string | undefined;
@@ -374,6 +377,7 @@ class Parser {
       nameSpan: nameTok,
       title,
       instanceOf,
+      returnType,
       decls,
       body,
       bodyText: this.src.slice(begin.to, end.from),
@@ -614,7 +618,10 @@ class Parser {
         nameTok.kind !== 'ident' ||
         !(this.isOp(':=', this.peek()) || this.isOp('=>', this.peek()))
       ) {
-        this.error('Bausteinaufrufe brauchen benannte Parameter, z. B. IN := …, PT := …');
+        // Positionsparameter (nur eigene FB/FC; der Compiler prüft das)
+        const e = this.expr();
+        args.push({ name: '', e, span: e.span });
+        continue;
       }
       this.next();
       if (this.next().value === ':=') {
@@ -851,8 +858,10 @@ class Parser {
       case 'ident':
         if (this.isOp('(', this.peek())) return this.call();
         return this.ref();
-      case 'local':
       case 'quoted':
+        if (this.isOp('(', this.peek())) return this.call();
+        return this.ref();
+      case 'local':
       case 'address':
         return this.ref();
     }
@@ -896,6 +905,11 @@ class Parser {
         this.next();
         const e = this.expr();
         args.push({ name: n.value.toUpperCase(), e, span: joinSpans(n, e.span) });
+      } else if (this.t.kind === 'ident' && this.isOp('=>', this.peek())) {
+        const n = this.next();
+        this.next();
+        const out = this.ref();
+        args.push({ name: n.value.toUpperCase(), e: out, out, span: joinSpans(n, out.span) });
       } else {
         const e = this.expr();
         args.push({ e, span: e.span });
@@ -903,7 +917,14 @@ class Parser {
       if (this.t.kind === 'eof') this.error('„)“ fehlt', name);
     }
     const close = this.next();
-    return { k: 'call', name: name.value.toUpperCase(), args, span: joinSpans(name, close) };
+    return {
+      k: 'call',
+      name: name.value.toUpperCase(),
+      raw: name.value,
+      ...(name.kind === 'quoted' ? { quoted: true } : {}),
+      args,
+      span: joinSpans(name, close),
+    };
   }
 
   private ref(): Ref {

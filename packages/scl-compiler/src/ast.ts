@@ -42,7 +42,8 @@ export type Expr =
   | Ref
   | { k: 'unary'; op: '-' | 'NOT'; e: Expr; span: Span }
   | { k: 'binary'; op: BinaryOp; a: Expr; b: Expr; span: Span }
-  | { k: 'call'; name: string; args: Arg[]; span: Span }
+  /** Funktionsaufruf; `name` in Großbuchstaben, `raw` wie geschrieben, `quoted` bei "FC"(…) */
+  | { k: 'call'; name: string; raw?: string; quoted?: boolean; args: Arg[]; span: Span }
   /** Startwertliste eines Feldes: [1, 2, 3(0)] – nur als Startwert */
   | { k: 'list'; items: { e: Expr; n: number }[]; span: Span };
 
@@ -53,6 +54,8 @@ export interface Arg {
   /** Parametername bei `NAME := wert`, sonst undefined (Positionsparameter) */
   name?: string;
   e: Expr;
+  /** Ausgang einer FC im Ausdruck: NAME => ziel (dann ist `e` dasselbe Ziel) */
+  out?: Ref;
   span: Span;
 }
 
@@ -63,6 +66,7 @@ export interface CaseLabel {
 }
 
 export interface FbArg {
+  /** leer bei Positionsparametern (nur eigene FB/FC) */
   name: string;
   /** Eingang: NAME := expr */
   e?: Expr;
@@ -114,6 +118,8 @@ export interface SourceBlock {
   title?: string;
   /** bei Instanz-DBs: Typ (IEC_TIMER, "MeinFB", …) */
   instanceOf?: string;
+  /** bei FC: Rückgabetyp wie geschrieben (Void, Int, …) */
+  returnType?: string;
   decls: Decl[];
   body: Stmt[];
   /** Anweisungsteil als Text (zwischen BEGIN und END_…) */

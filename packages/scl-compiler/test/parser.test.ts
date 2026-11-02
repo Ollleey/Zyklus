@@ -167,7 +167,6 @@ describe('Syntaxfehler', () => {
     ['x := 2 ** 3;', /Potenzieren/],
     ['FOR #i = 1 TO 3 DO END_FOR;', /„:=“ erwartet nach der Laufvariable/],
     ['CASE x OF a := 1; END_CASE;', /CASE-Marke erwartet/],
-    ['"T".TON(TRUE, T#1s);', /benannte Parameter/],
     ['VAR a : INT; END_VAR', /in der Bausteinschnittstelle deklariert/],
     ['REGION x\n a := 1;', /END_REGION erwartet/],
     ['END_IF;', /Unerwartetes Schlüsselwort END_IF/],

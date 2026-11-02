@@ -1,5 +1,18 @@
 # Changelog
 
+## M8c – FC mit Rückgabewert (2026-11-02)
+
+- FC-Schnittstelle mit **Return `Ret_Val`** (Datentyp in der Oberfläche, `Void` = keiner); im
+  Baustein `#Ret_Val := …;`
+- Aufruf im Ausdruck: `"Wert" := "Skalieren"(Roh := "Rohwert", Faktor := 0.5) + 1.0;`, auch
+  verschachtelt und in Bedingungen; Ausgänge im Ausdruck mit `Doppelt => "Zahl"`; als Anweisung
+  wird der Rückgabewert verworfen
+- **Positionsparameter** bei eigenen FB/FC: `"Skalieren"("Rohwert", 2.0)` (der Reihe nach auf
+  Eingänge und Durchgangsparameter, Ausgänge benannt); Systembausteine (TON, CTU …) brauchen
+  weiter benannte Parameter
+- Externe Quellen: `FUNCTION "Name" : Real` lesen und schreiben
+- 655 Tests
+
 ## M8b – STRUCT und PLC-Datentypen (2026-11-02)
 
 - **PLC-Datentypen** (eigene Strukturen) als eigener Ordner im Projekt (`types` im Projektmodell,

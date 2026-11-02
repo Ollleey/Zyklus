@@ -69,6 +69,8 @@ export interface CodeBlock {
   generatedFrom?: 'FUP';
   /** nur OB: Startereignis; ohne Ereignis ist der OB der zyklische OB1 */
   event?: ObEvent;
+  /** nur FC: Datentyp des Rückgabewerts `Ret_Val` (fehlt oder „Void“: keiner) */
+  returnType?: string;
 }
 
 /** Globaler Datenbaustein */

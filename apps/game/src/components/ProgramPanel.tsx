@@ -325,6 +325,33 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
             </button>
             {showIface && (
               <div className="iface-sections">
+                {block.kind === 'FC' && (
+                  <div className="iface-section">
+                    <h4>Return</h4>
+                    <label className="iface-return">
+                      <span>Ret_Val :</span>
+                      <input
+                        value={block.returnType ?? 'Void'}
+                        list="fc-return-types"
+                        spellCheck={false}
+                        onChange={(e) =>
+                          changeBlock((b) => {
+                            const v = e.target.value;
+                            const { returnType: _, ...rest } = b;
+                            return v.trim() && v.trim().toLowerCase() !== 'void'
+                              ? { ...rest, returnType: v }
+                              : rest;
+                          })
+                        }
+                      />
+                      <datalist id="fc-return-types">
+                        {['Void', ...ELEMENTARY_TYPES].map((ty) => (
+                          <option key={ty} value={ty} />
+                        ))}
+                      </datalist>
+                    </label>
+                  </div>
+                )}
                 {sections.map((s) => (
                   <div key={s} className="iface-section">
                     <h4>{s}</h4>

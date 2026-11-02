@@ -149,7 +149,9 @@ export function projectToSource(project: PlcProject): string {
       );
     } else {
       const [head, end] = BLOCK_HEADER[b.kind];
-      out.push(`${head} "${b.name}"${b.kind === 'FC' ? ' : Void' : ''}`);
+      out.push(
+        `${head} "${b.name}"${b.kind === 'FC' ? ` : ${b.returnType?.trim() || 'Void'}` : ''}`,
+      );
       if (b.title) out.push(`TITLE = ${b.title}`);
       out.push(`{ S7_Optimized_Access := 'TRUE' }`, 'VERSION : 0.1');
       // Das Startereignis ist in TIA Teil der Gerätekonfiguration, nicht der Quelle
@@ -224,6 +226,9 @@ export function sourceToProject(
         iface,
         source: dedent(b.bodyText),
         ...(event ? { event } : {}),
+        ...(b.kind === 'FC' && b.returnType && b.returnType.toUpperCase() !== 'VOID'
+          ? { returnType: b.returnType }
+          : {}),
       },
     ];
   });

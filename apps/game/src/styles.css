@@ -693,6 +693,22 @@ code {
   max-height: 220px;
   overflow: auto;
 }
+.iface-return {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.iface-return input {
+  width: 160px;
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 2px 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
 .iface-section h4 {
   margin: 6px 0 2px;
   font-size: 12px;

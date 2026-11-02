@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Cpu, Simulation, type Block, type CodeBlock, type VarDecl } from '@zyklus/sim-core';
-import { compileProject, compileSource, formatDiagnostic, type CompileResult } from '../src';
+import {
+  compileProject,
+  compileSource,
+  formatDiagnostic,
+  projectToSource,
+  sourceToProject,
+  type CompileResult,
+} from '../src';
 import { IDB, TAGS } from './harness';
 
 type Row = [name: string, type: string, init?: string];
@@ -242,7 +249,7 @@ END_IF;
     expect(err('"Begrenzt"(schritt := 1);')).toMatch(/Durchgangsparameter x .* fehlt/);
     expect(err('"Begrenzt"(schritt := 1, x := 5);')).toMatch(/braucht eine Variable/);
     expect(err('"Begrenzt"(schritt := 1, x := "Gross");')).toMatch(/DInt passt nicht zu Int/);
-    expect(err('"Zahl" := Begrenzt(1);')).toMatch(/Rückgabewert/);
+    expect(err('"Zahl" := Begrenzt(1);')).toMatch(/keinen Wert \(Rückgabetyp Void\)/);
     const withStatic = block('FC', 'S', '', { Static: [['s', 'Int']] });
     expect(err('"S"();', [withStatic])).toMatch(/keinen Bereich Static/);
     expect(err('"B_DB"();', [ADD, IDB('B_DB', 'Begrenzt')])).toMatch(/hat keinen Instanz-DB/);
@@ -403,5 +410,105 @@ describe('Ereignisse in der externen Quelle', () => {
       ['Takt', 30, { kind: 'cyclic', intervalMs: 50, phaseMs: 2 }],
       ['Flanke', 40, { kind: 'process', input: '"Sensor"', edge: 'falling' }],
     ]);
+  });
+});
+
+describe('FC mit Rückgabewert (Ret_Val)', () => {
+  const SKAL = block(
+    'FC',
+    'Skalieren',
+    `IF #Roh < 0 THEN #Ret_Val := 0.0; RETURN; END_IF;
+#Ret_Val := INT_TO_REAL(#Roh) * #Faktor;
+#Doppelt := #Roh * 2;`,
+    {
+      Input: [
+        ['Roh', 'Int'],
+        ['Faktor', 'Real'],
+      ],
+      Output: [['Doppelt', 'Int']],
+    },
+    { returnType: 'Real' },
+  );
+
+  it('Aufruf im Ausdruck, benannt und als Positionsparameter', () => {
+    const r = project([
+      block(
+        'OB',
+        'Main',
+        `"Wert" := "Skalieren"(Roh := "Rohwert", Faktor := 0.5) + Skalieren(10, 1.0);
+"Sollwert" := REAL_TO_INT("Skalieren"("Rohwert", 2.0, Doppelt => "Zahl"));`,
+      ),
+      SKAL,
+    ]);
+    const c = cpu(r);
+    c.setInput('%IW64', 8);
+    c.scan(0);
+    expect(c.read('%MD24', 'REAL')).toBe(14);
+    expect(c.read('%QW64')).toBe(16);
+    expect(c.read('%MW10')).toBe(16);
+    c.setInput('%IW64', -3);
+    c.scan(1);
+    expect(c.read('%MD24', 'REAL')).toBe(10);
+  });
+
+  it('verschachtelt und in Bedingungen; Aufruf als Anweisung verwirft den Wert', () => {
+    const r = project([
+      block(
+        'OB',
+        'Main',
+        `IF "Skalieren"("Skalieren"(2, 3.0) > 5.0, 1.0) > 0.0 THEN "Motor" := TRUE; END_IF;
+"Skalieren"(Roh := 1, Faktor := 1.0, Doppelt => "Zahl");`,
+      ),
+      SKAL,
+    ]);
+    expect(errors(r)[0]).toMatch(/Bool.*Int|Typkonflikt/);
+    const ok = project([
+      block(
+        'OB',
+        'Main',
+        `IF "Skalieren"(REAL_TO_INT("Skalieren"(2, 3.0)), 1.0) > 5.0 THEN "Motor" := TRUE; END_IF;
+"Skalieren"(Roh := 1, Faktor := 1.0, Doppelt => "Zahl");`,
+      ),
+      SKAL,
+    ]);
+    const c = cpu(ok);
+    c.scan(0);
+    expect(c.read('%Q0.0')).toBe(true);
+    expect(c.read('%MW10')).toBe(2);
+  });
+
+  it('Fehler', () => {
+    const err = (src: string) => errors(project([block('OB', 'Main', src), SKAL]))[0];
+    expect(err('"Wert" := "Skalieren"(1);')).toMatch(/Eingang Faktor .* fehlt/);
+    expect(err('"Wert" := "Skalieren"(1, 2.0, 3);')).toMatch(/2 Eingänge.*angegeben 3/);
+    expect(err('"Wert" := "Skalieren"(Roh := 1, 2.0);')).toMatch(/Eingänge entweder alle benannt/);
+    expect(err('"Wert" := "Gibtsnicht"(1);')).toMatch(/nicht definiert/);
+    expect(err('"Zahl" := ABS(IN => "Zahl");')).toMatch(/keine Ausgänge/);
+    expect(err('"T"(TRUE, T#1s);')).toMatch(/benannte Parameter/);
+    const bad = block('FC', 'B', '#Ret_Val := 1;', {}, { returnType: 'Array[0..1] of Int' });
+    expect(errors(project([block('OB', 'Main', '"Zahl" := "B"();'), bad]))[0]).toMatch(
+      /nur elementare/,
+    );
+  });
+
+  it('Quelle: FUNCTION "X" : Real', () => {
+    const src = `FUNCTION "Halb" : Real
+VAR_INPUT
+  x : Real;
+END_VAR
+BEGIN
+  #Ret_Val := #x / 2.0;
+END_FUNCTION
+
+ORGANIZATION_BLOCK "Main"
+BEGIN
+  "Wert" := "Halb"(5.0);
+END_ORGANIZATION_BLOCK`;
+    const c = cpu(compileSource(src, { tags: TAGS }));
+    c.scan(0);
+    expect(c.read('%MD24', 'REAL')).toBe(2.5);
+    const p = sourceToProject(src, TAGS).project!;
+    expect(p.blocks.find((b) => b.name === 'Halb')).toMatchObject({ returnType: 'Real' });
+    expect(projectToSource(p)).toContain('FUNCTION "Halb" : Real');
   });
 });
