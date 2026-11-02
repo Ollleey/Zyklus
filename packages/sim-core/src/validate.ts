@@ -225,6 +225,21 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
       case 'jmp':
         jump(ins.to);
         break;
+      case 'clock': {
+        const dtl: DataType[] = [
+          'UINT',
+          'USINT',
+          'USINT',
+          'USINT',
+          'USINT',
+          'USINT',
+          'USINT',
+          'UDINT',
+        ];
+        if (ins.dst.length !== 8) err('RD_SYS_T braucht 8 Ziele (DTL)');
+        ins.dst.forEach((d, n) => target(d, `DTL-Element ${n + 1}`, dtl[n]));
+        break;
+      }
       case 'chk':
         operand(ins.a, 'Index', ['INT', 'DINT']);
         target(ins.dst, 'Ziel', 'DINT');
@@ -270,8 +285,55 @@ function validateCall(
   const count = (n: number) => {
     if (args.length !== n) err(`${ins.fn.toUpperCase()} braucht ${n} Argumente`);
   };
-  const numeric: DataType[] = DATA_TYPES.filter((x) => x !== 'BOOL');
+  const numeric: DataType[] = DATA_TYPES.filter((x) => x !== 'BOOL' && x !== 'STRING');
+  const ints: DataType[] = ['INT', 'DINT', 'SINT', 'USINT', 'UINT', 'UDINT', 'LINT', 'ULINT'];
   switch (ins.fn) {
+    case 'len':
+      count(1);
+      operand(args[0], 'IN', 'STRING');
+      target(ins.dst, 'Ziel', 'INT');
+      break;
+    case 'concat':
+      if (args.length < 2) err('CONCAT braucht mindestens 2 Argumente');
+      args.forEach((a, n) => operand(a, `IN${n + 1}`, 'STRING'));
+      target(ins.dst, 'Ziel', 'STRING');
+      break;
+    case 'left':
+    case 'right':
+    case 'mid':
+    case 'delete':
+      count(ins.fn === 'left' || ins.fn === 'right' ? 2 : 3);
+      operand(args[0], 'IN', 'STRING');
+      args.slice(1).forEach((a, n) => operand(a, n === 0 ? 'L' : 'P', ints));
+      target(ins.dst, 'Ziel', 'STRING');
+      break;
+    case 'find':
+      count(2);
+      operand(args[0], 'IN1', 'STRING');
+      operand(args[1], 'IN2', 'STRING');
+      target(ins.dst, 'Ziel', 'INT');
+      break;
+    case 'insert':
+      count(3);
+      operand(args[0], 'IN1', 'STRING');
+      operand(args[1], 'IN2', 'STRING');
+      operand(args[2], 'P', ints);
+      target(ins.dst, 'Ziel', 'STRING');
+      break;
+    case 'replace':
+      count(4);
+      operand(args[0], 'IN1', 'STRING');
+      operand(args[1], 'IN2', 'STRING');
+      operand(args[2], 'L', ints);
+      operand(args[3], 'P', ints);
+      target(ins.dst, 'Ziel', 'STRING');
+      break;
+    case 'swap':
+      count(1);
+      if (!isBitStringType(t) || t === 'BYTE') err(`SWAP nicht auf ${t}`);
+      operand(args[0], 'IN', t);
+      target(ins.dst, 'Ziel', t);
+      break;
     case 'limit':
     case 'in_range':
     case 'out_range':

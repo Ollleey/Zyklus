@@ -38,7 +38,7 @@ export type TypeExpr =
 export type LiteralType = DataType | 'ANY_INT' | 'ANY_REAL';
 
 export type Expr =
-  | { k: 'lit'; t: LiteralType; v: number | boolean; span: Span }
+  | { k: 'lit'; t: LiteralType; v: number | boolean | string; span: Span }
   | Ref
   | { k: 'unary'; op: '-' | 'NOT'; e: Expr; span: Span }
   | { k: 'binary'; op: BinaryOp; a: Expr; b: Expr; span: Span }

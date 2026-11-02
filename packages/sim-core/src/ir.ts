@@ -46,7 +46,27 @@ export type UnaryFn = 'not' | 'neg' | 'abs';
 export type BinaryFn = 'add' | 'sub' | 'mul' | 'div' | 'mod' | 'and' | 'or' | 'xor' | 'shl' | 'shr';
 export type CompareFn = 'eq' | 'ne' | 'lt' | 'le' | 'gt' | 'ge';
 export type CallFn =
-  'limit' | 'min' | 'max' | 'sel' | 'in_range' | 'out_range' | 'norm_x' | 'scale_x';
+  | 'limit'
+  | 'min'
+  | 'max'
+  | 'sel'
+  | 'in_range'
+  | 'out_range'
+  | 'norm_x'
+  | 'scale_x'
+  /** Zeichenketten: len [IN] → INT, concat [IN1, …], left/right [IN, L], mid [IN, L, P],
+   * find [IN1, IN2] → INT, delete [IN, L, P], insert [IN1, IN2, P], replace [IN1, IN2, L, P] */
+  | 'len'
+  | 'concat'
+  | 'left'
+  | 'right'
+  | 'mid'
+  | 'find'
+  | 'delete'
+  | 'insert'
+  | 'replace'
+  /** Bytes einer Bitfolge tauschen [IN] */
+  | 'swap';
 
 export type Instr =
   | { op: 'mov'; dst: Operand; src: Operand }
@@ -64,6 +84,11 @@ export type Instr =
   | { op: 'fn'; fn: CallFn; t: DataType; dst: Operand; args: Operand[] }
   /** MUX: K wählt einen Eingang; ohne `alt` bleibt dst bei ungültigem K unverändert. */
   | { op: 'mux'; t: DataType; dst: Operand; k: Operand; ins: Operand[]; alt?: Operand }
+  /**
+   * Systemzeit lesen (RD_SYS_T) in die 8 Elemente einer DTL: YEAR, MONTH, DAY, WEEKDAY,
+   * HOUR, MINUTE, SECOND, NANOSECOND
+   */
+  | { op: 'clock'; dst: Operand[] }
   | { op: 'set'; dst: Operand; cond: Operand }
   | { op: 'reset'; dst: Operand; cond: Operand }
   /** Speicherbox mit Merker `q`. SR: Rücksetzen dominant, RS: Setzen dominant. */
@@ -102,6 +127,8 @@ export interface SlotDecl {
   temp?: boolean;
   /** remanent: behält den Wert bei Neustart (STOP → RUN, Spannung aus/ein) */
   retain?: boolean;
+  /** STRING: Höchstlänge (Standard 254); längere Werte werden abgeschnitten */
+  len?: number;
 }
 
 export interface InstanceDecl {

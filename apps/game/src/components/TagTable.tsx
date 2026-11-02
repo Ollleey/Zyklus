@@ -3,7 +3,9 @@ import { TIA_NAMES } from '@zyklus/scl-compiler';
 import { t } from '../i18n';
 
 // 64-bit-Typen gibt es im Spiel nur in Datenbausteinen
-const TYPES = (Object.keys(TIA_NAMES) as DataType[]).filter((ty) => bitWidth(ty) < 64);
+const TYPES = (Object.keys(TIA_NAMES) as DataType[]).filter(
+  (ty) => bitWidth(ty) < 64 && ty !== 'STRING',
+);
 
 interface Props {
   tags: Tag[];

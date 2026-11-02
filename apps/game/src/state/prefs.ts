@@ -43,8 +43,13 @@ export function formatBool(v: boolean, f: BoolFormat): string {
 }
 
 /** Wert für die Anzeige: Bool nach Einstellung, Zahlen mit `digits` Nachkommastellen */
-export function formatValue(v: boolean | number | undefined, f: BoolFormat, digits = 0): string {
+export function formatValue(
+  v: boolean | number | string | undefined,
+  f: BoolFormat,
+  digits = 0,
+): string {
   if (v === undefined) return '';
   if (typeof v === 'boolean') return formatBool(v, f);
+  if (typeof v === 'string') return `'${v}'`;
   return Number.isInteger(v) && digits === 0 ? String(v) : v.toFixed(digits);
 }

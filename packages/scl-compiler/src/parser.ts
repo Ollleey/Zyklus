@@ -848,6 +848,9 @@ class Parser {
       case 'typed':
         this.next();
         return { k: 'lit', t: t.type!, v: t.type === 'BOOL' ? t.num === 1 : t.num!, span: t };
+      case 'string':
+        this.next();
+        return { k: 'lit', t: 'STRING', v: t.value, span: t };
       case 'keyword':
         if (t.value === 'TRUE' || t.value === 'FALSE') {
           this.next();
@@ -967,7 +970,7 @@ class Parser {
     while (this.isOp('.') && scope !== 'addr') {
       this.next();
       const m = this.t;
-      if (m.kind !== 'ident' && m.kind !== 'keyword' && m.kind !== 'quoted') {
+      if (m.kind !== 'ident' && m.kind !== 'keyword' && m.kind !== 'quoted' && m.kind !== 'slice') {
         this.error('Name nach „.“ erwartet');
       }
       this.next();

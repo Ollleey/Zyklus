@@ -19,6 +19,12 @@ export const ELEMENTARY_TYPES = [
   'ULInt',
   'LReal',
   'LWord',
+  'Char',
+  'String',
+  'String[20]',
+  'Date',
+  'Time_Of_Day',
+  'DTL',
 ];
 
 interface Props {

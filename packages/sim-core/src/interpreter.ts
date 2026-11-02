@@ -5,6 +5,7 @@ import type { ByteArea } from './memory';
 import { energyOf } from './metrics/weights';
 import {
   LONG_MAX,
+  STRING_DEFAULT_LEN,
   bitWidth,
   isIntegerType,
   isRealType,
@@ -80,13 +81,16 @@ export function execute(ctx: ExecContext): ExecResult {
   const num = (o: Operand) => read(o) as number;
   const bool = (o: Operand) => read(o) as boolean;
 
+  const store = (i: number, v: Value): void => {
+    const d = program.slots[i]!;
+    const n = normalize(d.t, v);
+    slots[i] = d.t === 'STRING' ? (n as string).slice(0, d.len ?? STRING_DEFAULT_LEN) : n;
+  };
   const write = (o: Operand, v: Value): void => {
     if (o.k === 'io') areas[o.area].write(o.t, o.byte, o.bit, v);
-    else if (o.k === 'slot') slots[o.i] = normalize(program.slots[o.i]!.t, v);
-    else if (o.k === 'islot') {
-      const i = elementSlot(o);
-      slots[i] = normalize(program.slots[i]!.t, v);
-    } else throw new Error('Operand nicht beschreibbar');
+    else if (o.k === 'slot') store(o.i, v);
+    else if (o.k === 'islot') store(elementSlot(o), v);
+    else throw new Error('Operand nicht beschreibbar');
   };
 
   try {
@@ -114,6 +118,9 @@ export function execute(ctx: ExecContext): ExecResult {
           break;
         case 'fn':
           write(ins.dst, call(ins, ins.args.map(read)));
+          break;
+        case 'clock':
+          dtl(ctx.now).forEach((v, n) => write(ins.dst[n]!, v));
           break;
         case 'mux': {
           const k = num(ins.k);
@@ -204,6 +211,18 @@ export function convert(
   to: DataType,
   mode: 'round' | 'trunc' = 'round',
 ): Value {
+  if (to === 'STRING') return toText(v, from);
+  if (to === 'CHAR') {
+    if (typeof v === 'string') return v.charAt(0) || ' ';
+    return String.fromCharCode(saturate('BYTE', typeof v === 'boolean' ? +v : v));
+  }
+  if (typeof v === 'string') {
+    // Zeichen → Code, Zeichenkette → Zahl (ungültig: 0)
+    if (from === 'CHAR') return convert(v.charCodeAt(0), 'USINT', to, mode);
+    const parsed = Number(v.trim().replace(',', '.'));
+    if (to === 'BOOL') return v.trim().toUpperCase() === 'TRUE' || parsed === 1;
+    return convert(Number.isFinite(parsed) ? parsed : 0, 'LREAL', to, mode);
+  }
   const n = typeof v === 'boolean' ? (v ? 1 : 0) : v;
   if (to === 'BOOL') return n !== 0;
   if (to === 'REAL') return Math.fround(n);
@@ -215,6 +234,38 @@ export function convert(
   }
   if (sameBitPattern(from, to)) return normalize(to, n);
   return saturate(to, n);
+}
+
+/**
+ * Text eines Werts (X_TO_STRING). **Spielregel:** Zahlen ohne Vorzeichen-Platzhalter,
+ * Gleitkomma mit höchstens 7 (LReal 15) signifikanten Stellen.
+ */
+function toText(v: Value, from: DataType): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+  if (from === 'REAL' || from === 'LREAL') {
+    if (!Number.isFinite(v)) return Number.isNaN(v) ? 'NaN' : v > 0 ? 'Inf' : '-Inf';
+    return String(Number(v.toPrecision(from === 'REAL' ? 7 : 15)));
+  }
+  return String(v);
+}
+
+/** Spielzeit 0 = Montag, 5. Januar 2026, 06:00:00 */
+export const CLOCK_EPOCH = Date.UTC(2026, 0, 5, 6, 0, 0);
+
+/** DTL zu einer Spielzeit in ms: Jahr, Monat, Tag, Wochentag (1 = Sonntag), h, min, s, ns */
+export function dtl(now: number): number[] {
+  const d = new Date(CLOCK_EPOCH + now);
+  return [
+    d.getUTCFullYear(),
+    d.getUTCMonth() + 1,
+    d.getUTCDate(),
+    d.getUTCDay() + 1,
+    d.getUTCHours(),
+    d.getUTCMinutes(),
+    d.getUTCSeconds(),
+    d.getUTCMilliseconds() * 1_000_000,
+  ];
 }
 
 /** Typpaare gleicher Breite, bei denen das Bitmuster übernommen wird. */
@@ -304,9 +355,54 @@ function compare(fn: Extract<Instr, { op: 'cmp' }>['fn'], a: Value, b: Value): b
   }
 }
 
+/** Zeichenposition P (1-basiert) in einen Index umrechnen; außerhalb: undefined */
+function pos(p: number, s: string): number | undefined {
+  return p >= 1 && p <= s.length ? p - 1 : undefined;
+}
+
 function call(ins: Extract<Instr, { op: 'fn' }>, args: Value[]): Value {
   const n = args as number[];
+  const s = args as string[];
+  const k = (i: number) => Math.max(0, Math.trunc(n[i]!));
   switch (ins.fn) {
+    case 'len':
+      return s[0]!.length;
+    case 'concat':
+      return s.join('');
+    case 'left':
+      return s[0]!.slice(0, k(1));
+    case 'right':
+      return k(1) === 0 ? '' : s[0]!.slice(-k(1));
+    case 'mid': {
+      const p = pos(n[2]!, s[0]!);
+      return p === undefined ? '' : s[0]!.slice(p, p + k(1));
+    }
+    case 'find': {
+      const i = s[0]!.indexOf(s[1]!);
+      return s[1]!.length === 0 ? 0 : i + 1;
+    }
+    case 'delete': {
+      const p = pos(n[2]!, s[0]!);
+      return p === undefined ? s[0]! : s[0]!.slice(0, p) + s[0]!.slice(p + k(1));
+    }
+    case 'insert': {
+      const p = Math.min(Math.max(0, Math.trunc(n[2]!)), s[0]!.length);
+      return s[0]!.slice(0, p) + s[1]! + s[0]!.slice(p);
+    }
+    case 'replace': {
+      const p = pos(n[3]!, s[0]!);
+      return p === undefined ? s[0]! : s[0]!.slice(0, p) + s[1]! + s[0]!.slice(p + k(2));
+    }
+    case 'swap': {
+      const bytes = bitWidth(ins.t) / 8;
+      let x = BigInt(n[0]!);
+      let out = 0n;
+      for (let b = 0; b < bytes; b++) {
+        out = (out << 8n) | (x & 0xffn);
+        x >>= 8n;
+      }
+      return Number(out);
+    }
     case 'limit':
       return Math.min(Math.max(n[1]!, n[0]!), n[2]!);
     case 'min':

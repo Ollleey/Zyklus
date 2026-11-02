@@ -5,8 +5,10 @@ import {
   ProgramBuilder,
   SECTIONS_BY_KIND,
   TagTable,
+  bitWidth,
   defaultValue,
   integerRange,
+  isIntegerType,
   io,
   DATA_TYPES,
   isArithmeticType,
@@ -363,7 +365,40 @@ const FUNCTIONS: Record<string, { params: string[]; variadic?: boolean }> = {
   SHR: { params: ['IN', 'N'] },
   ROUND: { params: ['IN'] },
   TRUNC: { params: ['IN'] },
+  LEN: { params: ['IN'] },
+  CONCAT: { params: ['IN1', 'IN2'], variadic: true },
+  LEFT: { params: ['IN', 'L'] },
+  RIGHT: { params: ['IN', 'L'] },
+  MID: { params: ['IN', 'L', 'P'] },
+  FIND: { params: ['IN1', 'IN2'] },
+  DELETE: { params: ['IN', 'L', 'P'] },
+  INSERT: { params: ['IN1', 'IN2', 'P'] },
+  REPLACE: { params: ['IN1', 'IN2', 'L', 'P'] },
+  SWAP: { params: ['IN'] },
+  RD_SYS_T: { params: ['OUT'] },
+  RD_LOC_T: { params: ['OUT'] },
 };
+
+/** Standarddatentyp DTL (Datum und Uhrzeit) */
+const DTL_TYPE: VarType = {
+  k: 'struct',
+  name: 'DTL',
+  fields: (
+    [
+      ['YEAR', 'UINT', 1970],
+      ['MONTH', 'USINT', 1],
+      ['DAY', 'USINT', 1],
+      ['WEEKDAY', 'USINT', 5],
+      ['HOUR', 'USINT', 0],
+      ['MINUTE', 'USINT', 0],
+      ['SECOND', 'USINT', 0],
+      ['NANOSECOND', 'UDINT', 0],
+    ] as const
+  ).map(([name, t, v]) => ({ name, type: { k: 'elem', t }, init: [v] })),
+};
+
+/** Blockbefehle als Anweisung mit IN := …, COUNT := …, OUT => … */
+const BLOCK_MOVES = ['MOVE_BLK', 'UMOVE_BLK', 'FILL_BLK', 'UFILL_BLK'];
 
 export function isBuiltinFunction(name: string): boolean {
   const n = name.toUpperCase();
@@ -480,7 +515,15 @@ type Resolved =
   | { k: 'instance'; entry: InstEntry }
   | { k: 'uinst'; inst: UserInst }
   /** ganzes Feld bzw. ganze Struktur */
-  | { k: 'place'; place: Place; writable: boolean };
+  | { k: 'place'; place: Place; writable: boolean }
+  /** Teilzugriff .%X3 / .%B1 / .%W0 / .%D0 auf eine Bitfolge oder Ganzzahl */
+  | {
+      k: 'slice';
+      base: Extract<Resolved, { k: 'value' }>;
+      unit: number;
+      n: number;
+      t: DataType;
+    };
 
 interface Val {
   o: Operand;
@@ -697,9 +740,24 @@ class CodeGen {
     }
   }
 
-  private newSlot(name: string, t: DataType, init?: Value, temp = false, retain = false): Operand {
+  private newSlot(
+    name: string,
+    t: DataType,
+    init?: Value,
+    temp = false,
+    retain = false,
+    len?: number,
+  ): Operand {
     this.slotTypes.push(t);
-    return temp ? this.b.temp(name, t, init) : this.b.slot(name, t, init, retain);
+    return temp ? this.b.temp(name, t, init, len) : this.b.slot(name, t, init, retain, len);
+  }
+
+  /** Startwert einer Zeichenkette darf die Höchstlänge nicht überschreiten */
+  private checkInitLen(vt: VarType, v: Value | undefined, span: Span): void {
+    const max = vt.k === 'elem' && vt.t === 'STRING' ? (vt.len ?? 254) : undefined;
+    if (max !== undefined && typeof v === 'string' && v.length > max) {
+      this.fail(`Startwert ist länger als ${max} Zeichen`, span);
+    }
   }
 
   /** Remanenz nur in Global-DBs und in Input/Output/Static eines FB (wie S7-1500) */
@@ -753,7 +811,11 @@ class CodeGen {
         }
         const t = vt.t;
         const init = d.init ? this.constantValue(d.init, t) : undefined;
-        db.vars.set(key, { t, op: this.newSlot(`${u.name}.${d.name}`, t, init, false, retain) });
+        this.checkInitLen(vt, init, d.span);
+        db.vars.set(key, {
+          t,
+          op: this.newSlot(`${u.name}.${d.name}`, t, init, false, retain, vt.len),
+        });
       });
     }
   }
@@ -858,7 +920,18 @@ class CodeGen {
     const at = (s: Span) => (this.origin === 'source' ? s : declSpan);
     switch (te.k) {
       case 'name': {
-        const t = te.quoted ? undefined : ELEMENTARY[te.name.toUpperCase()];
+        const upper = te.name.toUpperCase();
+        if (!te.quoted && upper === 'STRING') {
+          const len = te.len ?? 254;
+          if (!(len >= 1 && len <= 254)) {
+            this.fail('Länge einer Zeichenkette: 1 … 254 (String[20])', at(te.span));
+          }
+          return te.len === undefined
+            ? { k: 'elem', t: 'STRING' }
+            : { k: 'elem', t: 'STRING', len };
+        }
+        if (!te.quoted && upper === 'DTL' && te.len === undefined) return DTL_TYPE;
+        const t = te.quoted ? undefined : ELEMENTARY[upper];
         if (t && te.len === undefined) return { k: 'elem', t };
         const udt = this.udts.get(te.name.toLowerCase());
         if (udt && te.len === undefined) return this.udtType(udt, at(te.span));
@@ -943,10 +1016,13 @@ class CodeGen {
     retain = false,
   ): { place: Place; inits: Value[] } {
     const ls = leaves(t, name);
-    const inits = ls.map((l, i) => normalize(l.t, init?.[i] ?? l.init ?? defaultValue(l.t)));
+    const inits = ls.map((l, i) => {
+      const v = normalize(l.t, init?.[i] ?? l.init ?? defaultValue(l.t));
+      return l.t === 'STRING' && l.len !== undefined ? (v as string).slice(0, l.len) : v;
+    });
     let base = -1;
     ls.forEach((l, i) => {
-      const o = this.newSlot(l.name, l.t, inits[i], temp, retain);
+      const o = this.newSlot(l.name, l.t, inits[i], temp, retain, l.len);
       if (i === 0 && o.k === 'slot') base = o.i;
     });
     return { place: { base, type: t, off: 0 }, inits };
@@ -1177,7 +1253,8 @@ class CodeGen {
       this.locals.set(key, { k: 'const', name: d.name, t, v: init!, decl: d, used: false });
       return;
     }
-    const op = this.newSlot(this.prefix + d.name, t, init, true);
+    this.checkInitLen(vt, init, d.span);
+    const op = this.newSlot(this.prefix + d.name, t, init, true, false, vt.len);
     this.locals.set(key, { k: 'var', name: d.name, t, op, decl: d, used: false });
   }
 
@@ -1333,7 +1410,9 @@ class CodeGen {
       k: 'var',
       name: d.name,
       t,
-      op: this.newSlot(slotName, t, init, temp, retain),
+      op:
+        (this.checkInitLen(vt, init, d.span),
+        this.newSlot(slotName, t, init, temp, retain, vt.len)),
       decl: d,
       used: false,
     };
@@ -1832,6 +1911,10 @@ class CodeGen {
 
   private assign(target: Ref, e: Expr): void {
     const res = this.resolve(target);
+    if (res.k === 'slice') {
+      this.assignSlice(res, target, e);
+      return;
+    }
     if (res.k === 'place') {
       if (!res.writable) this.fail(`${refText(target)} kann nur gelesen werden`, target.span);
       this.assignPlace(res.place, e, refText(target));
@@ -1885,7 +1968,202 @@ class CodeGen {
     return this.writableOf(this.resolve(r), r);
   }
 
+  /** Bitfolge gleicher Breite für Teilzugriffe */
+  private bitsOf(t: DataType): DataType {
+    const w = bitWidth(t);
+    return w === 8 ? 'BYTE' : w === 16 ? 'WORD' : 'DWORD';
+  }
+
+  /** Wert der Basis als Bitfolge (Kopie in einem Temp, wenn umgewandelt werden muss) */
+  private bitsOfValue(base: Extract<Resolved, { k: 'value' }>): Operand {
+    const W = this.bitsOf(base.t);
+    if (base.t === W) return base.op;
+    const tmp = this.temp(W);
+    this.b.emit({ op: 'conv', dst: tmp, src: base.op, mode: 'round' });
+    return tmp;
+  }
+
+  private readSlice(s: Extract<Resolved, { k: 'slice' }>, dst?: Operand): Val {
+    const W = this.bitsOf(s.base.t);
+    const w = this.bitsOfValue(s.base);
+    const sh = this.temp(W);
+    this.b.emit({
+      op: 'bin',
+      fn: 'shr',
+      t: W,
+      dst: sh,
+      a: w,
+      b: this.constant('INT', s.n * s.unit),
+    });
+    const mask = s.unit === 32 ? 0xffffffff : 2 ** s.unit - 1;
+    const m = this.temp(W);
+    this.b.emit({ op: 'bin', fn: 'and', t: W, dst: m, a: sh, b: this.constant(W, mask) });
+    if (s.t === W) return { o: m, t: W };
+    const o = this.result(s.t, dst);
+    this.b.emit({ op: 'conv', dst: o, src: m, mode: 'round' });
+    return { o, t: s.t };
+  }
+
+  /** x.%X3 := TRUE: Bits löschen, neuen Wert einschieben, zurückschreiben */
+  private assignSlice(s: Extract<Resolved, { k: 'slice' }>, r: Ref, e: Expr): void {
+    const base = this.writableOf(s.base, r);
+    const v = this.genAs(e, s.t);
+    const W = this.bitsOf(s.base.t);
+    const shift = s.n * s.unit;
+    const full = 2 ** bitWidth(W) - 1;
+    const mask = (s.unit === 32 ? 0xffffffff : 2 ** s.unit - 1) * 2 ** shift;
+    const w = this.temp(W);
+    const cur = this.bitsOfValue(s.base);
+    this.b.emit({ op: 'bin', fn: 'and', t: W, dst: w, a: cur, b: this.constant(W, full - mask) });
+    const part = this.temp(W);
+    this.b.emit({ op: 'conv', dst: part, src: v, mode: 'round' });
+    if (shift) {
+      this.b.emit({
+        op: 'bin',
+        fn: 'shl',
+        t: W,
+        dst: part,
+        a: part,
+        b: this.constant('INT', shift),
+      });
+    }
+    this.b.emit({ op: 'bin', fn: 'or', t: W, dst: w, a: w, b: part });
+    this.b.emit(
+      base.t === W
+        ? { op: 'mov', dst: base.o, src: w }
+        : { op: 'conv', dst: base.o, src: w, mode: 'round' },
+    );
+  }
+
+  /** Feldelement #Feld[i] für Blockbefehle: Lage des Feldes, Startindex */
+  private arrayElem(r: Ref | undefined, what: string, span: Span) {
+    const last = r?.idx?.[r.idx.length - 1];
+    if (!r || !last || last.at !== r.path.length) {
+      this.fail(`${what} muss ein Feldelement sein, z. B. #Werte[0]`, r?.span ?? span);
+    }
+    if (last.es.length !== 1) this.fail(`${what}: nur eindimensionale Felder`, last.span);
+    const rest = r.idx!.slice(0, -1);
+    const arrRef: Ref = { ...r, idx: rest.length ? rest : undefined };
+    if (!rest.length) delete arrRef.idx;
+    const res = this.resolve(arrRef);
+    if (res.k !== 'place' || res.place.type.k !== 'array' || res.place.type.dims.length !== 1) {
+      this.fail(`${what} muss ein Element eines eindimensionalen Feldes sein`, r.span);
+    }
+    return {
+      place: res.place,
+      arr: res.place.type,
+      start: last.es[0]!,
+      writable: res.writable,
+      ref: arrRef,
+    };
+  }
+
+  /** MOVE_BLK / FILL_BLK als Schleife: Elemente einzeln geprüft (außerhalb → Programmierfehler) */
+  private blockMove(name: string, args: FbArg[], span: Span): void {
+    const fill = name.includes('FILL');
+    const known = ['IN', 'COUNT', 'OUT'];
+    for (const a of args) {
+      if (!known.includes(a.name)) {
+        this.fail(
+          `${name} hat keinen Parameter ${a.name || '(ohne Namen)'} (IN, COUNT, OUT)`,
+          a.span,
+        );
+      }
+    }
+    const get = (p: string) => args.find((a) => a.name === p);
+    const inArg = get('IN');
+    const cntArg = get('COUNT');
+    const outArg = get('OUT');
+    if (!inArg?.e || !cntArg?.e || !outArg?.out) {
+      this.fail(`${name} braucht IN := …, COUNT := … und OUT => …`, span);
+    }
+    const dst = this.arrayElem(outArg.out, 'OUT', span);
+    if (!dst.writable) this.fail(`${refText(outArg.out)} kann nur gelesen werden`, outArg.span);
+    const elemT = dst.arr.of;
+    const size = sizeOf(elemT);
+
+    // Quelle bzw. Füllwert einmal vor der Schleife
+    let src: ReturnType<CodeGen['arrayElem']> | undefined;
+    let value: { op: Operand } | { place: Place } | undefined;
+    if (!fill) {
+      src = this.arrayElem(inArg.e.k === 'ref' ? inArg.e : undefined, 'IN', inArg.span);
+      if (!sameType(src.arr.of, elemT)) {
+        this.fail(
+          `${name}: Elemente ${typeText(src.arr.of)} und ${typeText(elemT)} passen nicht zusammen`,
+          span,
+        );
+      }
+    } else if (elemT.k === 'elem') {
+      const v = this.temp(elemT.t);
+      this.b.emit({ op: 'mov', dst: v, src: this.genAs(inArg.e, elemT.t) });
+      value = { op: v };
+    } else {
+      const res = inArg.e.k === 'ref' ? this.resolve(inArg.e) : undefined;
+      if (res?.k !== 'place' || !sameType(res.place.type, elemT)) {
+        this.fail(`${name}: IN muss vom Typ ${typeText(elemT)} sein`, inArg.span);
+      }
+      value = { place: res.place };
+    }
+    const cnt = this.temp('DINT');
+    this.b.emit({ op: 'mov', dst: cnt, src: this.genAs(cntArg.e, 'DINT') });
+    const start = (x: { start: Expr }) => {
+      const s = this.temp('DINT');
+      this.b.emit({ op: 'mov', dst: s, src: this.genAs(x.start, 'DINT') });
+      return s;
+    };
+    const d0 = start(dst);
+    const s0 = src ? start(src) : undefined;
+
+    const k = this.temp('DINT');
+    this.b.emit({ op: 'mov', dst: k, src: this.constant('DINT', 0) });
+    const c = this.temp('BOOL');
+    const top = this.b.pc;
+    this.b.emit({ op: 'cmp', fn: 'lt', t: 'DINT', dst: c, a: k, b: cnt });
+    const jz = this.b.emit({ op: 'jz', cond: c, to: -1 });
+    const element = (x: NonNullable<typeof src>, s: Operand): Place => {
+      const [lo, hi] = x.arr.dims[0]!;
+      const i = this.temp('DINT');
+      this.b.emit({ op: 'bin', fn: 'add', t: 'DINT', dst: i, a: s, b: k });
+      const z = this.temp('DINT');
+      this.b.emit({ op: 'chk', dst: z, a: i, lo, hi, msg: `${name} ${refText(x.ref)}` });
+      const terms: Term[] = x.place.dyn
+        ? [{ o: x.place.dyn.o, n: x.place.dyn.len, stride: x.place.dyn.stride }]
+        : [];
+      terms.push({ o: z, n: hi - lo + 1, stride: size });
+      return { base: x.place.base, type: elemT, off: x.place.off, dyn: this.combine(terms, false) };
+    };
+    const to = element(dst, d0);
+    const from = src && s0 ? element(src, s0) : undefined;
+    for (let n = 0; n < size; n++) {
+      const v = from
+        ? this.leafOp(from, n)
+        : value && 'place' in value
+          ? this.leafOp(value.place, n)
+          : value!.op;
+      this.b.emit({ op: 'mov', dst: this.leafOp(to, n), src: v });
+    }
+    this.b.emit({ op: 'bin', fn: 'add', t: 'DINT', dst: k, a: k, b: this.constant('DINT', 1) });
+    this.b.emit({ op: 'jmp', to: top });
+    jz.to = this.b.pc;
+  }
+
+  /** RD_SYS_T / RD_LOC_T: Spielzeit in eine DTL-Variable */
+  private readClock(out: Ref | undefined, span: Span): void {
+    const res = out ? this.resolve(out) : undefined;
+    if (res?.k !== 'place' || res.place.type.k !== 'struct' || res.place.type.name !== 'DTL') {
+      this.fail('RD_SYS_T braucht OUT => Variable vom Typ DTL', out?.span ?? span);
+    }
+    if (!res.writable) this.fail(`${refText(out!)} kann nur gelesen werden`, out!.span);
+    this.b.emit({
+      op: 'clock',
+      dst: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => this.leafOp(res.place, i)),
+    });
+  }
+
   private writableOf(res: Resolved, r: Ref): Val {
+    if (res.k === 'slice') {
+      this.fail(`Teilzugriff ${refText(r)} geht nur in einer Zuweisung`, r.span);
+    }
     if (res.k === 'place') {
       this.fail(
         `${refText(r)} ist vom Typ ${typeText(res.place.type)} – greife auf ein Element zu`,
@@ -2022,6 +2300,18 @@ class CodeGen {
 
   /** Aufruf einer Systembaustein-Instanz: "DB"(…), "DB".TON(…), "Daten".T1.TON(…) */
   private fbCall(instRef: Ref, args: FbArg[], span: Span): void {
+    if (instRef.scope === 'auto' && instRef.path.length === 0 && !instRef.idx) {
+      const n = instRef.name.toUpperCase();
+      if (BLOCK_MOVES.includes(n)) {
+        this.blockMove(n, args, span);
+        return;
+      }
+      if (n === 'RD_SYS_T' || n === 'RD_LOC_T') {
+        const out = args.find((a) => a.out && (a.name === 'OUT' || a.name === ''));
+        this.readClock(out?.out, span);
+        return;
+      }
+    }
     if (instRef.scope === 'auto' && instRef.path.length === 0 && isBuiltinFunction(instRef.name)) {
       this.fail(
         `${instRef.name.toUpperCase()} ist eine Funktion und liefert einen Wert – verwende sie in einer Zuweisung`,
@@ -2154,12 +2444,38 @@ class CodeGen {
   // ---------- Namensauflösung ----------
 
   private resolve(r: Ref, quiet = false): Resolved {
+    const last = r.path[r.path.length - 1];
+    if (last?.startsWith('%')) return this.slice(r, last, quiet);
     const res = this.resolveRef(r, quiet);
     const ix = r.idx?.[0];
     if (ix && res.k !== 'place' && !(res.k === 'value' && res.indexed)) {
       this.fail(`${refHead(r, ix.at)} ist kein Feld`, ix.span);
     }
     return res;
+  }
+
+  private slice(r: Ref, last: string, quiet: boolean): Resolved {
+    if (r.idx?.some((x) => x.at === r.path.length)) {
+      this.fail('Nach einem Teilzugriff ist kein Index möglich', r.span);
+    }
+    const baseRef: Ref = { ...r, path: r.path.slice(0, -1) };
+    const base = this.resolve(baseRef, quiet);
+    const unit = { X: 1, B: 8, W: 16, D: 32 }[last[1] as 'X'];
+    const n = Number(last.slice(2));
+    if (base.k !== 'value' || !(isBitStringType(base.t) || isIntType(base.t))) {
+      this.fail(
+        `${refText(baseRef)}: Teilzugriff ${last} nur auf Bitfolgen und Ganzzahlen`,
+        r.span,
+      );
+    }
+    const width = bitWidth(base.t);
+    if (width === 64)
+      this.fail(`Teilzugriff auf ${typeName(base.t)} wird nicht unterstützt`, r.span);
+    if (unit >= width || (n + 1) * unit > width) {
+      this.fail(`${last} passt nicht in ${typeName(base.t)} (${width} Bit)`, r.span);
+    }
+    const t = unit === 1 ? 'BOOL' : unit === 8 ? 'BYTE' : unit === 16 ? 'WORD' : 'DWORD';
+    return { k: 'slice', base, unit, n, t };
   }
 
   private resolveRef(r: Ref, quiet: boolean): Resolved {
@@ -2292,7 +2608,7 @@ class CodeGen {
           return e.t;
         case 'ref': {
           const r = this.resolve(e, true);
-          return r.k === 'value' ? r.t : undefined;
+          return r.k === 'value' || r.k === 'slice' ? r.t : undefined;
         }
         case 'unary': {
           const t = this.infer(e.e);
@@ -2350,6 +2666,23 @@ class CodeGen {
     switch (e.name) {
       case 'NORM_X':
         return 'REAL';
+      case 'LEN':
+      case 'FIND':
+      case 'RD_SYS_T':
+      case 'RD_LOC_T':
+        return 'INT';
+      case 'CONCAT':
+      case 'LEFT':
+      case 'RIGHT':
+      case 'MID':
+      case 'DELETE':
+      case 'INSERT':
+      case 'REPLACE':
+        return 'STRING';
+      case 'SWAP': {
+        const t = this.infer(this.callArgs(e)[0]!);
+        return t === 'ANY_INT' ? 'WORD' : t;
+      }
       case 'SHL':
       case 'SHR': {
         const t = this.infer(this.callArgs(e)[0]!);
@@ -2436,10 +2769,18 @@ class CodeGen {
       else t = (e.v as number) >= -32768 && (e.v as number) <= 32767 ? 'INT' : 'DINT';
     } else if (e.t === 'ANY_REAL') {
       t = want === 'LREAL' ? 'LREAL' : 'REAL';
+    } else if (e.t === 'STRING') {
+      const s = e.v as string;
+      if (want === 'CHAR') {
+        if (s.length !== 1) this.fail("Char braucht genau ein Zeichen, z. B. 'A'", e.span);
+        return { v: s, t: 'CHAR' };
+      }
+      if (s.length > 254) this.fail('Zeichenkette länger als 254 Zeichen', e.span);
+      return { v: s, t: 'STRING' };
     } else {
       t = e.t;
     }
-    if (t !== 'BOOL' && !isRealType(t)) {
+    if (isIntegerType(t) || t === 'DATE' || t === 'TOD') {
       const [lo, hi] = integerRange(t);
       const n = e.v as number;
       if (!Number.isInteger(n) || n < lo || n > hi) {
@@ -2472,6 +2813,7 @@ class CodeGen {
       }
       case 'ref': {
         const r = this.resolve(e);
+        if (r.k === 'slice') return this.readSlice(r, dst);
         if (r.k === 'place') {
           this.fail(
             `${refText(e)} ist vom Typ ${typeText(r.place.type)} – greife auf ein Element zu`,
@@ -2740,6 +3082,11 @@ class CodeGen {
     }
     const user = this.userFc(e);
     if (user) return this.callFc(e, user, true)!;
+    if (e.name === 'RD_SYS_T' || e.name === 'RD_LOC_T') {
+      const out = e.args.find((a) => a.out);
+      this.readClock(out?.out, e.span);
+      return { o: this.constant('INT', 0), t: 'INT' };
+    }
     if (!isBuiltinFunction(e.name)) {
       if (e.quoted) this.fail(`Baustein „${e.raw}“ ist nicht definiert`, e.span);
       if (e.name === 'IN_RANGE' || e.name === 'OUT_RANGE') {
@@ -2860,6 +3207,43 @@ class CodeGen {
         const o = this.result(t, dst);
         this.b.emit({ op: 'bin', fn: e.name.toLowerCase() as 'shl', t, dst: o, a, b: n });
         return { o, t };
+      }
+      case 'LEN':
+        return emitFn('len', 'STRING', 'INT', [this.genAs(args[0]!, 'STRING')]);
+      case 'FIND':
+        return emitFn(
+          'find',
+          'STRING',
+          'INT',
+          args.map((a) => this.genAs(a, 'STRING')),
+        );
+      case 'CONCAT':
+        return emitFn(
+          'concat',
+          'STRING',
+          'STRING',
+          args.map((a) => this.genAs(a, 'STRING')),
+        );
+      case 'LEFT':
+      case 'RIGHT':
+      case 'MID':
+      case 'DELETE':
+      case 'INSERT':
+      case 'REPLACE': {
+        const strings = e.name === 'INSERT' || e.name === 'REPLACE' ? 2 : 1;
+        const ops = args.map((a, i) => this.genAs(a, i < strings ? 'STRING' : 'INT'));
+        return emitFn(e.name.toLowerCase() as CallFn, 'STRING', 'STRING', ops);
+      }
+      case 'SWAP': {
+        const nat = this.infer(args[0]!) ?? this.invalid(args[0]!);
+        const t = nat === 'ANY_INT' ? 'WORD' : concrete(nat);
+        if (!isBitStringType(t) || t === 'BYTE') {
+          this.fail(
+            `SWAP erwartet Word, DWord oder LWord, erhalten ${typeName(nat)}`,
+            args[0]!.span,
+          );
+        }
+        return emitFn('swap', t, t, [this.genAs(args[0]!, t)]);
       }
       case 'ROUND':
       case 'TRUNC': {

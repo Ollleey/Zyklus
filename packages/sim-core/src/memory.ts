@@ -39,6 +39,12 @@ export class ByteArea {
       case 'BYTE':
       case 'USINT':
         return this.bytes[byte]!;
+      case 'CHAR':
+        return String.fromCharCode(this.bytes[byte]!);
+      case 'DATE':
+        return this.view.getUint16(byte, false);
+      case 'TOD':
+        return this.view.getUint32(byte, false);
       case 'SINT':
         return this.view.getInt8(byte);
       case 'INT':
@@ -70,6 +76,15 @@ export class ByteArea {
       case 'BYTE':
       case 'USINT':
         this.bytes[byte] = v as number;
+        return;
+      case 'CHAR':
+        this.bytes[byte] = (v as string).charCodeAt(0) & 0xff;
+        return;
+      case 'DATE':
+        this.view.setUint16(byte, v as number, false);
+        return;
+      case 'TOD':
+        this.view.setUint32(byte, v as number, false);
         return;
       case 'SINT':
         this.view.setInt8(byte, v as number);

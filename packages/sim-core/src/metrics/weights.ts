@@ -50,5 +50,7 @@ export function energyOf(ins: Instr): number {
       return ENERGY.jump;
     case 'chk':
       return ENERGY.integer;
+    case 'clock':
+      return ENERGY.stateful;
   }
 }

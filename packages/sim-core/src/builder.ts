@@ -41,18 +41,26 @@ export class ProgramBuilder {
   private readonly instances: InstanceDecl[] = [];
   private readonly code: Instr[] = [];
 
-  slot(name: string, t: DataType, init?: Value, retain = false): Operand {
+  /** `len`: Höchstlänge bei STRING */
+  slot(name: string, t: DataType, init?: Value, retain = false, len?: number): Operand {
     this.slots.push({
       name,
       t,
       init: normalize(t, init ?? defaultValue(t)),
       ...(retain ? { retain: true } : {}),
+      ...(len !== undefined ? { len } : {}),
     });
     return { k: 'slot', i: this.slots.length - 1 };
   }
 
-  temp(name: string, t: DataType, init?: Value): Operand {
-    this.slots.push({ name, t, init: normalize(t, init ?? defaultValue(t)), temp: true });
+  temp(name: string, t: DataType, init?: Value, len?: number): Operand {
+    this.slots.push({
+      name,
+      t,
+      init: normalize(t, init ?? defaultValue(t)),
+      temp: true,
+      ...(len !== undefined ? { len } : {}),
+    });
     return { k: 'slot', i: this.slots.length - 1 };
   }
 

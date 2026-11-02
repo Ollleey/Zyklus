@@ -25,6 +25,11 @@ export const ELEMENTARY: Record<string, DataType> = {
   REAL: 'REAL',
   LREAL: 'LREAL',
   TIME: 'TIME',
+  DATE: 'DATE',
+  TOD: 'TOD',
+  TIME_OF_DAY: 'TOD',
+  CHAR: 'CHAR',
+  STRING: 'STRING',
 };
 
 /**
@@ -48,6 +53,10 @@ const IMPLICIT: Record<DataType, readonly DataType[]> = {
   REAL: ['LREAL'],
   LREAL: [],
   TIME: ['DINT'],
+  DATE: [],
+  TOD: [],
+  CHAR: ['STRING'],
+  STRING: [],
 };
 
 export function implicitOk(from: DataType, to: DataType): boolean {
@@ -134,6 +143,10 @@ export const TIA_NAMES: Record<DataType, string> = {
   REAL: 'Real',
   LREAL: 'LReal',
   TIME: 'Time',
+  DATE: 'Date',
+  TOD: 'Time_Of_Day',
+  CHAR: 'Char',
+  STRING: 'String',
 };
 
 /** Typname für Meldungen (TIA-Schreibweise). */

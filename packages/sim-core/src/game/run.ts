@@ -261,7 +261,7 @@ export class LevelRun {
         }
       }
       outputs[d.id] = this.forces.get(d.id) ?? this.outputValue(d);
-      this.push(d.id, t, outputs[d.id]!);
+      this.push(d.id, t, outputs[d.id] as boolean | number);
     }
     if (this.plant) {
       this.plant.step(t, outputs);

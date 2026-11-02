@@ -1,5 +1,21 @@
 # Changelog
 
+## M8f – Zeichenketten, Datum/Uhrzeit, Blockbefehle, Teilzugriffe (2026-11-03)
+
+- **String** (`String`, `String[20]`, Höchstlänge 1 … 254, längere Werte werden abgeschnitten) und
+  **Char**; Literale `'Text'` mit Fluchtzeichen `$'`, `$$`, `$N`; Vergleiche `=`, `<`, …
+- Funktionen `LEN`, `CONCAT`, `LEFT`, `RIGHT`, `MID`, `FIND`, `DELETE`, `INSERT`, `REPLACE`;
+  Umwandlungen `INT_TO_STRING`, `STRING_TO_INT`, `REAL_TO_STRING`, `CHAR_TO_INT` … (Spielregel:
+  Zahlen ohne Vorzeichen-Platzhalter)
+- **Date** (`D#2026-01-05`), **Time_Of_Day** (`TOD#06:30:00`), **DTL** als Standardstruktur
+  (YEAR … NANOSECOND); `RD_SYS_T`/`RD_LOC_T` lesen die Spielzeit (Start: Montag, 5. Januar 2026,
+  06:00 Uhr), als Anweisung oder `#ret := RD_SYS_T(OUT => #jetzt);`
+- `MOVE_BLK`, `UMOVE_BLK`, `FILL_BLK`, `UFILL_BLK` (auch für Felder von PLC-Datentypen, Startindex
+  variabel; über das Feldende → Programmierfehler), `SWAP` (Word, DWord, LWord)
+- Teilzugriffe `#w.%X3`, `#w.%B1`, `#d.%W0` lesen und schreiben (Bitfolgen und Ganzzahlen)
+- IR: Befehl `clock`, Funktionen für Zeichenketten und `swap`; Slots mit Höchstlänge
+- 680 Tests
+
 ## M8e – weitere Elementartypen (2026-11-02)
 
 - Neue Typen **SInt, USInt, UInt, UDInt, LInt, ULInt, LReal, LWord** in Datenbausteinen,
@@ -12,7 +28,7 @@
 - FOR-Laufvariable, CASE-Ausdruck und Feldindex: jede Ganzzahl
 - **Spielvereinfachung:** LInt/ULInt/LWord sind auf ±(2^53 − 1) begrenzt (Sättigung statt
   Überlauf); 64-bit-Typen gibt es nicht im E/A- und Merkerbereich
-- 674 Tests
+- 668 Tests
 
 ## M8d – Anlauf-OB100, Remanenz, Neustart (Kern und Compiler, 2026-11-02)
 

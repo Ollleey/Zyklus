@@ -21,9 +21,20 @@ export type DataType =
   | 'ULINT'
   | 'REAL'
   | 'LREAL'
-  | 'TIME';
+  | 'TIME'
+  /** Datum: Tage seit 1990-01-01 */
+  | 'DATE'
+  /** Uhrzeit: ms seit Mitternacht */
+  | 'TOD'
+  /** ein Zeichen (JS-String der Länge 1) */
+  | 'CHAR'
+  /** Zeichenkette, Höchstlänge je Variable (`SlotDecl.len`, Standard 254) */
+  | 'STRING';
 
-export type Value = boolean | number;
+export type Value = boolean | number | string;
+
+/** Standardlänge von String ohne Angabe */
+export const STRING_DEFAULT_LEN = 254;
 
 export const DATA_TYPES: readonly DataType[] = [
   'BOOL',
@@ -42,6 +53,10 @@ export const DATA_TYPES: readonly DataType[] = [
   'REAL',
   'LREAL',
   'TIME',
+  'DATE',
+  'TOD',
+  'CHAR',
+  'STRING',
 ];
 
 export const INT_MIN = -32768;
@@ -98,11 +113,15 @@ export function bitWidth(t: DataType): number {
     case 'BYTE':
     case 'SINT':
     case 'USINT':
+    case 'CHAR':
       return 8;
     case 'WORD':
     case 'INT':
     case 'UINT':
+    case 'DATE':
       return 16;
+    case 'STRING':
+      return 0;
     case 'LWORD':
     case 'LINT':
     case 'ULINT':
@@ -114,6 +133,8 @@ export function bitWidth(t: DataType): number {
 }
 
 export function defaultValue(t: DataType): Value {
+  if (t === 'STRING') return '';
+  if (t === 'CHAR') return ' ';
   return t === 'BOOL' ? false : 0;
 }
 
@@ -144,6 +165,11 @@ export function integerRange(t: DataType): [number, number] {
     case 'DINT':
     case 'TIME':
       return [DINT_MIN, DINT_MAX];
+    case 'DATE':
+      // D#1990-01-01 … D#2168-12-31
+      return [0, 65378];
+    case 'TOD':
+      return [0, 86_399_999];
     default:
       throw new Error(`Kein ganzzahliger Typ: ${t}`);
   }
@@ -151,6 +177,7 @@ export function integerRange(t: DataType): [number, number] {
 
 function toNumber(v: Value): number {
   if (typeof v === 'boolean') return v ? 1 : 0;
+  if (typeof v === 'string') return 0;
   return Number.isFinite(v) ? v : 0;
 }
 
@@ -181,7 +208,17 @@ export function normalize(t: DataType, v: Value): Value {
       return n < lo ? lo : n > hi ? hi : n === 0 ? 0 : n;
     }
     case 'LREAL':
-      return typeof v === 'boolean' ? (v ? 1 : 0) : v;
+      return typeof v === 'number' ? v : toNumber(v);
+    case 'DATE':
+    case 'TOD': {
+      const [lo, hi] = integerRange(t);
+      const n = Math.trunc(toNumber(v));
+      return n < lo ? lo : n > hi ? hi : n;
+    }
+    case 'CHAR':
+      return typeof v === 'string' ? v.charAt(0) || ' ' : String.fromCharCode(toNumber(v) & 0xff);
+    case 'STRING':
+      return typeof v === 'string' ? v : String(v);
     case 'WORD':
       return toNumber(v) & WORD_MAX;
     case 'DWORD':
@@ -190,7 +227,7 @@ export function normalize(t: DataType, v: Value): Value {
     case 'TIME':
       return toNumber(v) | 0;
     case 'REAL':
-      return Math.fround(typeof v === 'boolean' ? (v ? 1 : 0) : v);
+      return Math.fround(typeof v === 'number' ? v : toNumber(v));
   }
 }
 

@@ -38,11 +38,18 @@ export function sizeOfType(t: DataType): AccessSize {
   switch (t) {
     case 'SINT':
     case 'USINT':
+    case 'CHAR':
       return 'B';
     case 'UINT':
+    case 'DATE':
       return 'W';
     case 'UDINT':
+    case 'TOD':
       return 'D';
+    case 'STRING':
+      throw new AddressError(
+        'String ist nur in Datenbausteinen und lokal möglich, nicht im E/A- oder Merkerbereich',
+      );
     case 'LWORD':
     case 'LINT':
     case 'ULINT':

@@ -9,6 +9,7 @@
  *   monaco.editor.setModelMarkers(model, 'scl', toMonacoMarkers(result.diagnostics));
  */
 import type { Diagnostic } from './diagnostics';
+import { DATA_TYPES } from '@zyklus/sim-core';
 import { KEYWORDS } from './lexer';
 
 export const SCL_LANGUAGE_ID = 'scl';
@@ -30,6 +31,12 @@ export const SCL_TYPES = [
   'REAL',
   'LREAL',
   'TIME',
+  'DATE',
+  'TOD',
+  'TIME_OF_DAY',
+  'CHAR',
+  'STRING',
+  'DTL',
 ];
 
 /** Instanztypen und Anweisungsnamen der Systembausteine */
@@ -67,7 +74,23 @@ export const SCL_FUNCTIONS = [
   'SHR',
   'ROUND',
   'TRUNC',
-  ...SCL_TYPES.flatMap((a) => SCL_TYPES.filter((b) => b !== a).map((b) => `${a}_TO_${b}`)),
+  'LEN',
+  'CONCAT',
+  'LEFT',
+  'RIGHT',
+  'MID',
+  'FIND',
+  'DELETE',
+  'INSERT',
+  'REPLACE',
+  'SWAP',
+  'RD_SYS_T',
+  'RD_LOC_T',
+  'MOVE_BLK',
+  'UMOVE_BLK',
+  'FILL_BLK',
+  'UFILL_BLK',
+  ...DATA_TYPES.flatMap((a) => DATA_TYPES.filter((b) => b !== a).map((b) => `${a}_TO_${b}`)),
 ];
 
 export const sclMonarch = {

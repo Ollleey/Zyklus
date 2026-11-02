@@ -6,7 +6,8 @@ import { typeName } from './typerules';
  * Zusammengesetzte Daten liegen flach in aufeinanderfolgenden Slots (ein Slot je Element).
  */
 export type VarType =
-  | { k: 'elem'; t: DataType }
+  /** `len`: Höchstlänge bei String */
+  | { k: 'elem'; t: DataType; len?: number }
   | { k: 'array'; dims: [number, number][]; of: VarType }
   | { k: 'struct'; name?: string; fields: Field[] };
 
@@ -73,7 +74,7 @@ export function sameType(a: VarType, b: VarType): boolean {
 export function typeText(t: VarType): string {
   switch (t.k) {
     case 'elem':
-      return typeName(t.t);
+      return t.len !== undefined ? `${typeName(t.t)}[${t.len}]` : typeName(t.t);
     case 'array':
       return `Array[${t.dims.map(([lo, hi]) => `${lo}..${hi}`).join(', ')}] of ${typeText(t.of)}`;
     case 'struct':
@@ -82,12 +83,15 @@ export function typeText(t: VarType): string {
 }
 
 /** Elementare Typen, Namen und Startwerte aller Slots in Speicherreihenfolge */
-export function leaves(t: VarType, name: string): { t: DataType; name: string; init?: Value }[] {
-  const out: { t: DataType; name: string; init?: Value }[] = [];
+export function leaves(
+  t: VarType,
+  name: string,
+): { t: DataType; name: string; init?: Value; len?: number }[] {
+  const out: { t: DataType; name: string; init?: Value; len?: number }[] = [];
   const walk = (t: VarType, name: string, init?: (Value | undefined)[]) => {
     switch (t.k) {
       case 'elem':
-        out.push({ t: t.t, name, init: init?.[0] });
+        out.push({ t: t.t, name, init: init?.[0], len: t.len });
         return;
       case 'array': {
         const size = sizeOf(t.of);

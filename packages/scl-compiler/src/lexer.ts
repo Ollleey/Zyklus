@@ -10,7 +10,8 @@ export type TokenKind =
   | 'int' // ganze Zahl ohne Typpräfix
   | 'real' // Gleitkommazahl ohne Typpräfix
   | 'typed' // Literal mit Typpräfix (INT#5, T#1s, WORD#16#FF); 16#FF allein ist 'int'
-  | 'string' // 'text' (nur in Attributen der Quelle)
+  | 'string' // 'text' (Zeichenkette, auch in Attributen der Quelle)
+  | 'slice' // %X3, %B1 … nach einem Punkt (Bit-/Bytezugriff)
   | 'op' // Operator / Satzzeichen
   | 'eof';
 
@@ -128,6 +129,10 @@ const TYPE_PREFIXES: Record<string, DataType> = {
   LREAL: 'LREAL',
   TIME: 'TIME',
   T: 'TIME',
+  DATE: 'DATE',
+  D: 'DATE',
+  TOD: 'TOD',
+  TIME_OF_DAY: 'TOD',
   B: 'BYTE',
   W: 'WORD',
   DW: 'DWORD',
@@ -306,13 +311,29 @@ export function tokenize(src: string): Token[] {
     if (c === "'") {
       advance();
       let text = '';
+      // Fluchtzeichen wie in TIA: $' $$ $N $L $T $R
+      const ESC: Record<string, string> = { "'": "'", $: '$', N: '\n', L: '\n', T: '\t', R: '\r' };
       while (i < src.length && src[i] !== "'" && src[i] !== '\n') {
+        if (src[i] === '$' && ESC[(src[i + 1] ?? '').toUpperCase()] !== undefined) {
+          text += ESC[src[i + 1]!.toUpperCase()];
+          advance(2);
+          continue;
+        }
         text += src[i];
         advance();
       }
       if (src[i] !== "'") fail('Hochkomma wird nicht geschlossen', start);
       advance();
       push({ kind: 'string', value: text });
+      continue;
+    }
+
+    const prev = tokens[tokens.length - 1];
+    if (c === '%' && prev?.kind === 'op' && prev.value === '.') {
+      const m = /^%[XBWD]\d+/i.exec(src.slice(i));
+      if (!m) fail('Teilzugriff erwartet, z. B. .%X3 oder .%B1', start);
+      advance(m![0].length);
+      push({ kind: 'slice', value: m![0].toUpperCase() });
       continue;
     }
 
@@ -342,7 +363,21 @@ export function tokenize(src: string): Token[] {
         const type = TYPE_PREFIXES[upper]!;
         advance();
         let num: number;
-        if (type === 'TIME') {
+        if (type === 'DATE') {
+          const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(src.slice(i));
+          if (!m) fail('Datum erwartet, z. B. D#2026-01-05', start);
+          advance(m![0].length);
+          const ms = Date.UTC(Number(m![1]), Number(m![2]) - 1, Number(m![3]));
+          num = Math.round((ms - Date.UTC(1990, 0, 1)) / 86_400_000);
+          if (Number(m![2]) > 12 || Number(m![3]) > 31 || num < 0) fail('Ungültiges Datum', start);
+        } else if (type === 'TOD') {
+          const m = /^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?/.exec(src.slice(i));
+          if (!m) fail('Uhrzeit erwartet, z. B. TOD#06:30:00', start);
+          advance(m![0].length);
+          const [h, mi, s] = [Number(m![1]), Number(m![2]), Number(m![3] ?? 0)];
+          if (h > 23 || mi > 59 || s > 59) fail('Ungültige Uhrzeit', start);
+          num = ((h * 60 + mi) * 60 + s) * 1000 + Number((m![4] ?? '0').padEnd(3, '0'));
+        } else if (type === 'TIME') {
           num = readDuration(start);
         } else if (type === 'BOOL') {
           const m = /^(TRUE|FALSE|0|1)\b/i.exec(src.slice(i));
