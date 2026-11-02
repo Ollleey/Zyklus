@@ -169,6 +169,10 @@ export class RemoteRun implements RunView {
   setCpuSwitch(cpuId: string, mode: 'RUN' | 'STOP'): void {
     this.command({ type: 'cpuSwitch', cpu: cpuId, mode });
   }
+
+  powerCycle(cpuId: string): void {
+    this.command({ type: 'powerCycle', cpu: cpuId });
+  }
 }
 
 class RemoteCpu implements CpuView {

@@ -48,17 +48,24 @@ const isCode = (b: Block): b is CodeBlock => b.kind === 'OB' || b.kind === 'FB' 
 /** Anzeige wie im Projektbaum: „Main [OB1]“, „PI [FB1]“ */
 export const blockLabel = (b: CodeBlock) => `${b.name} [${b.kind}${b.number}]`;
 
-type NewBlock = 'FB' | 'FC' | 'cyclic' | 'process';
+type NewBlock = 'FB' | 'FC' | 'cyclic' | 'process' | 'startup';
 
 /** Neuer Codebaustein mit freier Nummer und freiem Namen (wie „Neuen Baustein hinzufügen“). */
 function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
   const code = blocks.filter(isCode);
   const taken = new Set(blocks.map((b) => b.name.toLowerCase()));
   const kind = what === 'FB' || what === 'FC' ? what : 'OB';
-  let number = what === 'cyclic' || what === 'process' ? OB_NUMBERS[what][0] : 1;
+  let number =
+    what === 'cyclic' || what === 'process' || what === 'startup' ? OB_NUMBERS[what][0] : 1;
   while (code.some((b) => b.kind === kind && b.number === number)) number++;
   const base =
-    what === 'cyclic' ? 'Weckalarm' : what === 'process' ? 'Prozessalarm' : `${kind}_${number}`;
+    what === 'cyclic'
+      ? 'Weckalarm'
+      : what === 'process'
+        ? 'Prozessalarm'
+        : what === 'startup'
+          ? 'Startup'
+          : `${kind}_${number}`;
   let name = base;
   for (let n = 1; taken.has(name.toLowerCase()); n++) name = `${base}_${n}`;
   const event: ObEvent | undefined =
@@ -66,7 +73,9 @@ function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
       ? { kind: 'cyclic', intervalMs: 100, phaseMs: 0 }
       : what === 'process'
         ? { kind: 'process', input: '%I0.0', edge: 'rising' }
-        : undefined;
+        : what === 'startup'
+          ? { kind: 'startup' }
+          : undefined;
   const iface = Object.fromEntries(SECTIONS_BY_KIND[kind].map((s) => [s, []]));
   return { kind, name, number, lang: 'SCL', iface, source: '', ...(event ? { event } : {}) };
 }
@@ -271,6 +280,7 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
               <option value="FC">{t('block.add.fc')}</option>
               <option value="cyclic">{t('block.add.cyclic')}</option>
               <option value="process">{t('block.add.process')}</option>
+              <option value="startup">{t('block.add.startup')}</option>
             </select>
             {block.name !== MAIN_OB && (
               <>
@@ -360,6 +370,9 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
                       onChange={(rows) => setSection(s, rows)}
                       errorRows={errorRows.get(`${block.name}:${s}`)}
                       withInit={s !== 'Temp' && s !== 'InOut'}
+                      withRetain={
+                        block.kind === 'FB' && (s === 'Input' || s === 'Output' || s === 'Static')
+                      }
                       types={
                         s === 'Static'
                           ? [

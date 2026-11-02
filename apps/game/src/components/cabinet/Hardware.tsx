@@ -271,7 +271,8 @@ export function CpuFront({
   status?: CpuStatus;
   powered: boolean;
   canSwitch: boolean;
-  onSwitch?: (mode: 'RUN' | 'STOP') => void;
+  /** RESTART: Spannung aus und wieder ein (Neustart, OB100) */
+  onSwitch?: (mode: 'RUN' | 'STOP' | 'RESTART') => void;
 }) {
   const left = colX(l, x) + G.gap / 2;
   const w = t.width * G.te - G.gap;
@@ -354,6 +355,25 @@ export function CpuFront({
           STOP
         </text>
       </g>
+      {/* Netztaster: Spannung aus/ein (nur im Sandkasten) */}
+      {canSwitch && (
+        <g
+          className="hw-switch hw-switch-live"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSwitch?.('RESTART');
+          }}
+        >
+          <title>Spannung aus und wieder ein (Neustart, Anlauf-OB)</title>
+          <rect x={left + 4.5} y={y + 70} width={14} height={8} rx={1.2} fill="#1C2024" />
+          <text x={left + 7.2} y={y + 75.8} className="hw-label-dark">
+            ⏻
+          </text>
+          <text x={left + 20.5} y={y + 75.8} className="hw-label-dark">
+            Neustart
+          </text>
+        </g>
+      )}
       {/* Speicherkarte */}
       <rect x={left + 36} y={y + 50} width={22} height={3} rx={0.8} fill="#111417" />
       <text x={left + 36} y={y + 58} className="hw-label-dark">

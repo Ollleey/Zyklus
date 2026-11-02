@@ -28,6 +28,8 @@ export interface RunView {
   isActuated(deviceId: string): boolean | number;
   setManual(deviceId: string, value: boolean | number): void;
   setCpuSwitch(cpuId: string, mode: 'RUN' | 'STOP'): void;
+  /** Spannung aus und wieder ein (Neustart) */
+  powerCycle(cpuId: string): void;
 }
 
 /** Anlage des Sandkastens im Lauf (direkt oder gespiegelt) */

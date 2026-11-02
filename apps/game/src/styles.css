@@ -3454,3 +3454,10 @@ code {
 .about-facts dd {
   margin: 0;
 }
+.var-table td.var-retain {
+  text-align: center;
+  width: 70px;
+}
+.var-table td.var-retain input {
+  width: auto;
+}

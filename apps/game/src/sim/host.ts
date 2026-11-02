@@ -63,6 +63,9 @@ export class SimHost {
       case 'cpuSwitch':
         run.setCpuSwitch(cmd.cpu, cmd.mode);
         break;
+      case 'powerCycle':
+        run.powerCycle(cmd.cpu);
+        break;
       case 'control':
         plant?.setControl(cmd.ref, cmd.value);
         break;

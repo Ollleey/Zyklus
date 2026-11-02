@@ -9,7 +9,8 @@
   Startwerte, Zeiten/Zähler zurück und löschen Merker (vorher blieben Merker und DBs erhalten –
   betrifft nur den Betriebsartenschalter im Sandkasten)
 - `Cpu.powerOff/powerOn`, `GameRun.powerCycle`, Testschritt `power: [[aus, ein], …]` in Aufträgen
-- offen: Retain-Spalte und „Neustart“-Knopf in der Oberfläche, OB100 im Menü „+ Baustein“
+- Oberfläche: Spalte „Remanent“ in Global-DBs und FB-Input/Output/Static, „+ Baustein → Anlauf-OB
+  (OB100)“, Taster „⏻ Neustart“ an der CPU im Sandkasten (Spannung aus/ein)
 - 662 Tests
 
 ## M8c – FC mit Rückgabewert (2026-11-02)

@@ -138,7 +138,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
       for (const [id, c] of run.cpus) {
         m.set(id, {
           mode: c.mode,
-          error: !!c.stopInfo && c.stopInfo.reason !== 'SWITCH',
+          error: !!c.stopInfo && c.stopInfo.reason !== 'SWITCH' && c.stopInfo.reason !== 'POWER',
           load: c.load,
         });
       }
@@ -238,7 +238,8 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           canSwitch={sandbox}
           forced={run && run.forcedIds.length ? (id) => run.forced(id) !== undefined : undefined}
           onCpuSwitch={(cpu, mode) => {
-            run?.setCpuSwitch(cpu, mode);
+            if (mode === 'RESTART') run?.powerCycle(cpu);
+            else run?.setCpuSwitch(cpu, mode);
             if (!sim.running) sim.play();
           }}
         />

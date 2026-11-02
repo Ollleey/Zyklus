@@ -53,7 +53,7 @@ interface Props {
   readIo?: (cpu: string, address: string) => boolean | number | undefined;
   /** Betriebsartenschalter bedienbar (Sandkasten) */
   canSwitch?: boolean;
-  onCpuSwitch?: (cpu: string, mode: 'RUN' | 'STOP') => void;
+  onCpuSwitch?: (cpu: string, mode: 'RUN' | 'STOP' | 'RESTART') => void;
   /** geforcte Geräte (Markierung „F“) */
   forced?: (deviceId: string) => boolean;
 }

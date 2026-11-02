@@ -41,6 +41,7 @@ export type Command =
   | { type: 'manual'; device: string; value: boolean | number }
   | { type: 'force'; device: string; value: boolean | number | undefined }
   | { type: 'cpuSwitch'; cpu: string; mode: 'RUN' | 'STOP' }
+  | { type: 'powerCycle'; cpu: string }
   | { type: 'control'; ref: string; value: boolean | number }
   | { type: 'estop'; ref: string }
   | { type: 'magazine'; ref: string }

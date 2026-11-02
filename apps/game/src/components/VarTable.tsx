@@ -11,6 +11,8 @@ interface Props {
   /** Zeile mit Fehler (wird markiert) */
   errorRows?: Set<number>;
   withInit?: boolean;
+  /** Spalte „Remanent“ (Global-DB, FB-Input/Output/Static) */
+  withRetain?: boolean;
 }
 
 /** Tabelle wie im TIA-Schnittstelleneditor: Name, Datentyp, Startwert, Kommentar. */
@@ -20,6 +22,7 @@ export function VarTable({
   types = ELEMENTARY_TYPES,
   errorRows,
   withInit = true,
+  withRetain = false,
 }: Props) {
   const listId = useId();
   const set = (i: number, patch: Partial<VarDecl>) =>
@@ -31,6 +34,7 @@ export function VarTable({
           <th>{t('table.name')}</th>
           <th>{t('table.type')}</th>
           {withInit && <th>{t('table.init')}</th>}
+          {withRetain && <th title={t('table.retain.hint')}>{t('table.retain')}</th>}
           <th>{t('table.comment')}</th>
           <th />
         </tr>
@@ -63,6 +67,23 @@ export function VarTable({
                 />
               </td>
             )}
+            {withRetain && (
+              <td className="var-retain">
+                <input
+                  type="checkbox"
+                  checked={!!r.retain}
+                  aria-label={t('table.retain')}
+                  onChange={(e) => {
+                    const { retain: _, ...rest } = r;
+                    onChange(
+                      rows.map((x, k) =>
+                        k === i ? (e.target.checked ? { ...rest, retain: true } : rest) : x,
+                      ),
+                    );
+                  }}
+                />
+              </td>
+            )}
             <td>
               <input
                 value={r.comment ?? ''}
@@ -81,7 +102,7 @@ export function VarTable({
           </tr>
         ))}
         <tr>
-          <td colSpan={withInit ? 5 : 4}>
+          <td colSpan={4 + (withInit ? 1 : 0) + (withRetain ? 1 : 0)}>
             <button
               className="link-btn"
               onClick={() =>

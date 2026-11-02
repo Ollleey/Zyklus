@@ -167,6 +167,7 @@ export function DbPanel({ project, onChange, userFbs = [], errorRows }: Props) {
               <VarTable
                 rows={db.vars}
                 types={[...ELEMENTARY_TYPES, ...udts, ...INSTANCE_TYPES]}
+                withRetain
                 errorRows={errorRows?.get(`${db.name}:Static`)}
                 onChange={(vars) => replace(db, { ...db, vars })}
               />
