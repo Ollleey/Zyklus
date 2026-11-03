@@ -78,7 +78,7 @@ function verify(level: Level, solution: Solution) {
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
     expect(LEVELS.map((l) => l.order)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
     ]);
   });
 
@@ -584,6 +584,56 @@ FOR #i := 0 TO 799 DO #s := #s + "Filter".Werte[#i]; END_FOR;
     ).replace('BEGIN\n"Filter"', 'VAR_TEMP\n  s : DInt;\n  i : Int;\nEND_VAR\nBEGIN\n"Filter"');
     const v = fails('21-ruhige-anzeige', src);
     expect(v.runs[0]!.stop).toMatch(/Zykluszeitüberschreitung/);
+  });
+});
+
+describe('Fehllösungen M12', () => {
+  const refText = (id: string) => readFileSync(join(DATA, `${id}.scl`), 'utf8');
+  const failedTests = (id: string, src: string, board = BOARDS[id]!) => {
+    const level = levelById(id)!;
+    const v = verify(level, solutionFor(level, src, board));
+    return [...new Set(v.runs.filter((r) => !r.passed).map((r) => r.testId))];
+  };
+
+  it('Level 22: ohne Störgrößenaufschaltung bricht die Temperatur bei offener Tür ein', () => {
+    const src = refText('22-ofen-pid').replace('#y := #y + 17.0;', '');
+    expect(failedTests('22-ofen-pid', src)).toEqual(['tuer']);
+  });
+
+  it('Level 22: reiner P-Regler (Ti = 0) bleibt unter dem Sollwert', () => {
+    const src = refText('22-ofen-pid').replace('Ti := 18.0;', 'Ti := 0.0;');
+    expect(failedTests('22-ofen-pid', src)).toEqual(['anfahren', 'tuer']);
+  });
+
+  it('Level 23: ohne schnellen Zähler verpasst der Zyklus Geberimpulse', () => {
+    const board = { ...BOARDS['23-positionieren']!, config: {} };
+    const src = refText('23-positionieren')
+      .replace(
+        'ziel : DInt;',
+        `ziel : DInt;
+      zaehler : DInt;
+      geber_alt : Bool;`,
+      )
+      .replace(
+        '#rest := "Achse".ziel - %ID112;',
+        `IF "Geber" AND NOT "Achse".geber_alt THEN "Achse".zaehler := "Achse".zaehler + 1; END_IF;
+	"Achse".geber_alt := "Geber";
+	#rest := "Achse".ziel - "Achse".zaehler;`,
+      );
+    expect(failedTests('23-positionieren', src, board)).toEqual(['einmal', 'drei']);
+  });
+
+  it('Level 24: ohne OB86 sieht der Stationsausfall wie ein Motorschutzfehler aus', () => {
+    const src = refText('24-pumpstation').replace(
+      /ORGANIZATION_BLOCK "Ausfall"[\s\S]*?END_ORGANIZATION_BLOCK/,
+      '',
+    );
+    expect(failedTests('24-pumpstation', src)).toEqual(['station']);
+  });
+
+  it('Level 24: ohne Meldung fehlt die Anzeige im Panel', () => {
+    const src = refText('24-pumpstation').replace(/\t"Stoermeldung"\(.*\);\r?\n/, '');
+    expect(failedTests('24-pumpstation', src)).toEqual(['motorschutz', 'station']);
   });
 });
 

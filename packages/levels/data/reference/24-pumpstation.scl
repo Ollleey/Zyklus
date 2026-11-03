@@ -1,0 +1,54 @@
+DATA_BLOCK "Station"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      ausfall : Bool;
+      laeuft : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Stoermeldung"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+Program_Alarm
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      stoerung : Bool;
+   END_VAR
+
+BEGIN
+	#stoerung := "Station".ausfall OR NOT "Motorschutz";
+	IF #stoerung OR "P_Stopp" THEN
+	    "Station".laeuft := FALSE;
+	ELSIF "P_Start" THEN
+	    "Station".laeuft := TRUE;
+	END_IF;
+	"Pumpe" := "Station".laeuft;
+	"P_Betrieb" := "Station".laeuft;
+	"P_Motorschutz" := NOT "Motorschutz" AND NOT "Station".ausfall;
+	"P_Station" := "Station".ausfall;
+	"Stoermeldung"(SIG := #stoerung, TEXT := 'Pumpe gestört: Motorschutz oder Station');
+END_ORGANIZATION_BLOCK
+
+ORGANIZATION_BLOCK "Ausfall"
+TITLE = Rack or station failure
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+// Ereignis: Baugruppenausfall
+
+BEGIN
+	"Station".ausfall := #Event_Class = 16#39;
+END_ORGANIZATION_BLOCK

@@ -1,0 +1,212 @@
+{
+  "id": "23-positionieren",
+  "order": 23,
+  "title": {
+    "de": "Positionieren mit schnellem Zähler"
+  },
+  "customer": {
+    "de": "Holzbau Stöckl"
+  },
+  "mail": {
+    "from": {
+      "de": "Martin Stöckl <m.stoeckl@holzbau-stoeckl.example>"
+    },
+    "subject": {
+      "de": "Die Säge schneidet immer zu lang"
+    },
+    "body": {
+      "de": "Hallo,\n\nunser Anschlag an der Ablängsäge fährt mit einem Inkrementalgeber. Das alte Programm zählt die Impulse im Zyklus – und bei Eilgang kommen offenbar mehr Impulse, als die Steuerung mitbekommt. Die Bretter werden jedes Mal zu lang.\n\nBitte so, dass der Anschlag bei jedem Start genau 400 mm weiterfährt. Genau heißt: auf einen Millimeter.\n\nDanke und Gruß\nMartin Stöckl"
+    }
+  },
+  "datasheet": {
+    "de": "# Anschlag A1 an der Ablängsäge\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster Start |\n| B1 | DI | Inkrementalgeber, **2 Impulse je mm** |\n| M1 | DO | Antrieb Eilgang (200 mm/s) |\n| M2 | DO | Antrieb Schleichgang (20 mm/s) |\n\n## Mechanik\n\n- Der Anschlag steht beim Einschalten auf 0 mm.\n- Beschleunigen und Bremsen mit **1000 mm/s²**: aus dem Eilgang braucht der Antrieb 20 mm bis zum Schleichgang, aus dem Schleichgang 0,2 mm bis zum Stillstand.\n- Ist M1 an, gilt der Eilgang (M2 egal); nur M2: Schleichgang.\n\n## Funktion\n\n1. Jede steigende Flanke an S1 verschiebt das Ziel um **400 mm** (Ziele 400, 800, …).\n2. Der Anschlag fährt im Eilgang an, schaltet rechtzeitig in den Schleichgang und hält am Ziel **± 1 mm**.\n\n## Hinweise\n\n- Bei Eilgang kommen 400 Impulse je Sekunde – alle 2,5 ms einer. Die CPU sieht im Zyklus nur jeden zweiten bis vierten.\n- Die **DI 8 HF** zählt an Kanal 0 als **schneller Zähler (HSC)** jede Flanke selbst (Schaltschrank: Baugruppe anklicken). Zählwert in `%ID112`, Handbuch „Technologie“."
+  },
+  "board": {
+    "width": 15,
+    "ductCapacity": 4
+  },
+  "allowedModules": [
+    "cpu-klein",
+    "cpu-mittel",
+    "di8",
+    "di8hf",
+    "do4",
+    "do8"
+  ],
+  "toleranceMs": 0,
+  "par": {
+    "cost": 9,
+    "energy": 10804,
+    "size": 6
+  },
+  "plant": {
+    "type": "axis",
+    "params": {
+      "motor": "M1",
+      "creep": "M2",
+      "encoder": "B1",
+      "ppm": 2,
+      "fast": 200,
+      "slow": 20,
+      "accel": 1000,
+      "length": 1600,
+      "targets": [
+        400,
+        800,
+        1200
+      ]
+    }
+  },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Start",
+      "name": {
+        "de": "Taster Start (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "B1",
+      "tag": "Geber",
+      "name": {
+        "de": "Inkrementalgeber (B1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor"
+    },
+    {
+      "id": "M1",
+      "tag": "Eilgang",
+      "name": {
+        "de": "Antrieb Eilgang (M1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    },
+    {
+      "id": "M2",
+      "tag": "Schleichgang",
+      "name": {
+        "de": "Antrieb Schleichgang (M2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    }
+  ],
+  "tests": [
+    {
+      "id": "einmal",
+      "name": {
+        "de": "Ein Brett"
+      },
+      "durationMs": 5000,
+      "seeds": [
+        1
+      ],
+      "stimuli": {
+        "S1": [
+          [
+            200,
+            true
+          ],
+          [
+            400,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Anschlag bei 400 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 399,
+          "max": 401,
+          "from": 4000,
+          "to": 5000
+        }
+      ]
+    },
+    {
+      "id": "drei",
+      "name": {
+        "de": "Drei Bretter hintereinander"
+      },
+      "durationMs": 13000,
+      "seeds": [
+        2
+      ],
+      "stimuli": {
+        "S1": [
+          [
+            200,
+            true
+          ],
+          [
+            400,
+            false
+          ],
+          [
+            4200,
+            true
+          ],
+          [
+            4400,
+            false
+          ],
+          [
+            8500,
+            true
+          ],
+          [
+            8700,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "400 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 399,
+          "max": 401,
+          "from": 3500,
+          "to": 4200
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "800 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 799,
+          "max": 801,
+          "from": 7500,
+          "to": 8500
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "1200 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 1199,
+          "max": 1201,
+          "from": 12000,
+          "to": 13000
+        }
+      ]
+    }
+  ]
+}

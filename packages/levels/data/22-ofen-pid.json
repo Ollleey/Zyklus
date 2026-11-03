@@ -1,0 +1,235 @@
+{
+  "id": "22-ofen-pid",
+  "order": 22,
+  "title": {
+    "de": "Ofenregelung mit PID_Compact"
+  },
+  "customer": {
+    "de": "Emaillierwerk Kofler"
+  },
+  "mail": {
+    "from": {
+      "de": "Lena Kofler <l.kofler@kofler-email.example>"
+    },
+    "subject": {
+      "de": "Jedes Mal, wenn jemand die Tür aufmacht …"
+    },
+    "body": {
+      "de": "Hallo,\n\nunser Einbrennofen soll eine feste Temperatur halten. Der alte Regler war selbst gestrickt und ist nach jedem Umbau neu einzustellen. Diesmal bitte mit dem fertigen PID-Baustein – der kann sich angeblich selbst einstellen.\n\nDas eigentliche Problem ist die Beschickungstür: Wenn sie offen ist, bricht die Temperatur ein, und bis der Regler das merkt, ist die Charge verdorben. Am Türkontakt sieht man doch vorher, was kommt?\n\nViele Grüße\nLena Kofler"
+    }
+  },
+  "datasheet": {
+    "de": "# Einbrennofen E2\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Ofentemperatur 0 … 300 °C (Rohwert 0 … 27648), leicht verrauscht |\n| B2 | AI | Sollwertsteller 0 … 300 °C |\n| S1 | DI | Türkontakt: 1 = Beschickungstür offen |\n| E1 | AO | Heizleistung 0 … 100 % (Rohwert 0 … 27648) |\n\n## Strecke\n\n- Volle Heizleistung hebt die Temperatur um **300 °C** über die Umgebung (20 °C).\n- Zeitkonstante **20 s**, Totzeit **2 s** zwischen Heizung und Messung.\n- Offene Tür: **50 °C** Wärmeverlust, sofort wirksam. Ausgleich braucht rund **17 %** mehr Heizleistung.\n\n## Anforderungen\n\n1. Anfahren auf den Sollwert ohne Überschwingen über **Sollwert + 8 °C**.\n2. Ab 80 s nach dem Start: Temperatur **± 4 °C** um den Sollwert.\n3. Auch während die Tür offen ist und danach: **± 6 °C**.\n\n## Hinweise\n\n- **PID_Compact** (Technologie): Instanz-DB anlegen, Startwerte Gain, Ti im Reiter Datenbausteine. Die Selbstoptimierung (Tune) zeigt geeignete Werte – sie dauert aber länger als ein Test.\n- Faustwerte für diese Strecke: Gain ≈ 1,3, Ti ≈ 18 s.\n- **Störgrößenaufschaltung**: Wenn die Ursache einer Störung messbar ist (Türkontakt), kann das Programm die Stellgröße sofort anpassen, statt auf die Regelabweichung zu warten."
+  },
+  "board": {
+    "width": 15,
+    "ductCapacity": 4
+  },
+  "allowedModules": [
+    "cpu-klein",
+    "cpu-mittel",
+    "ai2",
+    "ao2",
+    "ai4",
+    "di4",
+    "di8"
+  ],
+  "toleranceMs": 0,
+  "par": {
+    "cost": 11,
+    "energy": 2655487,
+    "size": 4
+  },
+  "plant": {
+    "type": "thermal",
+    "params": {
+      "sensor": "B1",
+      "setpoint": "B2",
+      "heater": "E1",
+      "tau": 20000,
+      "gain": 300,
+      "ambient": 20,
+      "temp0": 20,
+      "deadMs": 2000,
+      "loss": []
+    }
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Temperatur",
+      "name": {
+        "de": "Ofentemperatur (B1)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "°C",
+        "min": 0,
+        "max": 300,
+        "noise": 20
+      }
+    },
+    {
+      "id": "B2",
+      "tag": "Sollwert",
+      "name": {
+        "de": "Sollwertsteller (B2)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "°C",
+        "min": 0,
+        "max": 300
+      }
+    },
+    {
+      "id": "S1",
+      "tag": "Tuer_offen",
+      "name": {
+        "de": "Türkontakt (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor"
+    },
+    {
+      "id": "E1",
+      "tag": "Heizung",
+      "name": {
+        "de": "Heizleistung (E1)"
+      },
+      "kind": "AO",
+      "side": "right",
+      "role": "actuator",
+      "analog": {
+        "unit": "%",
+        "min": 0,
+        "max": 100
+      }
+    }
+  ],
+  "tests": [
+    {
+      "id": "anfahren",
+      "name": {
+        "de": "Anfahren auf 180 °C"
+      },
+      "durationMs": 120000,
+      "seeds": [
+        1,
+        2
+      ],
+      "stimuli": {
+        "B2": [
+          [
+            0,
+            180
+          ],
+          [
+            119999,
+            180
+          ]
+        ]
+      },
+      "plant": {
+        "loss": []
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Kein Überschwingen über 188 °C"
+          },
+          "signal": "plant.temp",
+          "min": 0,
+          "max": 188,
+          "from": 0,
+          "to": 120000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "180 °C ± 4 °C ab 80 s"
+          },
+          "signal": "plant.temp",
+          "min": 176,
+          "max": 184,
+          "from": 80000,
+          "to": 120000
+        }
+      ]
+    },
+    {
+      "id": "tuer",
+      "name": {
+        "de": "Tür 30 s offen"
+      },
+      "durationMs": 170000,
+      "seeds": [
+        3
+      ],
+      "stimuli": {
+        "B2": [
+          [
+            0,
+            180
+          ],
+          [
+            169999,
+            180
+          ]
+        ],
+        "S1": [
+          [
+            90000,
+            true
+          ],
+          [
+            120000,
+            false
+          ]
+        ]
+      },
+      "plant": {
+        "loss": [
+          [
+            90000,
+            50
+          ],
+          [
+            120000,
+            0
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "180 °C ± 4 °C vor dem Öffnen"
+          },
+          "signal": "plant.temp",
+          "min": 176,
+          "max": 184,
+          "from": 80000,
+          "to": 90000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "180 °C ± 6 °C mit offener Tür und danach"
+          },
+          "signal": "plant.temp",
+          "min": 174,
+          "max": 186,
+          "from": 90000,
+          "to": 170000
+        }
+      ]
+    }
+  ]
+}

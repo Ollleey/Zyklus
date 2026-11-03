@@ -1,0 +1,401 @@
+{
+  "id": "24-pumpstation",
+  "order": 24,
+  "title": {
+    "de": "Pumpstation mit Bedienpanel"
+  },
+  "customer": {
+    "de": "Wasserverband Obere Ache"
+  },
+  "mail": {
+    "from": {
+      "de": "Andreas Gruber <a.gruber@wv-obere-ache.example>"
+    },
+    "subject": {
+      "de": "Neue Pumpstation – ohne Leitungen quer durchs Gelände"
+    },
+    "body": {
+      "de": "Hallo,\n\ndie neue Pumpstation steht 200 m vom Betriebsgebäude weg. Wir wollen keine Steuerleitungen dorthin ziehen: In der Station sitzt nur eine Peripheriestation am Netzwerk, die CPU bleibt im Betriebsgebäude.\n\nBedient wird über das neue Panel: Start, Stopp, Betriebs- und Störanzeige. Wenn die Verbindung zur Station abreißt oder der Motorschutz auslöst, wollen wir eine Meldung auf dem Panel sehen – und die Pumpe soll danach nicht von selbst wieder anlaufen.\n\nGruß\nAndreas Gruber"
+    }
+  },
+  "datasheet": {
+    "de": "# Pumpstation PS 4\n\n## Feldgeräte\n\n| Gerät | Art | Ort | Beschreibung |\n|---|---|---|---|\n| B1 | DI | Station | Motorschutz: 1 = in Ordnung, 0 = ausgelöst |\n| K1 | DO | Station | Pumpenschütz (Leistung: Relaisausgang) |\n| P1 | Panel | – | Taster Start |\n| P2 | Panel | – | Taster Stopp |\n| P3 | Panel | – | Lampe Betrieb |\n| P4 | Panel | – | Lampe Störung Motorschutz |\n| P5 | Panel | – | Lampe Station ausgefallen |\n\n## Aufbau\n\n- Die Station steht rechts der Trennwand. Leitungen gehen nicht durch die Wand: dort sitzt ein **Interfacemodul IM PN** mit den E/A-Baugruppen, die CPU bleibt links.\n- Das Panel ist mit Merkern verbunden (Variablen P_Start, P_Stopp, P_Betrieb, P_Motorschutz, P_Station).\n\n## Funktion\n\n1. Start (P1) schaltet die Pumpe ein, Stopp (P2) aus. P3 zeigt den Betrieb.\n2. **Störung**: Motorschutz ausgelöst **oder Station ausgefallen** → Pumpe aus, eine **Meldung** (Program_Alarm) steht an, solange die Störung besteht.\n3. Die Lampen unterscheiden die Ursache: P4 nur bei ausgelöstem Motorschutz, P5 nur bei ausgefallener Station.\n4. Ist die Störung vorbei, bleibt die Pumpe aus, bis wieder Start gedrückt wird; die Lampe geht mit der Störung aus.\n5. Die CPU darf nicht in STOP gehen.\n\n## Zeitverhalten\n\nToleranz ± 100 ms (Aktualisierungszeit, Bildtakt des Panels).\n\n## Hinweise\n\n- Den Stationsausfall meldet der **Baugruppenausfall-OB (OB86)** mit `#Event_Class` 16#39 (kommend) bzw. 16#38 (gehend).\n- Während die Station ausgefallen ist, liest die CPU den Motorschutz als 0 – ohne OB86 sieht ein Stationsausfall aus wie ein ausgelöster Motorschutz."
+  },
+  "board": {
+    "width": 24,
+    "ductCapacity": 4,
+    "wall": 11
+  },
+  "allowedModules": [
+    "cpu-klein",
+    "di4",
+    "di8",
+    "do4",
+    "do8",
+    "rel4",
+    "im-pn"
+  ],
+  "toleranceMs": 100,
+  "par": {
+    "cost": 11,
+    "energy": 6174,
+    "size": 10
+  },
+  "plant": {
+    "type": "panel"
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Motorschutz",
+      "name": {
+        "de": "Motorschutz (B1)"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor",
+      "nc": true
+    },
+    {
+      "id": "K1",
+      "tag": "Pumpe",
+      "name": {
+        "de": "Pumpenschütz (K1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor",
+      "power": true
+    },
+    {
+      "id": "P1",
+      "tag": "P_Start",
+      "name": {
+        "de": "Start"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button",
+      "hmi": true
+    },
+    {
+      "id": "P2",
+      "tag": "P_Stopp",
+      "name": {
+        "de": "Stopp"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button",
+      "hmi": true
+    },
+    {
+      "id": "P3",
+      "tag": "P_Betrieb",
+      "name": {
+        "de": "Betrieb"
+      },
+      "kind": "DO",
+      "side": "left",
+      "role": "lamp",
+      "hmi": true
+    },
+    {
+      "id": "P4",
+      "tag": "P_Motorschutz",
+      "name": {
+        "de": "Störung Motorschutz"
+      },
+      "kind": "DO",
+      "side": "left",
+      "role": "lamp",
+      "hmi": true
+    },
+    {
+      "id": "P5",
+      "tag": "P_Station",
+      "name": {
+        "de": "Station ausgefallen"
+      },
+      "kind": "DO",
+      "side": "left",
+      "role": "lamp",
+      "hmi": true
+    }
+  ],
+  "tests": [
+    {
+      "id": "bedienen",
+      "name": {
+        "de": "Start und Stopp am Panel"
+      },
+      "durationMs": 3000,
+      "seeds": [
+        1
+      ],
+      "stimuli": {
+        "P1": [
+          [
+            500,
+            true
+          ],
+          [
+            700,
+            false
+          ]
+        ],
+        "P2": [
+          [
+            2000,
+            true
+          ],
+          [
+            2200,
+            false
+          ]
+        ]
+      },
+      "expect": {
+        "K1": [
+          [
+            500,
+            true
+          ],
+          [
+            2000,
+            false
+          ]
+        ],
+        "P3": [
+          [
+            500,
+            true
+          ],
+          [
+            2000,
+            false
+          ]
+        ],
+        "P4": [
+          [
+            0,
+            false
+          ]
+        ],
+        "P5": [
+          [
+            0,
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "id": "motorschutz",
+      "name": {
+        "de": "Motorschutz löst aus"
+      },
+      "durationMs": 5000,
+      "seeds": [
+        2
+      ],
+      "stimuli": {
+        "P1": [
+          [
+            500,
+            true
+          ],
+          [
+            700,
+            false
+          ],
+          [
+            3500,
+            true
+          ],
+          [
+            3700,
+            false
+          ]
+        ],
+        "B1": [
+          [
+            1500,
+            true
+          ],
+          [
+            2500,
+            false
+          ]
+        ]
+      },
+      "expect": {
+        "K1": [
+          [
+            500,
+            true
+          ],
+          [
+            1500,
+            false
+          ],
+          [
+            3500,
+            true
+          ]
+        ],
+        "P3": [
+          [
+            500,
+            true
+          ],
+          [
+            1500,
+            false
+          ],
+          [
+            3500,
+            true
+          ]
+        ],
+        "P4": [
+          [
+            1500,
+            true
+          ],
+          [
+            2500,
+            false
+          ]
+        ],
+        "P5": [
+          [
+            0,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Meldung steht während der Störung an"
+          },
+          "signal": "alarm.active",
+          "min": 1,
+          "max": 9,
+          "from": 1700,
+          "to": 2400
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "keine Meldung nach der Störung"
+          },
+          "signal": "alarm.active",
+          "min": 0,
+          "max": 0,
+          "from": 2700,
+          "to": 5000
+        }
+      ]
+    },
+    {
+      "id": "station",
+      "name": {
+        "de": "Verbindung zur Station reißt ab"
+      },
+      "durationMs": 5000,
+      "seeds": [
+        3
+      ],
+      "stimuli": {
+        "P1": [
+          [
+            500,
+            true
+          ],
+          [
+            700,
+            false
+          ],
+          [
+            3500,
+            true
+          ],
+          [
+            3700,
+            false
+          ]
+        ]
+      },
+      "moduleFaults": [
+        {
+          "device": "K1",
+          "kind": "station",
+          "from": 1500,
+          "to": 2500
+        }
+      ],
+      "expect": {
+        "K1": [
+          [
+            500,
+            true
+          ],
+          [
+            1500,
+            false
+          ],
+          [
+            3500,
+            true
+          ]
+        ],
+        "P3": [
+          [
+            500,
+            true
+          ],
+          [
+            1500,
+            false
+          ],
+          [
+            3500,
+            true
+          ]
+        ],
+        "P4": [
+          [
+            0,
+            false
+          ]
+        ],
+        "P5": [
+          [
+            1500,
+            true
+          ],
+          [
+            2500,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Meldung steht während des Ausfalls an"
+          },
+          "signal": "alarm.active",
+          "min": 1,
+          "max": 9,
+          "from": 1700,
+          "to": 2400
+        }
+      ]
+    }
+  ]
+}

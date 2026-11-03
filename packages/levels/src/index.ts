@@ -20,6 +20,9 @@ import level18 from '../data/18-lackmischer.json';
 import level19 from '../data/19-schichtbuch.json';
 import level20 from '../data/20-kuehlpumpe.json';
 import level21 from '../data/21-ruhige-anzeige.json';
+import level22 from '../data/22-ofen-pid.json';
+import level23 from '../data/23-positionieren.json';
+import level24 from '../data/24-pumpstation.json';
 
 export * from './compile';
 
@@ -46,6 +49,9 @@ export const LEVELS: Level[] = [
   level19,
   level20,
   level21,
+  level22,
+  level23,
+  level24,
 ]
   .map((l) => validateLevel(l))
   .sort((a, b) => a.order - b.order);

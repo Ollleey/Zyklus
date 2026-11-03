@@ -118,6 +118,11 @@ export class LevelRun {
       this.traces.set(d.id, []);
     }
     this.setupConnections();
+    // Meldungen: Anzahl anstehender Meldungen aller CPUs als Spur (für Kriterien)
+    this.alarmTrace = [...this.cpus.values()].some((c) =>
+      c.program.instances.some((i) => i.kind === 'ALARM'),
+    );
+    if (this.alarmTrace) this.traces.set('alarm.active', []);
     this.plant = createPlant(level, opts.test, seed);
     for (const k of Object.keys(this.plant?.state() ?? {})) this.traces.set(`plant.${k}`, []);
     this.durationMs = opts.test?.durationMs ?? Infinity;
@@ -603,7 +608,14 @@ export class LevelRun {
     }
   }
 
+  private readonly alarmTrace: boolean;
+
   private record(t: number): void {
+    if (this.alarmTrace) {
+      let n = 0;
+      for (const c of this.cpus.values()) n += c.activeAlarms.size;
+      this.push('alarm.active', t, n);
+    }
     const outputs: Record<string, Value> = {};
     for (const d of this.devices) {
       if (d.kind !== 'DO' && d.kind !== 'AO') continue;

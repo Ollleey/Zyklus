@@ -1,0 +1,30 @@
+DATA_BLOCK "Ofen_PID"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+PID_Compact
+
+BEGIN
+   Gain := 1.3;
+   Ti := 18.0;
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      y : Real;
+   END_VAR
+
+BEGIN
+	"Ofen_PID"(Setpoint := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Sollwert", MAX := 27648), MAX := 300.0),
+	           Input := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Temperatur", MAX := 27648), MAX := 300.0),
+	           Output => #y);
+	// Störgrößenaufschaltung: offene Tür braucht rund 17 % mehr Heizleistung
+	IF "Tuer_offen" THEN
+	    #y := #y + 17.0;
+	END_IF;
+	"Heizung" := SCALE_X(MIN := 0, VALUE := LIMIT(MN := 0.0, IN := #y, MX := 100.0) / 100.0, MAX := 27648);
+END_ORGANIZATION_BLOCK

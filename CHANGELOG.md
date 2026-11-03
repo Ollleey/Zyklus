@@ -1,5 +1,19 @@
 # Changelog
 
+## M12f – Aufträge 22–24 (2026-11-03)
+
+- **Auftrag 22 – Ofenregelung mit PID_Compact**: Einbrennofen mit Totzeit, Startwerte im
+  Instanz-DB, Störgrößenaufschaltung über den Türkontakt
+- **Auftrag 23 – Positionieren mit schnellem Zähler**: Anschlag mit Inkrementalgeber
+  (2 Impulse/mm), Eil- und Schleichgang, ± 1 mm – ohne HSC verpasst der Zyklus Impulse
+- **Auftrag 24 – Pumpstation mit Bedienpanel**: Station hinter der Trennwand am IM PN, Bedienung
+  über Panel, Meldung per Program_Alarm, Stationsausfall (OB86) vom Motorschutz unterscheiden
+- PID_Compact: I-Anteil nur, solange der Stellwert nicht in Richtung der Abweichung anschlägt
+  (kein Überschwingen nach dem Anfahren aus der Begrenzung)
+- Kriterium-Signal `alarm.active` (Anzahl anstehender Meldungen); Testfall-Störungsart `station`
+- Fehllösungen: ohne Aufschaltung, reiner P-Regler, Zählen im Zyklus, ohne OB86, ohne Meldung
+- 770 Tests
+
 ## M12e – Bedienpanel und Program_Alarm (2026-11-03)
 
 - **Bedienpanel**: Geräte mit `hmi` (Taster/Schalter, Lampe, Eingabefeld, Anzeige) werden nicht

@@ -929,5 +929,133 @@
         "channel": 0
       }
     ]
+  },
+  "22-ofen-pid": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "ai1",
+        "type": "ai2",
+        "x": 6
+      },
+      {
+        "id": "di1",
+        "type": "di4",
+        "x": 7
+      },
+      {
+        "id": "ao1",
+        "type": "ao2",
+        "x": 8
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "ai1",
+        "channel": 0
+      },
+      {
+        "device": "B2",
+        "module": "ai1",
+        "channel": 1
+      },
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "E1",
+        "module": "ao1",
+        "channel": 0
+      }
+    ]
+  },
+  "23-positionieren": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8hf",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do4",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "M1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "M2",
+        "module": "do1",
+        "channel": 1
+      }
+    ],
+    "config": {
+      "di1": {
+        "hsc": 112
+      }
+    }
+  },
+  "24-pumpstation": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "im1",
+        "type": "im-pn",
+        "x": 13
+      },
+      {
+        "id": "di1",
+        "type": "di4",
+        "x": 14
+      },
+      {
+        "id": "rel1",
+        "type": "rel4",
+        "x": 15
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "K1",
+        "module": "rel1",
+        "channel": 0
+      }
+    ]
   }
 }

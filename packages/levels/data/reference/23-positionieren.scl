@@ -1,0 +1,32 @@
+DATA_BLOCK "Achse"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      ziel : DInt;   // Zielposition in Impulsen (2 je mm)
+      start_alt : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      rest : DInt;
+   END_VAR
+
+BEGIN
+	// jede Startflanke: 400 mm weiter
+	IF "Start" AND NOT "Achse".start_alt THEN
+	    "Achse".ziel := "Achse".ziel + 800;
+	END_IF;
+	"Achse".start_alt := "Start";
+	// schneller Zähler der DI 8 HF (Kanal 0) zählt den Geber
+	#rest := "Achse".ziel - %ID112;
+	"Eilgang" := #rest > 50;
+	"Schleichgang" := #rest > 0;
+END_ORGANIZATION_BLOCK

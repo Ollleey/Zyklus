@@ -239,7 +239,10 @@ export function validateLevel(json: unknown): Level {
     }
   }
   const knownSignal = (s: string) =>
-    devices.has(s) || s.startsWith('plant.') || (s.startsWith('true.') && devices.has(s.slice(5)));
+    devices.has(s) ||
+    s.startsWith('plant.') ||
+    s === 'alarm.active' ||
+    (s.startsWith('true.') && devices.has(s.slice(5)));
 
   const checkEdges = (where: string, edges: Edge[], duration: number) => {
     let last = -1;
@@ -256,7 +259,7 @@ export function validateLevel(json: unknown): Level {
     for (const f of tc.moduleFaults ?? []) {
       if (!devices.has(f.device))
         p.push(`Test ${tc.id}: Baugruppenstörung an unbekanntem Gerät ${f.device}`);
-      if (f.kind !== 'pulled' && f.kind !== 'noLoad')
+      if (f.kind !== 'pulled' && f.kind !== 'noLoad' && f.kind !== 'station')
         p.push(`Test ${tc.id}: Störungsart ${f.kind} unbekannt`);
       if (!(f.to > f.from)) p.push(`Test ${tc.id}: Baugruppenstörung braucht from < to`);
     }

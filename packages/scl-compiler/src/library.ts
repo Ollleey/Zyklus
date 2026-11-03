@@ -143,17 +143,19 @@ ELSE
         #State := 3;
         #e := #Setpoint - #Input;
         #p := #Gain * #e;
-        IF #Ti > 0.0 THEN
-            #sSum := #sSum + #Gain * #e * #dt / #Ti;
-        ELSE
-            #sSum := 0.0;
-        END_IF;
-        #sSum := LIMIT(MN := #OutputLow, IN := #sSum, MX := #OutputHigh);
         IF #Td > 0.0 AND #dt > 0.0 THEN
             #d := -#Gain * #Td * (#Input - #sLastIn) / #dt;
         ELSE
             #d := 0.0;
         END_IF;
+        // I-Anteil nur, solange der Stellwert nicht in Richtung der Abweichung anschlägt
+        IF #Ti <= 0.0 THEN
+            #sSum := 0.0;
+        ELSIF NOT ((#p + #sSum + #d >= #OutputHigh AND #e > 0.0)
+                   OR (#p + #sSum + #d <= #OutputLow AND #e < 0.0)) THEN
+            #sSum := #sSum + #Gain * #e * #dt / #Ti;
+        END_IF;
+        #sSum := LIMIT(MN := #OutputLow, IN := #sSum, MX := #OutputHigh);
         #Output := LIMIT(MN := #OutputLow, IN := #p + #sSum + #d, MX := #OutputHigh);
     END_IF;
 END_IF;
