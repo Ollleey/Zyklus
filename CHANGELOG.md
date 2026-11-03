@@ -1,5 +1,14 @@
 # Changelog
 
+## Linux-AppImage (2026-11-03)
+
+- **Linux-Version als eine Datei** (`ZYKLUS_0.1.0_amd64.AppImage`), gebaut auf Ubuntu 22.04;
+  Skript `scripts/linux-appimage.sh` für den Bau im Container
+- Start brach unter Linux ohne festgelegten Dokumente-Ordner ab („unknown path“) – Anlagen liegen
+  dann im App-Datenordner
+- Weiße Fläche mit manchen Grafiktreibern: DMA-BUF-Renderer von WebKitGTK abgeschaltet
+- Startfehler werden im Fenster angezeigt statt einer leeren Fläche
+
 ## M14f – Ladezeit und Desktop-Prüfung (2026-11-03)
 
 - SCL-Editor (Monaco, ca. 4 MB) wird erst beim ersten Öffnen geladen; Start bis Posteingang in

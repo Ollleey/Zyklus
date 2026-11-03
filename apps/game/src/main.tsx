@@ -14,27 +14,41 @@ import './styles.css';
 
 applyTheme();
 
-// Plattform zuerst bereitstellen (Desktop lädt die Spielstände aus Dateien), dann die Oberfläche
-// laden – Module, die beim Laden schon lesen (z. B. Einstellungen), sehen so den echten Speicher
-if (import.meta.env.VITE_PLATFORM === 'desktop') {
-  // nur im Desktop-Build: Spielstände als Dateien, native Dialoge
-  const { createDesktopPlatform } = await import('@zyklus/platform/desktop');
-  await setPlatform(await createDesktopPlatform());
-} else {
-  await platform.init();
+/** Startfehler im Fenster zeigen statt einer leeren Fläche */
+function showBootError(e: unknown) {
+  const pre = document.createElement('pre');
+  pre.style.cssText = 'margin:24px;white-space:pre-wrap;color:#f0f0f0;font:13px monospace';
+  pre.textContent =
+    'ZYKLUS konnte nicht starten / could not start:\n\n' +
+    (e instanceof Error ? `${e.message}\n\n${e.stack ?? ''}` : String(e));
+  document.getElementById('root')!.replaceChildren(pre);
 }
-const { initLanguage } = await import('./i18n');
-initLanguage();
-const [{ App }, { LEVELS }, { SANDBOX }, { migrate }] = await Promise.all([
-  import('./App'),
-  import('@zyklus/levels'),
-  import('./sandbox'),
-  import('./state/persistence'),
-]);
-migrate([...LEVELS, SANDBOX]);
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+async function boot() {
+  // Plattform zuerst bereitstellen (Desktop lädt die Spielstände aus Dateien), dann die Oberfläche
+  // laden – Module, die beim Laden schon lesen (z. B. Einstellungen), sehen so den echten Speicher
+  if (import.meta.env.VITE_PLATFORM === 'desktop') {
+    // nur im Desktop-Build: Spielstände als Dateien, native Dialoge
+    const { createDesktopPlatform } = await import('@zyklus/platform/desktop');
+    await setPlatform(await createDesktopPlatform());
+  } else {
+    await platform.init();
+  }
+  const { initLanguage } = await import('./i18n');
+  initLanguage();
+  const [{ App }, { LEVELS }, { SANDBOX }, { migrate }] = await Promise.all([
+    import('./App'),
+    import('@zyklus/levels'),
+    import('./sandbox'),
+    import('./state/persistence'),
+  ]);
+  migrate([...LEVELS, SANDBOX]);
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+}
+
+boot().catch(showBootError);

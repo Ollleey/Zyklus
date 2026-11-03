@@ -109,7 +109,14 @@ Für eine signierte Auslieferung wäre nötig:
 
 Code und Workflow sind vorbereitet. Im Repository die Variable `ZYKLUS_LINUX = true` setzen;
 der Release-Workflow baut dann zusätzlich `.AppImage` und `.deb` (WebKitGTK). Die
-Speicherorte folgen dort `~/.local/share/de.zyklus.spiel/` und `~/Dokumente/ZYKLUS/Anlagen/`.
+Speicherorte folgen dort `~/.local/share/de.zyklus.spiel/` und `~/Dokumente/ZYKLUS/Anlagen/`
+(ist kein Dokumente-Ordner festgelegt, z. B. unter WSL: `~/.local/share/de.zyklus.spiel/ZYKLUS/Anlagen/`).
+
+Lokal ohne CI: `scripts/linux-appimage.sh` baut das AppImage in einem Ubuntu-22.04-Container
+(Aufruf steht im Kopf des Skripts). Ergebnis: eine Datei, die ohne Installation läuft
+(`chmod +x`, dann starten; fehlt FUSE: `--appimage-extract-and-run` oder `libfuse2` installieren).
+Die App setzt unter Linux `WEBKIT_DISABLE_DMABUF_RENDERER=1`, weil WebKitGTK mit manchen
+Grafiktreibern sonst nur eine weiße Fläche zeigt.
 
 ## Release
 

@@ -40,6 +40,9 @@ export async function createDesktopPlatform(): Promise<Platform> {
   const guards = new Set<() => Promise<boolean>>();
   // Testordner (ZYKLUS_DATA_DIR / ZYKLUS_DOCS_DIR), sonst die Standardordner
   const dirs = await invoke<{ data: string | null; documents: string | null }>('dirs');
+  const appData = dirs.data ?? (await appDataDir());
+  // unter Linux ist ein Dokumente-Ordner nicht immer festgelegt (XDG) – dann im App-Datenordner
+  const documents = dirs.documents ?? (await documentDir().catch(() => appData));
   const deps: DesktopDeps = {
     fs: {
       readText: (p) => readTextFile(p),
@@ -50,8 +53,8 @@ export async function createDesktopPlatform(): Promise<Platform> {
       mkdir: (p) => mkdir(p, { recursive: true }),
       list: async (d) => (await readDir(d)).filter((e) => e.isFile).map((e) => e.name),
     },
-    appData: dirs.data ?? (await appDataDir()),
-    documents: dirs.documents ?? (await documentDir()),
+    appData,
+    documents,
     sep: sep(),
     saveDialog: (name, filters) => save({ defaultPath: name, filters: dialogFilters(filters) }),
     openDialog: async (filters) => {
