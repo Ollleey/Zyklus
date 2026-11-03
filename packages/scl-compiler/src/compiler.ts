@@ -2,6 +2,8 @@ import {
   AddressError,
   ByteArea,
   OB_NUMBERS,
+  SIMPLE_EVENTS,
+  isSimpleEvent,
   ProgramBuilder,
   SECTIONS_BY_KIND,
   TagTable,
@@ -402,6 +404,8 @@ const FUNCTIONS: Record<string, { params: string[]; variadic?: boolean }> = {
   REPLACE: { params: ['IN1', 'IN2', 'L', 'P'] },
   SWAP: { params: ['IN'] },
   RD_SYS_T: { params: ['OUT'] },
+  GET_ERR_ID: { params: [] },
+  RUNTIME: { params: ['MEM'] },
   RD_LOC_T: { params: ['OUT'] },
 };
 
@@ -570,6 +574,8 @@ class CodeGen {
   readonly xref: XRef[] = [];
   readonly calls: CallRef[] = [];
   private readonly xrefOf = new WeakMap<Ref, XRef>();
+  /** GET_ERR_ID wird verwendet (lokale Fehlerbehandlung) */
+  private localErrors = false;
   /** Verschachtelung in IF/CASE/Schleifen (0 = unbedingte Anweisung) */
   private condDepth = 0;
   /** unbedingte Zuweisungen an Ausgänge: Schlüssel → erste Stelle */
@@ -710,6 +716,7 @@ class CodeGen {
         a.start.col - b.start.col,
     );
     const program = this.b.build();
+    if (this.localErrors) program.localErrors = true;
     if (tasks.length) {
       program.mainEnd = mainEnd;
       program.tasks = tasks;
@@ -1305,7 +1312,11 @@ class CodeGen {
     }
     const [lo, hi] = OB_NUMBERS[ev.kind];
     const label =
-      ev.kind === 'cyclic' ? 'Weckalarm' : ev.kind === 'process' ? 'Prozessalarm' : 'Anlauf';
+      ev.kind === 'cyclic'
+        ? 'Weckalarm'
+        : ev.kind === 'process'
+          ? 'Prozessalarm'
+          : SIMPLE_EVENTS[ev.kind];
     if (ob.number !== undefined && (ob.number < lo || ob.number > hi)) {
       this.fail(
         lo === hi
@@ -1314,7 +1325,7 @@ class CodeGen {
         NO_SPAN,
       );
     }
-    if (ev.kind === 'startup') return { kind: 'startup', name: ob.name, start: 0, end: 0 };
+    if (isSimpleEvent(ev)) return { kind: ev.kind, name: ob.name, start: 0, end: 0 };
     if (ev.kind === 'cyclic') {
       if (!Number.isInteger(ev.intervalMs) || ev.intervalMs < 1 || ev.intervalMs > 60000) {
         this.fail('Weckalarm: Takt muss 1 … 60000 ms betragen', NO_SPAN);
@@ -2816,6 +2827,10 @@ class CodeGen {
     switch (e.name) {
       case 'NORM_X':
         return 'REAL';
+      case 'GET_ERR_ID':
+        return 'WORD';
+      case 'RUNTIME':
+        return 'LREAL';
       case 'LEN':
       case 'FIND':
       case 'RD_SYS_T':
@@ -3357,6 +3372,24 @@ class CodeGen {
         const o = this.result(t, dst);
         this.b.emit({ op: 'bin', fn: e.name.toLowerCase() as 'shl', t, dst: o, a, b: n });
         return { o, t };
+      }
+      case 'GET_ERR_ID': {
+        // lokale Fehlerbehandlung: Programmierfehler halten die CPU nicht mehr an
+        this.localErrors = true;
+        const o = this.result('WORD', dst);
+        this.b.emit({ op: 'errid', dst: o });
+        return { o, t: 'WORD' };
+      }
+      case 'RUNTIME': {
+        const m = args[0]!;
+        if (m.k !== 'ref') this.fail('RUNTIME braucht MEM := Variable vom Typ LReal', m.span);
+        const mem = this.writable(m);
+        if (mem.t !== 'LREAL') {
+          this.fail(`RUNTIME: MEM muss vom Typ LReal sein, ist ${typeName(mem.t)}`, m.span);
+        }
+        const o = this.result('LREAL', dst);
+        this.b.emit({ op: 'runtime', dst: o, mem: mem.o });
+        return { o, t: 'LREAL' };
       }
       case 'LEN':
         return emitFn('len', 'STRING', 'INT', [this.genAs(args[0]!, 'STRING')]);

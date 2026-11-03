@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   MAIN_OB,
   OB_NUMBERS,
+  SIMPLE_EVENTS,
+  isSimpleEvent,
+  type SimpleEvent,
   SECTIONS_BY_KIND,
   moduleType,
   type Block,
@@ -82,23 +85,24 @@ const isCode = (b: Block): b is CodeBlock => b.kind === 'OB' || b.kind === 'FB' 
 /** Anzeige wie im Projektbaum: „Main [OB1]“, „PI [FB1]“ */
 export const blockLabel = (b: CodeBlock) => `${b.name} [${b.kind}${b.number}]`;
 
-type NewBlock = 'FB' | 'FC' | 'cyclic' | 'process' | 'startup';
+type NewBlock = 'FB' | 'FC' | 'cyclic' | 'process' | SimpleEvent;
 
 /** Neuer Codebaustein mit freier Nummer und freiem Namen (wie „Neuen Baustein hinzufügen“). */
 function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
   const code = blocks.filter(isCode);
   const taken = new Set(blocks.map((b) => b.name.toLowerCase()));
   const kind = what === 'FB' || what === 'FC' ? what : 'OB';
-  let number =
-    what === 'cyclic' || what === 'process' || what === 'startup' ? OB_NUMBERS[what][0] : 1;
+  let number = what === 'FB' || what === 'FC' ? 1 : OB_NUMBERS[what][0];
   while (code.some((b) => b.kind === kind && b.number === number)) number++;
   const base =
     what === 'cyclic'
       ? 'Weckalarm'
       : what === 'process'
         ? 'Prozessalarm'
-        : what === 'startup'
-          ? 'Startup'
+        : what in SIMPLE_EVENTS
+          ? what === 'startup'
+            ? 'Startup'
+            : SIMPLE_EVENTS[what as SimpleEvent]
           : `${kind}_${number}`;
   let name = base;
   for (let n = 1; taken.has(name.toLowerCase()); n++) name = `${base}_${n}`;
@@ -107,8 +111,8 @@ function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
       ? { kind: 'cyclic', intervalMs: 100, phaseMs: 0 }
       : what === 'process'
         ? { kind: 'process', input: '%I0.0', edge: 'rising' }
-        : what === 'startup'
-          ? { kind: 'startup' }
+        : what in SIMPLE_EVENTS
+          ? ({ kind: what } as ObEvent)
           : undefined;
   const iface = Object.fromEntries(SECTIONS_BY_KIND[kind].map((s) => [s, []]));
   return { kind, name, number, lang: 'SCL', iface, source: '', ...(event ? { event } : {}) };
@@ -346,6 +350,10 @@ export function ProgramPanel({
               <option value="cyclic">{t('block.add.cyclic')}</option>
               <option value="process">{t('block.add.process')}</option>
               <option value="startup">{t('block.add.startup')}</option>
+              <option value="timeError">{t('block.add.timeError')}</option>
+              <option value="diagnostic">{t('block.add.diagnostic')}</option>
+              <option value="rackFailure">{t('block.add.rackFailure')}</option>
+              <option value="programError">{t('block.add.programError')}</option>
             </select>
             {block.name !== MAIN_OB && (
               <>
@@ -632,10 +640,12 @@ export function ProgramPanel({
 /** Startereignis eines Alarm-OBs (in TIA: Eigenschaften des OB bzw. des Eingangskanals) */
 function EventEditor({ event, onChange }: { event: ObEvent; onChange: (e: ObEvent) => void }) {
   const num = (v: string) => Math.max(0, Math.round(Number(v) || 0));
-  if (event.kind === 'startup') {
+  if (isSimpleEvent(event)) {
     return (
       <div className="event-bar">
-        <span className="event-kind">Anlauf (OB100)</span>
+        <span className="event-kind">
+          {SIMPLE_EVENTS[event.kind]} (OB{OB_NUMBERS[event.kind][0]})
+        </span>
       </div>
     );
   }

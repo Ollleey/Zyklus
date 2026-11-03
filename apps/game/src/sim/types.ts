@@ -1,4 +1,12 @@
-import type { DataType, Edge, InstanceField, IrProgram, StopInfo, Value } from '@zyklus/sim-core';
+import type {
+  DataType,
+  DiagEntry,
+  Edge,
+  InstanceField,
+  IrProgram,
+  StopInfo,
+  Value,
+} from '@zyklus/sim-core';
 import type { PlantView } from '@zyklus/plant-sim';
 
 /** Was die Oberfläche von einer CPU im Lauf liest */
@@ -10,6 +18,9 @@ export interface CpuView {
   readonly forceCount: number;
   /** Messpunkte des Programms (Bedingungen, Durchläufe) */
   readonly probes: readonly Value[];
+  /** anstehende Diagnosen (ERROR-LED) und Diagnosepuffer (neueste zuerst) */
+  readonly diagActive: number;
+  readonly diagnostics: readonly DiagEntry[];
   read(address: string, t?: DataType): Value;
   readImage(address: string, t?: DataType): Value;
   readSlot(name: string): Value;

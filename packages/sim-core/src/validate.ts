@@ -225,6 +225,13 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
       case 'jmp':
         jump(ins.to);
         break;
+      case 'errid':
+        target(ins.dst, 'Ziel', 'WORD');
+        break;
+      case 'runtime':
+        target(ins.dst, 'Ziel', 'LREAL');
+        target(ins.mem, 'MEM', 'LREAL');
+        break;
       case 'probe':
         if (!(ins.i >= 0 && ins.i < (p.probes?.length ?? 0))) err(`Messpunkt ${ins.i} fehlt`);
         if (ins.src) operand(ins.src, 'Messwert');

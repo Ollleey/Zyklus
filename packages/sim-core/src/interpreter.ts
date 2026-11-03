@@ -1,12 +1,13 @@
 import type { Area } from './address';
 import { evalCounter, evalTimer, evalTrig, type InstanceState } from './instances';
-import type { Instr, IrProgram, Operand } from './ir';
+import { ERR_READ, ERR_WRITE, type Instr, type IrProgram, type Operand } from './ir';
 import type { ByteArea } from './memory';
 import { energyOf } from './metrics/weights';
 import {
   LONG_MAX,
   STRING_DEFAULT_LEN,
   bitWidth,
+  defaultValue,
   isIntegerType,
   isRealType,
   normalize,
@@ -33,6 +34,13 @@ export interface ExecContext {
   end?: number;
   /** Werte der Messpunkte (`IrProgram.probes`) */
   probes?: Value[];
+  /**
+   * Programmierfehler nicht abbrechen (OB121 vorhanden oder lokale Fehlerbehandlung): Fehler
+   * melden, Lesen liefert 0, Schreiben entfällt
+   */
+  onError?: (id: number, message: string) => void;
+  /** Rechenzeit je Befehl in ms (für RUNTIME) */
+  opTimeMs?: number;
 }
 
 export type ExecResult =
@@ -70,14 +78,26 @@ export function execute(ctx: ExecContext): ExecResult {
         return slots[o.i]!;
       case 'inst':
         return instances[o.i]![o.f];
-      case 'islot':
-        return slots[elementSlot(o)]!;
+      case 'islot': {
+        const i = elementSlot(o, ERR_READ);
+        return i < 0 ? defaultValue(program.slots[o.base + o.off]!.t) : slots[i]!;
+      }
     }
   };
-  /** Slot eines Feldelements mit variablem Index */
-  const elementSlot = (o: Extract<Operand, { k: 'islot' }>): number => {
+  /** letzter Programmierfehler in diesem Durchlauf (GET_ERR_ID) */
+  let errorId = 0;
+  const fault = (id: number, message: string): void => {
+    if (!ctx.onError) throw new ProgramError(message);
+    errorId = id;
+    ctx.onError(id, message);
+  };
+  /** Slot eines Feldelements mit variablem Index; -1 bei Fehler mit Fehlerbehandlung */
+  const elementSlot = (o: Extract<Operand, { k: 'islot' }>, id: number): number => {
     const i = read(o.idx) as number;
-    if (i < 0 || i >= o.len) throw new ProgramError(`Feldindex ${i} außerhalb (0…${o.len - 1})`);
+    if (i < 0 || i >= o.len) {
+      fault(id, `Feldindex außerhalb (0…${o.len - 1})`);
+      return -1;
+    }
     return o.base + o.off + i * o.stride;
   };
   const num = (o: Operand) => read(o) as number;
@@ -91,8 +111,10 @@ export function execute(ctx: ExecContext): ExecResult {
   const write = (o: Operand, v: Value): void => {
     if (o.k === 'io') areas[o.area].write(o.t, o.byte, o.bit, v);
     else if (o.k === 'slot') store(o.i, v);
-    else if (o.k === 'islot') store(elementSlot(o), v);
-    else throw new Error('Operand nicht beschreibbar');
+    else if (o.k === 'islot') {
+      const i = elementSlot(o, ERR_WRITE);
+      if (i >= 0) store(i, v);
+    } else throw new Error('Operand nicht beschreibbar');
   };
 
   try {
@@ -192,9 +214,24 @@ export function execute(ctx: ExecContext): ExecResult {
           break;
         case 'chk': {
           const a = num(ins.a);
-          if (a < ins.lo || a > ins.hi)
-            throw new ProgramError(`${ins.msg}: Index ${a} außerhalb ${ins.lo}…${ins.hi}`);
+          if (a < ins.lo || a > ins.hi) {
+            const message = `${ins.msg}: Index ${a} außerhalb ${ins.lo}…${ins.hi}`;
+            if (!ctx.onError) throw new ProgramError(message);
+            // mit Fehlerbehandlung: ungültiger Index, der folgende Zugriff meldet den Fehler
+            write(ins.dst, -100_000);
+            break;
+          }
           write(ins.dst, a - ins.lo);
+          break;
+        }
+        case 'errid':
+          write(ins.dst, errorId);
+          break;
+        case 'runtime': {
+          const t = ctx.now + ops * (ctx.opTimeMs ?? 0);
+          const last = num(ins.mem);
+          write(ins.dst, last ? (t - last) / 1000 : 0);
+          write(ins.mem, t || 1e-9);
           break;
         }
       }

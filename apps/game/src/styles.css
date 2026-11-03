@@ -3702,3 +3702,29 @@ text.fup-live-num {
   border: 1px solid var(--line);
   padding: 1px 4px;
 }
+.diag-buffer {
+  flex-basis: 100%;
+  font-size: var(--t-xs);
+}
+.diag-buffer summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.diag-buffer ol {
+  margin: 4px 0 0;
+  padding-left: 0;
+  list-style: none;
+  max-height: 160px;
+  overflow: auto;
+  font-family: var(--font-mono);
+}
+.diag-buffer .diag-time {
+  color: var(--muted);
+  margin-right: 6px;
+}
+.diag-buffer .diag-error {
+  color: #e5484d;
+}
+.diag-buffer .diag-diag {
+  color: var(--amber);
+}

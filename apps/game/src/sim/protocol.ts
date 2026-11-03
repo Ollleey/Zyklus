@@ -8,6 +8,7 @@ import type {
   Solution,
   StopInfo,
   Value,
+  DiagEntry,
 } from '@zyklus/sim-core';
 import type { PartState, WorkpieceSpec, WorkpieceState } from '@zyklus/plant-sim';
 
@@ -99,6 +100,8 @@ export interface CpuSnapshot {
   load: number;
   forceCount: number;
   probes: Value[];
+  diagActive: number;
+  diagnostics: DiagEntry[];
 }
 
 /** Stand des Laufs nach einem Rechenblock */

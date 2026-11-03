@@ -635,6 +635,7 @@ export function Cabinet({
           moduleId={selectedModule.id}
           onRange={(ch, range) => onChange(setChannelRange(solution, selectedModule.id, ch, range))}
           onConfig={(patch) => onChange(setModuleConfig(solution, selectedModule.id, patch))}
+          status={cpuStatus?.get(selectedModule.id)}
         />
       )}
       <div className="cabinet-info">
@@ -668,11 +669,14 @@ function ModuleInspector({
   moduleId,
   onRange,
   onConfig,
+  status,
 }: {
   solution: Solution;
   moduleId: string;
   onRange: (ch: number, range: AnalogRange) => void;
   onConfig: (patch: Partial<ModuleConfig>) => void;
+  /** CPU im Lauf: Diagnosepuffer */
+  status?: CpuStatus;
 }) {
   const m = solution.modules.find((x) => x.id === moduleId);
   const mt = m ? MODULE_TYPES[m.type] : undefined;
@@ -827,6 +831,24 @@ function ModuleInspector({
             />
           </label>
         ))}
+      {isCpu && status && (
+        <details className="diag-buffer" open>
+          <summary>
+            {t('cabinet.diagBuffer')} ({status.diagnostics?.length ?? 0})
+          </summary>
+          {status.diagnostics?.length ? (
+            <ol>
+              {status.diagnostics.slice(0, 20).map((e, i) => (
+                <li key={i} className={`diag-${e.kind}`}>
+                  <span className="diag-time">{(e.time / 1000).toFixed(3)} s</span> {e.text}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="muted">{t('cabinet.diagEmpty')}</p>
+          )}
+        </details>
+      )}
     </div>
   );
 }

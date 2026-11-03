@@ -378,6 +378,17 @@ export class LevelRun {
         // falscher Messbereich: Überlauf; Drahtbruch erkennt nur 4–20 mA, bei 0–10 V fällt das Signal auf 0
         if (ch?.mismatch) v = RAW_OVERFLOW;
         else if (fault === 'break' && d.signal && ch?.range === '0-10V') v = 0;
+        // Diagnose freigegeben: Drahtbruch am 4–20-mA-Kanal meldet die Baugruppe (OB82)
+        if (ch && this.solution.config?.[ch.module]?.diagnostics && ch.range === '4-20mA') {
+          this.cpus
+            .get(ch.cpu)
+            ?.diagnosticEvent(
+              t,
+              `${ch.module}:${ch.channel}:break`,
+              `Drahtbruch ${ch.module} Kanal ${ch.channel} (${d.id})`,
+              fault === 'break',
+            );
+        }
         this.push(`true.${d.id}`, t, clean);
       } else {
         continue;

@@ -157,6 +157,8 @@ export class SimHost {
         load: c.load,
         forceCount: c.forceCount,
         probes: [...c.probes],
+        diagActive: c.diagActive,
+        diagnostics: [...c.diagnostics],
       })),
       forced: run.forcedIds.map((id) => [id, run.forced(id)!]),
       values,

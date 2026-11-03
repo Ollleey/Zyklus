@@ -54,5 +54,9 @@ export function energyOf(ins: Instr): number {
       return ENERGY.stateful;
     case 'probe':
       return 0;
+    case 'errid':
+      return ENERGY.move;
+    case 'runtime':
+      return ENERGY.real;
   }
 }

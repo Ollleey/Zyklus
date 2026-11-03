@@ -47,12 +47,36 @@ export type ObEvent =
   | { kind: 'cyclic'; intervalMs: number; phaseMs?: number }
   | { kind: 'process'; input: string; edge: 'rising' | 'falling' }
   /** Anlauf: einmal nach jedem Neustart, vor dem ersten Zyklus von OB1 */
-  | { kind: 'startup' };
+  | { kind: 'startup' }
+  /** Fehler-OBs: Zykluszeitfehler, Diagnosealarm, Baugruppenausfall, Programmierfehler */
+  | { kind: 'timeError' }
+  | { kind: 'diagnostic' }
+  | { kind: 'rackFailure' }
+  | { kind: 'programError' };
+
+/** Ereignisse ohne Parameter mit ihrem Namen (Anlauf und Fehler-OBs) */
+export const SIMPLE_EVENTS = {
+  startup: 'Anlauf',
+  timeError: 'Zykluszeitfehler',
+  diagnostic: 'Diagnosealarm',
+  rackFailure: 'Baugruppenausfall',
+  programError: 'Programmierfehler',
+} as const satisfies Partial<Record<ObEvent['kind'], string>>;
+
+export type SimpleEvent = keyof typeof SIMPLE_EVENTS;
+
+export function isSimpleEvent(e: ObEvent): e is { kind: SimpleEvent } {
+  return e.kind in SIMPLE_EVENTS;
+}
 
 export const OB_NUMBERS = {
   cyclic: [30, 38],
   process: [40, 47],
   startup: [100, 100],
+  timeError: [80, 80],
+  diagnostic: [82, 82],
+  rackFailure: [86, 86],
+  programError: [121, 121],
 } as const satisfies Record<ObEvent['kind'], readonly [number, number]>;
 
 export interface CodeBlock {

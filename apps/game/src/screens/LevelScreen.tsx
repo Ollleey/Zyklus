@@ -156,6 +156,8 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           error: !!c.stopInfo && c.stopInfo.reason !== 'SWITCH' && c.stopInfo.reason !== 'POWER',
           load: c.load,
           force: c.forceCount > 0,
+          diag: c.diagActive > 0,
+          diagnostics: c.diagnostics,
         });
       }
     }

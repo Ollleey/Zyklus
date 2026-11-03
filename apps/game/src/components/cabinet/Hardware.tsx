@@ -3,6 +3,7 @@ import {
   tr,
   type AnalogRange,
   type ChannelKind,
+  type DiagEntry,
   type ModuleType,
 } from '@zyklus/sim-core';
 import { G, colX, terminalPos, type Layout } from './geometry';
@@ -218,6 +219,10 @@ export interface CpuStatus {
   load: number;
   /** Forceaufträge aktiv (MAINT-LED gelb) */
   force?: boolean;
+  /** anstehende Diagnose (ERROR-LED) */
+  diag?: boolean;
+  /** Diagnosepuffer, neueste zuerst */
+  diagnostics?: readonly DiagEntry[];
 }
 
 const Led = ({
@@ -282,7 +287,7 @@ export function CpuFront({
   const h = G.module.h;
   const run = powered && status?.mode === 'RUN';
   const stop = powered && status?.mode === 'STOP';
-  const err = powered && !!status?.error;
+  const err = powered && (!!status?.error || !!status?.diag);
   const switchRun = status ? status.mode === 'RUN' : true;
   return (
     <g className="hw-cpu">

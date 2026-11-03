@@ -1,5 +1,25 @@
 # Changelog
 
+## M10b – Fehler-OBs, Diagnosepuffer, GET_ERR_ID, RUNTIME (2026-11-03)
+
+- Neue OB-Arten im Menü „+ Baustein“:
+  - **OB80 Zykluszeitfehler**: eine Überschreitung wird toleriert (Zyklus abgebrochen, OB80
+    läuft), zweimal hintereinander → STOP
+  - **OB121 Programmierfehler** (z. B. Feldindex): die CPU bleibt in RUN, der fehlerhafte Zugriff
+    liefert 0 bzw. schreibt nichts, OB121 läuft einmal je Durchlauf
+  - **OB82 Diagnosealarm** und **OB86 Baugruppenausfall**: laufen bei kommender und gehender
+    Meldung; ohne sie bleibt die CPU in RUN (wie S7-1500)
+  - ohne OB80/OB121 geht die CPU wie bisher in STOP
+- **Lokale Fehlerbehandlung**: `GET_ERR_ID()` liefert die Kennung des letzten Fehlers
+  (16#2522 lesen, 16#2523 schreiben); wer es verwendet, behandelt Programmierfehler selbst
+- **`RUNTIME(MEM := #m)`**: Zeit seit dem letzten Aufruf in s (LReal), Spielzeit aus Zyklusbeginn
+  und Rechenzeit der bisherigen Befehle
+- **Diagnosepuffer** der CPU (Anlauf, STOP, Programmierfehler, Zykluszeit, Baugruppendiagnose) im
+  Schaltschrank bei der gewählten CPU; **ERROR-LED** bei anstehender Diagnose
+- Diagnose freigegeben: Drahtbruch am 4–20-mA-Kanal meldet die Baugruppe (OB82, Diagnosepuffer,
+  Systemmerker DiagStatusUpdate)
+- 718 Tests
+
 ## M10a – Gerätekonfiguration (2026-11-03)
 
 - Eigenschaften der gewählten Baugruppe im Schaltschrank (wie die Gerätesicht in TIA):

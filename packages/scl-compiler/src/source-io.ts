@@ -1,5 +1,8 @@
 import {
   IFACE_SECTIONS,
+  OB_NUMBERS,
+  SIMPLE_EVENTS,
+  isSimpleEvent,
   type Block,
   type CodeBlock,
   type IfaceSection,
@@ -35,7 +38,7 @@ const BLOCK_HEADER: Record<CodeBlock['kind'], [string, string]> = {
 };
 
 function eventText(e: ObEvent): string {
-  if (e.kind === 'startup') return 'Anlauf';
+  if (isSimpleEvent(e)) return SIMPLE_EVENTS[e.kind];
   return e.kind === 'cyclic'
     ? `Weckalarm, Takt ${e.intervalMs} ms, Phase ${e.phaseMs ?? 0} ms`
     : `Prozessalarm, ${e.edge === 'rising' ? 'steigende' : 'fallende'} Flanke an ${e.input}`;
@@ -44,7 +47,9 @@ function eventText(e: ObEvent): string {
 /** Liest die Ereignis-Zeile, die `projectToSource` in den Bausteinkopf schreibt. */
 function parseEvent(header: string[]): ObEvent | undefined {
   for (const l of header) {
-    if (/\/\/\s*Ereignis:\s*Anlauf\s*$/.test(l)) return { kind: 'startup' };
+    for (const [kind, label] of Object.entries(SIMPLE_EVENTS)) {
+      if (new RegExp(`//\\s*Ereignis:\\s*${label}\\s*$`).test(l)) return { kind } as ObEvent;
+    }
     const c = /\/\/\s*Ereignis:\s*Weckalarm, Takt (\d+) ms(?:, Phase (\d+) ms)?/.exec(l);
     if (c) return { kind: 'cyclic', intervalMs: Number(c[1]), phaseMs: Number(c[2] ?? 0) };
     const p = /\/\/\s*Ereignis:\s*Prozessalarm, (steigende|fallende) Flanke an (.+?)\s*$/.exec(l);
@@ -227,8 +232,8 @@ export function sourceToProject(
     const event =
       b.kind === 'OB' ? parseEvent(lines.slice(b.span.start.line - 1, b.bodyLine - 1)) : undefined;
     const number = event
-      ? event.kind === 'startup'
-        ? 100
+      ? isSimpleEvent(event)
+        ? OB_NUMBERS[event.kind][0]
         : numbers[event.kind]++
       : numbers[b.kind]++;
     const iface: CodeBlock['iface'] = {};

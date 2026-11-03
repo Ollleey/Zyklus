@@ -94,6 +94,13 @@ export type Instr =
    * Energie, kein Zykluszeitbudget) und ändert keinen Programmzustand.
    */
   | { op: 'probe'; i: number; src?: Operand }
+  /** GET_ERR_ID: Kennung des letzten Programmierfehlers in diesem OB-Durchlauf (0 = keiner) */
+  | { op: 'errid'; dst: Operand }
+  /**
+   * RUNTIME: Zeit seit dem letzten Aufruf in s (LREAL); `mem` (LREAL) hält den Zeitpunkt.
+   * Spielzeit: Zyklusbeginn plus Rechenzeit der bisher ausgeführten Befehle.
+   */
+  | { op: 'runtime'; dst: Operand; mem: Operand }
   | { op: 'set'; dst: Operand; cond: Operand }
   | { op: 'reset'; dst: Operand; cond: Operand }
   /** Speicherbox mit Merker `q`. SR: Rücksetzen dominant, RS: Setzen dominant. */
@@ -147,8 +154,12 @@ export interface InstanceDecl {
  * - process (OB40): bei Flanke an einem Eingangsbit der Peripherie
  */
 export interface IrTask {
-  /** startup: Anlauf-OB (OB100), läuft einmal vor dem ersten Zyklus nach jedem Neustart */
-  kind: 'cyclic' | 'process' | 'startup';
+  /**
+   * startup: Anlauf-OB (OB100), läuft einmal vor dem ersten Zyklus nach jedem Neustart;
+   * Fehler-OBs: timeError (OB80), diagnostic (OB82), rackFailure (OB86), programError (OB121)
+   */
+  kind:
+    'cyclic' | 'process' | 'startup' | 'timeError' | 'diagnostic' | 'rackFailure' | 'programError';
   name: string;
   start: number;
   end: number;
@@ -168,7 +179,16 @@ export interface IrProgram {
   tasks?: IrTask[];
   /** Messpunkte für Beobachten und Haltepunkte (Befehl `probe`) */
   probes?: ProbeDecl[];
+  /**
+   * Lokale Fehlerbehandlung (Programm verwendet GET_ERR_ID): Programmierfehler halten die CPU
+   * nicht an und rufen keinen OB121; der fehlerhafte Zugriff liefert 0 bzw. schreibt nichts.
+   */
+  localErrors?: boolean;
 }
+
+/** Fehlerkennungen wie GET_ERR_ID (Bereichslängenfehler beim Lesen bzw. Schreiben) */
+export const ERR_READ = 0x2522;
+export const ERR_WRITE = 0x2523;
 
 /**
  * Messpunkt im Quelltext: `cond` merkt sich den Wert einer Bedingung, `line` zählt, wie oft die

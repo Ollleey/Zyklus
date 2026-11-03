@@ -1,5 +1,6 @@
 import type {
   DataType,
+  DiagEntry,
   Edge,
   InstanceField,
   IrProgram,
@@ -212,6 +213,8 @@ class RemoteCpu implements CpuView {
   load = 0;
   forceCount = 0;
   probes: Value[] = [];
+  diagActive = 0;
+  diagnostics: DiagEntry[] = [];
 
   constructor(
     private readonly id: string,
@@ -224,6 +227,8 @@ class RemoteCpu implements CpuView {
     this.load = c.load;
     this.forceCount = c.forceCount;
     this.probes = c.probes;
+    this.diagActive = c.diagActive;
+    this.diagnostics = c.diagnostics;
   }
 
   read(address: string, t?: DataType): Value {

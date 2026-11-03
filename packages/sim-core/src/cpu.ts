@@ -34,6 +34,17 @@ export interface StopInfo {
   message: string;
 }
 
+/** Eintrag im Diagnosepuffer (neueste zuerst) */
+export interface DiagEntry {
+  time: number;
+  /** error: Fehler (STOP, Programmierfehler, Zykluszeit), diag: Baugruppendiagnose, event: Betrieb */
+  kind: 'error' | 'diag' | 'event';
+  text: string;
+}
+
+/** Größe des Diagnosepuffers */
+export const DIAG_BUFFER = 50;
+
 export interface CpuMetrics {
   cycles: number;
   /** ausgeführte IR-Befehle */
@@ -68,6 +79,14 @@ export class Cpu {
 
   private readonly energy: number[];
   private readonly tempSlots: number[];
+  /** Diagnosepuffer, neueste Einträge zuerst */
+  readonly diagnostics: DiagEntry[] = [];
+  /** anstehende Diagnoseereignisse (Drahtbruch, Lastspannung, Baugruppe) → ERROR-LED */
+  private readonly activeDiag = new Set<string>();
+  /** Zykluszeitüberschreitung im letzten Zyklus (OB80 toleriert sie einmal) */
+  private overrun = false;
+  /** gerade läuft ein Fehler-OB (keine Rekursion) */
+  private inErrorOb = false;
   /** Forceaufträge an der Peripherie (Eingänge vor dem PAE, Ausgänge nach dem PAA) */
   private readonly forces = new Map<
     string,
@@ -235,6 +254,8 @@ export class Cpu {
   private startup(now: number): boolean {
     this.started = true;
     this.firstScan = true;
+    this.overrun = false;
+    this.log(now, 'event', 'Anlauf (Warmstart)');
     for (const task of this.program.tasks ?? []) {
       if (task.kind !== 'startup') continue;
       this.pae.copyFrom(this.inputs);
@@ -263,8 +284,55 @@ export class Cpu {
   }
 
   /** Führt einen Codebereich aus; false bei Zykluszeitüberschreitung (CPU in STOP). */
+  private task(kind: IrTask['kind']): IrTask | undefined {
+    return this.program.tasks?.find((t) => t.kind === kind);
+  }
+
+  /** Eintrag in den Diagnosepuffer */
+  log(time: number, kind: DiagEntry['kind'], text: string): void {
+    this.diagnostics.unshift({ time, kind, text });
+    if (this.diagnostics.length > DIAG_BUFFER) this.diagnostics.length = DIAG_BUFFER;
+  }
+
+  /** anstehende Diagnose (ERROR-LED leuchtet) */
+  get diagActive(): number {
+    return this.activeDiag.size;
+  }
+
+  /**
+   * Diagnoseereignis einer Baugruppe (kommend/gehend), z. B. Drahtbruch: Diagnosepuffer, ERROR-LED,
+   * Diagnosealarm OB82. Ohne OB82 bleibt die CPU in RUN (wie S7-1500).
+   */
+  diagnosticEvent(time: number, key: string, text: string, coming: boolean): void {
+    this.raise(time, key, text, coming, 'diagnostic');
+  }
+
+  /** Baugruppenausfall bzw. -wiederkehr: OB86, sonst wie Diagnose */
+  rackEvent(time: number, key: string, text: string, coming: boolean): void {
+    this.raise(time, key, text, coming, 'rackFailure');
+  }
+
+  private raise(
+    time: number,
+    key: string,
+    text: string,
+    coming: boolean,
+    kind: 'diagnostic' | 'rackFailure',
+  ): void {
+    if (coming === this.activeDiag.has(key)) return;
+    if (coming) this.activeDiag.add(key);
+    else this.activeDiag.delete(key);
+    this.diagChanged = true;
+    this.log(time, 'diag', `${coming ? 'kommend' : 'gehend'}: ${text}`);
+    const t = this.task(kind);
+    if (t && this.mode === 'RUN' && this.started) this.runTask(t, time);
+  }
+
   private runCode(now: number, start?: number, end?: number): boolean {
     for (const i of this.tempSlots) this.slots[i] = this.program.slots[i]!.init;
+    const ob121 = this.task('programError');
+    const errors: string[] = [];
+    const handled = this.program.localErrors || (ob121 && !this.inErrorOb);
     const res = execute({
       program: this.program,
       energy: this.energy,
@@ -276,18 +344,46 @@ export class Cpu {
       start,
       end,
       probes: this.probes,
+      opTimeMs: this.config.cycleMs / this.config.maxOpsPerCycle,
+      ...(handled
+        ? {
+            onError: (id: number, message: string) => {
+              errors.push(`${message} (16#${id.toString(16).toUpperCase()})`);
+            },
+          }
+        : {}),
     });
     this.metrics.ops += res.ops;
     this.metrics.energy += res.energy;
     this.metrics.maxOpsInCycle = Math.max(this.metrics.maxOpsInCycle, res.ops);
+    for (const e of errors) this.log(now, 'error', `Programmierfehler: ${e}`);
+    if (errors.length && ob121 && !this.program.localErrors) {
+      // Programmierfehler-OB einmal je Durchlauf, danach geht es weiter
+      this.inErrorOb = true;
+      const ok = this.runCode(now, ob121.start, ob121.end);
+      this.inErrorOb = false;
+      if (!ok) return false;
+    }
     if (!res.ok) {
-      if (res.reason === 'PROGRAM_ERROR')
+      if (res.reason === 'PROGRAM_ERROR') {
+        this.log(now, 'error', `Programmierfehler: ${res.message} – kein OB121`);
         this.stop(now, `Programmierfehler: ${res.message}`, 'PROGRAM_ERROR');
-      else
-        this.stop(
-          now,
-          `Zykluszeitüberschreitung: mehr als ${this.config.maxOpsPerCycle} Befehle in einem Zyklus`,
-        );
+        return false;
+      }
+      const ob80 = this.task('timeError');
+      if (ob80 && !this.overrun && !this.inErrorOb) {
+        // Zykluszeitfehler-OB: einmal toleriert, der Zyklus ist abgebrochen
+        this.overrun = true;
+        this.log(now, 'error', 'Zykluszeitüberschreitung – OB80 aufgerufen');
+        this.inErrorOb = true;
+        const ok = this.runCode(now, ob80.start, ob80.end);
+        this.inErrorOb = false;
+        return ok;
+      }
+      const msg = this.overrun
+        ? 'Zykluszeitüberschreitung zweimal hintereinander'
+        : `Zykluszeitüberschreitung: mehr als ${this.config.maxOpsPerCycle} Befehle in einem Zyklus`;
+      this.stop(now, msg);
       return false;
     }
     return true;
@@ -300,7 +396,10 @@ export class Cpu {
     if (!this.started && !this.startup(now)) return;
     this.pae.copyFrom(this.inputs);
     this.writeSystemMemory(now);
+    const before = this.overrun;
     const ok = this.runCode(now);
+    // ein vollständiger Zyklus ohne Überschreitung setzt die Toleranz von OB80 zurück
+    if (ok && before === this.overrun) this.overrun = false;
     this.metrics.cycles++;
     if (ok) this.writeOutputs();
   }
@@ -309,6 +408,11 @@ export class Cpu {
   stop(time: number, message: string, reason: StopInfo['reason'] = 'CYCLE_OVERRUN'): void {
     this.mode = 'STOP';
     this.stopInfo = { time, reason, message };
+    this.log(
+      time,
+      reason === 'SWITCH' || reason === 'POWER' ? 'event' : 'error',
+      `STOP: ${message}`,
+    );
     this.paa.clear();
     this.outputs.clear();
     this.applyOutputForces();
@@ -389,6 +493,8 @@ export class Cpu {
       });
     }
     for (const [k, f] of old.forces) this.forces.set(k, f);
+    this.diagnostics.push(...old.diagnostics);
+    for (const k of old.activeDiag) this.activeDiag.add(k);
     Object.assign(this.metrics, old.metrics);
     this.powered = old.powered;
     this.switchPos = old.switchPos;
