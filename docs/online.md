@@ -72,6 +72,8 @@ Manche Aufträge liefern Aufbau und Programm einer laufenden Anlage mit. Ziel is
 finden und **möglichst wenig zu ändern**: Neben Kosten, Energie und Größe zählt der
 **Änderungsumfang** – hinzugefügte plus entfernte Programmzeilen gegenüber dem gelieferten
 Programm (Leer- und Kommentarzeilen zählen nicht, Einstellungen im Schaltschrank auch nicht).
+Wird ein Baustein in FUP, KOP oder GRAPH umgeschrieben, zählt sein übersetzter Code – ein
+Sprachwechsel ist also ein Umschreiben.
 „Neu beginnen“ stellt den gelieferten Stand wieder her. Hilfreich: Querverweise, Beobachten,
 Haltepunkte und die Compiler-Warnung bei Mehrfachzuweisungen.
 

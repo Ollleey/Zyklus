@@ -202,6 +202,10 @@ export class RemoteRun implements RunView {
     this.command({ type: 'clearBreak' });
   }
 
+  acknowledgeAlarms(): void {
+    this.command({ type: 'ackAlarms' });
+  }
+
   load(programs: Map<string, IrProgram>, opts: { keepValues: boolean; restart: boolean }): void {
     this.command({ type: 'load', programs: [...programs], ...opts });
   }
@@ -231,6 +235,7 @@ class RemoteCpu implements CpuView {
   diagActive = 0;
   diagnostics: DiagEntry[] = [];
   alarms: AlarmEntry[] = [];
+  unackedAlarms = new Set<number>();
 
   constructor(
     private readonly id: string,
@@ -246,6 +251,7 @@ class RemoteCpu implements CpuView {
     this.diagActive = c.diagActive;
     this.diagnostics = c.diagnostics;
     this.alarms = c.alarms;
+    this.unackedAlarms = new Set(c.unackedAlarms);
   }
 
   read(address: string, t?: DataType): Value {

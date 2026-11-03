@@ -56,6 +56,9 @@ interface RelayState {
 /** Bildaktualisierung des Bedienpanels in ms (Lampen und Anzeigen) */
 export const HMI_CYCLE_MS = 50;
 
+/** Abbruch eines Kommunikationsauftrags, wenn der Partner so lange nicht erreichbar ist (ms) */
+export const COMM_TIMEOUT_MS = 1000;
+
 /** Übertragungszeit einer Nachricht (TSEND_C → TRCV_C) in ms: 5 ms plus 1 ms je 8 Elemente */
 export function commLatency(elements: number): number {
   return 5 + Math.ceil(elements / 8);
@@ -447,6 +450,11 @@ export class LevelRun {
     this.breakHit = null;
   }
 
+  /** Meldungen aller CPUs quittieren (Bedienpanel) */
+  acknowledgeAlarms(): void {
+    for (const c of this.cpus.values()) c.acknowledgeAlarms(this.sim.time);
+  }
+
   private checkBreakpoints(): void {
     for (const [id, bp] of this.breakpoints) {
       const cpu = this.cpus.get(id);
@@ -684,7 +692,12 @@ export class LevelRun {
   private deliver(t: number): void {
     for (const [a, cpu] of this.cpus) {
       for (const job of cpu.outbox) {
-        if (job.delivered || t - job.at < commLatency(job.values.length)) continue;
+        if (job.delivered || job.failed || t - job.at < commLatency(job.values.length)) continue;
+        // Partner aus, ausgefallen oder Empfangsfach dauernd belegt: Auftrag abbrechen
+        if (t - job.at > COMM_TIMEOUT_MS) {
+          job.failed = true;
+          continue;
+        }
         const b = this.cpus.get(this.partners.get(a)?.get(job.id) ?? '');
         if (!b || !b.isPowered) continue;
         if (job.mode && job.remote) {

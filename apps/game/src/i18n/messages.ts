@@ -600,6 +600,7 @@ const TABLE: [string, string][] = [
   ['STOP: {}', 'STOP: $1'],
   ['kommend: {}', 'coming: $1'],
   ['gehend: {}', 'going: $1'],
+  ['Meldungen quittiert', 'Alarms acknowledged'],
   ['Spannung aus', 'Power off'],
   ['Spannung ein', 'Power on'],
   // Prüfergebnis

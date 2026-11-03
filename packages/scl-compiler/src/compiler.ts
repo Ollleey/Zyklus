@@ -2898,7 +2898,9 @@ class CodeGen {
   private member(e: InstEntry, name: string, r: Ref): Resolved {
     const i = this.instIndex(e);
     const members = instanceMembers(e.type, e.kind!);
-    const m = members[name.toUpperCase()];
+    const m =
+      members[name.toUpperCase()] ??
+      Object.entries(members).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
     if (!m) {
       this.fail(
         `${e.typeName}${e.type.generic ? ` (${e.kind})` : ''} hat kein Element ${name} (verfügbar: ${Object.keys(members).join(', ')})`,

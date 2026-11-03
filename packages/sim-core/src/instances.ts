@@ -18,6 +18,8 @@ export interface InstanceState {
   ERROR: boolean;
   NDR: boolean;
   STATUS: number;
+  /** Program_Alarm: Meldung quittiert (bzw. keine unquittierte) */
+  Ack_State: boolean;
   /** letzter Wert von IN / CU / CLK (Flankenerkennung) */
   m1: boolean;
   /** letzter Wert von CD */
@@ -41,6 +43,7 @@ export function createInstance(kind: InstanceKind): InstanceState {
     ERROR: false,
     NDR: false,
     STATUS: 0x7000,
+    Ack_State: true,
     m1: false,
     m2: false,
     phase: 0,

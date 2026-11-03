@@ -118,8 +118,11 @@ created in the cabinet at the CPU.
 | 16#0000 | done (DONE or NDR)                               |
 | 16#80A3 | no connection with this ID (ERROR)               |
 | 16#80B3 | length or data types of DATA don't match (ERROR) |
+| 16#80C4 | partner not reachable for 1 s (ERROR)            |
 
-In FBD and LAD both boxes are under “Communication”. After a CPU restart open jobs are discarded.
+If the partner is switched off or never fetches a message, the job aborts after **1 s** with ERROR
+and STATUS 16#80C4 (also for PUT/GET). In FBD and LAD both boxes are under “Communication”. After a
+CPU restart open jobs are discarded.
 
 ### PUT and GET
 
@@ -151,8 +154,9 @@ connected to a memory bit of the CPU and appears in the PLC tag table like a dev
 | Input field    | AI   | from `%MW220`       | writes the entered value (Int)             |
 | Display        | AO   | from `%MW220`       | reads the word every refresh               |
 
-Bits and words are assigned in the order of the elements. Because the panel only writes on an
-operation, the program may also reset a button memory bit itself (acknowledging).
+Bits and words are assigned in the order of the elements; via **⚙ Addresses** on the panel each
+element can get its own memory address (empty = automatic), the tag table follows. Because the panel
+only writes on an operation, the program may also reset a button memory bit itself.
 
 **Alarms** come from the program with **Program_Alarm** (instance DB of type Program_Alarm):
 
@@ -161,7 +165,9 @@ operation, the program may also reset a button memory bit itself (acknowledging)
 ```
 
 Every edge at SIG reports the alarm as coming or going with a time stamp. The panel shows the latest
-alarms, active ones in red. After a CPU restart no alarms are active any more.
+alarms, active ones in red. A coming alarm is **unacknowledged** (flashes with “!”) until
+**Acknowledge** is pressed on the panel; the program sees this in `"Ofen_heiss".Ack_State` (FALSE =
+unacknowledged). After a CPU restart no alarms are active any more.
 
 ## NORM_X and SCALE_X
 

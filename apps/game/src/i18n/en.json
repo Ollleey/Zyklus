@@ -443,5 +443,14 @@
   "problem.row": "row",
   "problem.project": "Project",
   "problem.error": "Error",
-  "problem.warning": "Warning"
+  "problem.warning": "Warning",
+  "hmi.ack": "Acknowledge",
+  "hmi.ackHint": "Acknowledge all new alarms; in the program the alarm's Ack_State becomes TRUE",
+  "hmi.addresses": "Addresses",
+  "hmi.addressesHint": "Memory addresses of the panel elements (bit e.g. %M200.0, word e.g. %MW220); empty = automatic",
+  "library.inProject": "in the project",
+  "library.newer": "newer version",
+  "library.sameName": "own block with the same name",
+  "library.update": "Update",
+  "library.available": "v{version} available"
 }

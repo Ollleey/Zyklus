@@ -130,7 +130,7 @@ export const FB_OUTPUTS: Record<InstanceKind, Record<string, DataType>> = {
   TRCV: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   PUT: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   GET: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
-  ALARM: {},
+  ALARM: { Ack_State: 'BOOL' },
 };
 
 /** Sonderparameter der Kommunikationsbausteine (keine gewöhnlichen Eingänge) */

@@ -51,8 +51,8 @@ export interface ExecContext {
 export interface CommPort {
   /** Auftrag einstellen; false: keine Verbindung mit dieser ID */
   send(inst: number, id: number, values: Value[], types: DataType[]): boolean;
-  /** Stand eines Sendeauftrags */
-  sendState(inst: number): 'busy' | 'done' | undefined;
+  /** Stand eines Sendeauftrags; error: Partner nicht erreichbar */
+  sendState(inst: number): 'busy' | 'done' | 'error' | undefined;
   /** angekommene Nachricht für diese Verbindung abholen */
   receive(id: number): { values: Value[]; types: DataType[] } | undefined;
   /** PUT/GET: Auftrag an die Partner-CPU; false: keine Verbindung */
@@ -64,7 +64,7 @@ export interface CommPort {
     values: Value[],
   ): boolean;
   /** Stand eines PUT/GET-Auftrags; bei GET mit dem gelesenen Wert */
-  result(inst: number): 'busy' | { values: Value[] } | undefined;
+  result(inst: number): 'busy' | 'error' | { values: Value[] } | undefined;
 }
 
 export type ExecResult =
@@ -212,7 +212,11 @@ export function execute(ctx: ExecContext): ExecResult {
         case 'alarm': {
           const s = instances[ins.i]!;
           const sig = bool(ins.sig);
-          if (sig !== s.m1) ctx.alarm?.(ins.i, String(read(ins.text)), sig);
+          if (sig !== s.m1) {
+            ctx.alarm?.(ins.i, String(read(ins.text)), sig);
+            // kommende Meldung muss quittiert werden
+            if (sig) s.Ack_State = false;
+          }
           s.m1 = sig;
           break;
         }
@@ -225,7 +229,11 @@ export function execute(ctx: ExecContext): ExecResult {
             else s.NDR = false;
             if (s.BUSY) {
               const r = ctx.comm?.result(ins.i);
-              if (r !== 'busy') {
+              if (r === 'error') {
+                s.BUSY = false;
+                s.ERROR = true;
+                s.STATUS = COMM_STATUS.TIMEOUT;
+              } else if (r !== 'busy') {
                 s.BUSY = false;
                 s.STATUS = COMM_STATUS.DONE;
                 if (ins.kind === 'put') s.DONE = true;
@@ -251,7 +259,12 @@ export function execute(ctx: ExecContext): ExecResult {
           } else if (ins.kind === 'send') {
             s.DONE = false;
             if (s.BUSY) {
-              if (ctx.comm?.sendState(ins.i) === 'done') {
+              const st = ctx.comm?.sendState(ins.i);
+              if (st === 'error') {
+                s.BUSY = false;
+                s.ERROR = true;
+                s.STATUS = COMM_STATUS.TIMEOUT;
+              } else if (st !== 'busy') {
                 s.BUSY = false;
                 s.DONE = true;
                 s.STATUS = COMM_STATUS.DONE;

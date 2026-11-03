@@ -70,7 +70,9 @@ Hardware changes and test cases start a new attempt as before.
 Some jobs come with the hardware and program of a running plant. The goal is to find the faults and
 **change as little as possible**: besides cost, energy and size the **amount of change** counts –
 added plus removed program lines compared to the supplied program (blank and comment lines don't
-count, neither do settings in the cabinet). “Discard solution” restores the supplied state. Helpful:
+count, neither do settings in the cabinet). If a block is rewritten in FBD, LAD or GRAPH, its
+compiled code counts – so switching the language counts as a rewrite. “Discard solution” restores
+the supplied state. Helpful:
 cross-references, monitoring, breakpoints and the compiler warning for multiple assignments.
 
 ## Extensions

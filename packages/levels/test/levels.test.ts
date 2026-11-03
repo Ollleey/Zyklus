@@ -674,6 +674,17 @@ describe('Bestandsanlage', () => {
     expect([...new Set(v.runs.filter((r) => !r.passed).map((r) => r.testId))]).toEqual(['zaehler']);
   });
 
+  it('Sprachwechsel zählt als Umschreiben (kein Schlupfloch über FUP)', () => {
+    const given = givenSolution(level)!;
+    const main = given.projects.cpu1!.blocks.find((b) => b.name === 'Main') as {
+      lang: string;
+      fup?: unknown;
+    };
+    main.lang = 'FUP';
+    main.fup = { networks: [] };
+    expect(compileSolution(level, given).changes).toBeGreaterThan(10);
+  });
+
   it('Änderungsumfang: hinzugefügte plus entfernte Zeilen, Kommentare zählen nicht', () => {
     expect(lineChanges(['a', 'b', 'c'], ['a', 'x', 'c'])).toBe(2);
     expect(lineChanges(['a'], ['a', 'b'])).toBe(1);

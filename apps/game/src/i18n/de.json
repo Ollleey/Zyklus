@@ -443,5 +443,14 @@
   "problem.row": "Zeile",
   "problem.project": "Projekt",
   "problem.error": "Fehler",
-  "problem.warning": "Warnung"
+  "problem.warning": "Warnung",
+  "hmi.ack": "Quittieren",
+  "hmi.ackHint": "Alle neuen Meldungen quittieren; im Programm wird Ack_State der Meldung TRUE",
+  "hmi.addresses": "Adressen",
+  "hmi.addressesHint": "Merkeradressen der Panel-Elemente (Bit z. B. %M200.0, Wort z. B. %MW220); leer = automatisch",
+  "library.inProject": "im Projekt",
+  "library.newer": "neuere Version",
+  "library.sameName": "eigener Baustein gleichen Namens",
+  "library.update": "Aktualisieren",
+  "library.available": "v{version} verfügbar"
 }

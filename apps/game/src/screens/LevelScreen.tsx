@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  analyzeBoard,
   emptySolution,
+  hmiDefaultAddresses,
+  syncDeviceTags,
   moduleType,
   parseSolutionFile,
   toSolutionFile,
@@ -101,6 +104,19 @@ interface Props {
  * Ausgangsstand eines Auftrags ohne eigenen Stand: bei einer Erweiterung die eigene Lösung des
  * Vorgängers, sonst der gelieferte Stand (Bestandsanlage, Erweiterung) bzw. ein leerer Aufbau.
  */
+/** Merkeradresse eines Panel-Elements setzen (leer: automatisch) und die Variablentabelle nachführen */
+function withHmiAddress(level: Level, s: Solution, device: string, address: string): Solution {
+  const tags = { ...s.hmi?.tags };
+  if (address.trim()) tags[device] = address.trim();
+  else delete tags[device];
+  const next: Solution = { ...s, hmi: { ...s.hmi, tags } };
+  const a = analyzeBoard(level, next);
+  const cpu = a.bindings.get(device)?.cpu;
+  const project = cpu ? next.projects[cpu] : undefined;
+  if (!cpu || !project) return next;
+  return { ...next, projects: { ...next.projects, [cpu]: syncDeviceTags(level, a, cpu, project) } };
+}
+
 function startSolution(level: Level): Solution {
   const prev = level.extends ? levelById(level.extends) : undefined;
   const own = prev ? loadSolution(prev) : undefined;
@@ -604,9 +620,31 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                   alarms={
                     run
                       ? [...run.cpus.values()]
-                          .flatMap((c) => c.alarms)
+                          .flatMap((c) => {
+                            // nur die jüngste kommende Meldung je Instanz ist unquittiert
+                            const seen = new Set<number>();
+                            return c.alarms.map((a) => {
+                              const first = a.coming && !seen.has(a.inst);
+                              if (a.coming) seen.add(a.inst);
+                              return { ...a, unacked: first && c.unackedAlarms.has(a.inst) };
+                            });
+                          })
                           .sort((a, b) => b.time - a.time)
                       : []
+                  }
+                  onAcknowledge={() => run?.acknowledgeAlarms()}
+                  hmiAddresses={
+                    new Map(
+                      level.devices
+                        .filter((d) => d.hmi)
+                        .map((d) => [
+                          d.id,
+                          solution.hmi?.tags?.[d.id] ?? hmiDefaultAddresses(level).get(d.id) ?? '',
+                        ]),
+                    )
+                  }
+                  onHmiAddress={(device, address) =>
+                    setSolution(withHmiAddress(level, solution, device, address))
                   }
                   onAnalog={(d, v) => {
                     sim.setManual(d, v);
@@ -754,7 +792,11 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
               {t('level.datasheet')}
             </button>
             <span className="tab-spacer" />
-            <button className="icon-btn" onClick={() => setBrief(null)} aria-label={t('dialog.close')}>
+            <button
+              className="icon-btn"
+              onClick={() => setBrief(null)}
+              aria-label={t('dialog.close')}
+            >
               ✕
             </button>
           </div>

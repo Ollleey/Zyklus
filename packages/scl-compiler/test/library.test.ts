@@ -149,3 +149,35 @@ describe('Program_Alarm', () => {
     expect(c.alarms.map((a) => a.coming)).toEqual([false, true]);
   });
 });
+
+describe('Program_Alarm quittieren', () => {
+  it('Ack_State ist FALSE, bis am Panel quittiert wird', () => {
+    const p: PlcProject = {
+      tags: TAGS,
+      blocks: [
+        {
+          kind: 'OB',
+          name: 'Main',
+          number: 1,
+          lang: 'SCL',
+          iface: {},
+          source:
+            '"Hitze"(SIG := "Ist" > 80.0, TEXT := \'Ofen zu heiß\');\n"Hand" := NOT "Hitze".Ack_State;',
+        },
+        { kind: 'IDB', name: 'Hitze', number: 2, of: 'Program_Alarm' },
+      ],
+    };
+    const c = cpu(p);
+    c.scan(0);
+    expect(c.read('%M0.1')).toBe(false);
+    c.modify({ address: '%MD10', t: 'REAL' }, 90);
+    c.scan(10);
+    expect(c.read('%M0.1')).toBe(true);
+    expect(c.unackedAlarms.size).toBe(1);
+    c.acknowledgeAlarms(15);
+    c.scan(20);
+    expect(c.read('%M0.1')).toBe(false);
+    expect(c.unackedAlarms.size).toBe(0);
+    expect(c.activeAlarms.size).toBe(1);
+  });
+});

@@ -87,6 +87,8 @@ export interface CommJob {
   types: DataType[];
   at: number;
   delivered: boolean;
+  /** nicht zugestellt: Partner nicht erreichbar (Zeitüberschreitung) */
+  failed?: boolean;
   /** PUT/GET: Art und Merkeradresse in der Partner-CPU */
   mode?: 'put' | 'get';
   remote?: { area: 'M'; byte: number; bit: number; t: DataType };
@@ -114,6 +116,19 @@ export class Cpu {
   readonly alarms: AlarmEntry[] = [];
   /** anstehende Meldungen je Instanz */
   readonly activeAlarms = new Map<number, AlarmEntry>();
+  /** noch nicht quittierte Meldungen (Instanzen) */
+  readonly unackedAlarms = new Set<number>();
+
+  /** Meldungen am Panel quittieren: alle unquittierten, `Ack_State` der Instanzen wird TRUE */
+  acknowledgeAlarms(time: number): void {
+    if (!this.unackedAlarms.size) return;
+    for (const i of this.unackedAlarms) {
+      const s = this.instances[i];
+      if (s) s.Ack_State = true;
+    }
+    this.unackedAlarms.clear();
+    this.log(time, 'event', 'Meldungen quittiert');
+  }
   /** Kommunikation: offene Sendeaufträge (TSEND_C), Zeitpunkt des Auftrags */
   readonly outbox: CommJob[] = [];
   /** angekommene, noch nicht abgeholte Nachrichten je Verbindungs-ID (TRCV_C) */
@@ -130,9 +145,10 @@ export class Cpu {
     sendState: (inst) => {
       const k = this.outbox.findIndex((j) => j.inst === inst);
       if (k < 0) return 'done';
-      if (!this.outbox[k]!.delivered) return 'busy';
+      const job = this.outbox[k]!;
+      if (!job.delivered && !job.failed) return 'busy';
       this.outbox.splice(k, 1);
-      return 'done';
+      return job.failed ? 'error' : 'done';
     },
     receive: (id) => {
       const m = this.inbox.get(id);
@@ -157,9 +173,9 @@ export class Cpu {
       const k = this.outbox.findIndex((j) => j.inst === inst);
       if (k < 0) return undefined;
       const job = this.outbox[k]!;
-      if (!job.delivered) return 'busy';
+      if (!job.delivered && !job.failed) return 'busy';
       this.outbox.splice(k, 1);
-      return { values: job.values };
+      return job.failed ? 'error' : { values: job.values };
     },
   };
   /** anstehende Diagnoseereignisse (Drahtbruch, Lastspannung, Baugruppe) → ERROR-LED */
@@ -381,6 +397,7 @@ export class Cpu {
     this.outbox.length = 0;
     this.inbox.clear();
     this.activeAlarms.clear();
+    this.unackedAlarms.clear();
     this.started = false;
   }
 
@@ -456,8 +473,10 @@ export class Cpu {
         const e: AlarmEntry = { time: now, text, coming, inst };
         this.alarms.unshift(e);
         if (this.alarms.length > 100) this.alarms.length = 100;
-        if (coming) this.activeAlarms.set(inst, e);
-        else this.activeAlarms.delete(inst);
+        if (coming) {
+          this.activeAlarms.set(inst, e);
+          this.unackedAlarms.add(inst);
+        } else this.activeAlarms.delete(inst);
       },
       ...(handled
         ? {

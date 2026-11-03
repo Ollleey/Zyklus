@@ -1,5 +1,20 @@
 # Changelog
 
+## M14e – Lücken geschlossen (2026-11-03)
+
+- **Program_Alarm quittieren**: kommende Meldungen sind unquittiert (blinken im Panel), Knopf
+  „Quittieren“ am Panel, im Programm `Ack_State` der Instanz
+- **Zeitüberschreitung** bei TSEND_C, PUT und GET: Partner 1 s nicht erreichbar → ERROR,
+  STATUS 16#80C4 statt endlos BUSY
+- **Panel-Adressen** einstellbar (⚙ Adressen am Panel, leer = automatisch), Variablentabelle zieht mit
+- **Bibliothek**: Dialog zeigt den Stand im Projekt (im Projekt, neuere Version, eigener Baustein)
+  und bietet „Aktualisieren“; im Bausteinkopf „vN verfügbar“, wenn die Bibliothek neuer ist
+- **Änderungsumfang**: FUP-, KOP- und GRAPH-Bausteine zählen mit ihrem übersetzten Code – ein
+  Sprachwechsel war bisher ein Schlupfloch (alter SCL-Text wurde verglichen)
+- **PID_Compact**: Selbstoptimierung an der Ofenstrecke von Auftrag 22 geprüft (Test)
+- Instanzelemente unabhängig von der Schreibweise (`Ack_State`)
+- 808 Tests
+
 ## M14d – Englisch vollständig (2026-11-03)
 
 - **Alle Aufträge auf Englisch**: Mail, Datenblatt, Geräte, Testfälle und Kriterien für alle 28

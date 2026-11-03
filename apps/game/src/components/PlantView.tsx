@@ -17,7 +17,12 @@ interface Props {
   /** Parameter des laufenden Testfalls (z. B. Paketfolge) */
   testParams?: Record<string, unknown>;
   /** Meldungen aller CPUs (Program_Alarm), neueste zuerst */
-  alarms?: readonly AlarmEntry[];
+  alarms?: readonly (AlarmEntry & { unacked?: boolean })[];
+  /** Meldungen quittieren (Bedienpanel) */
+  onAcknowledge?: () => void;
+  /** Bedienpanel: Merkeradressen der Elemente, änderbar */
+  hmiAddresses?: Map<string, string>;
+  onHmiAddress?: (device: string, address: string) => void;
 }
 
 /** Anzahl steigender Flanken in [from, to] */
@@ -98,6 +103,9 @@ export function PlantView({
   onAnalog,
   testParams,
   alarms = [],
+  onAcknowledge,
+  hmiAddresses,
+  onHmiAddress,
 }: Props) {
   const boolFormat = useBoolFormat();
   const press = (id: string) => {
@@ -353,6 +361,9 @@ export function PlantView({
           analogValue={analogValue}
           onAnalog={onAnalog}
           alarms={alarms}
+          onAcknowledge={onAcknowledge}
+          addresses={hmiAddresses}
+          onAddress={onHmiAddress}
         />
       )}
     </div>
@@ -432,7 +443,13 @@ function StarDelta({ main, star, delta }: { main: boolean; star: boolean; delta:
         className={`motor-round ${main && (star || delta) ? 'motor-on' : ''}`}
       />
       <text x={200} y={110} className="plant-label">
-        {both ? tx('KURZSCHLUSS', 'SHORT CIRCUIT') : main && star ? tx('Stern', 'Star') : main && delta ? tx('Dreieck', 'Delta') : tx('aus', 'off')}
+        {both
+          ? tx('KURZSCHLUSS', 'SHORT CIRCUIT')
+          : main && star
+            ? tx('Stern', 'Star')
+            : main && delta
+              ? tx('Dreieck', 'Delta')
+              : tx('aus', 'off')}
       </text>
     </g>
   );
@@ -923,7 +940,11 @@ function AxisView({
         {pos.toFixed(1)} mm
       </text>
       <text x={300} y={34} className="plant-label">
-        {fast ? tx('Eilgang', 'rapid') : slow ? tx('Schleichgang', 'creep') : tx('steht', 'stopped')}
+        {fast
+          ? tx('Eilgang', 'rapid')
+          : slow
+            ? tx('Schleichgang', 'creep')
+            : tx('steht', 'stopped')}
         {(fast || slow) && back ? ' ←' : fast || slow ? ' →' : ''}
       </text>
     </g>

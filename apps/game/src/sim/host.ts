@@ -77,6 +77,9 @@ export class SimHost {
       case 'moduleFault':
         run.setModuleFault(cmd.module, cmd.kind, cmd.on);
         break;
+      case 'ackAlarms':
+        run.acknowledgeAlarms();
+        break;
       case 'clearBreak':
         run.clearBreak();
         break;
@@ -163,6 +166,7 @@ export class SimHost {
         diagActive: c.diagActive,
         diagnostics: [...c.diagnostics],
         alarms: c.alarms.slice(0, 20),
+        unackedAlarms: [...c.unackedAlarms],
       })),
       forced: run.forcedIds.map((id) => [id, run.forced(id)!]),
       values,

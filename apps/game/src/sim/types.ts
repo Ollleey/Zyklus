@@ -25,6 +25,8 @@ export interface CpuView {
   readonly diagnostics: readonly DiagEntry[];
   /** Meldungen (Program_Alarm), neueste zuerst */
   readonly alarms: readonly AlarmEntry[];
+  /** noch nicht quittierte Meldungen (Instanzen) */
+  readonly unackedAlarms: ReadonlySet<number>;
   read(address: string, t?: DataType): Value;
   readImage(address: string, t?: DataType): Value;
   readSlot(name: string): Value;
@@ -63,6 +65,7 @@ export interface RunView {
   readonly breakHit: { cpu: string; block: string; line: number; time: number } | null;
   setBreakpoints(cpuId: string, lines: { block: string; line: number }[]): void;
   clearBreak(): void;
+  acknowledgeAlarms(): void;
   /** geänderte Programme laden (in RUN bzw. mit STOP) */
   load(programs: Map<string, IrProgram>, opts: { keepValues: boolean; restart: boolean }): void;
   /** Steuern: Wert einmalig schreiben */

@@ -40,7 +40,7 @@ export type InstanceKind =
   | 'ALARM';
 
 export type InstanceField =
-  'Q' | 'ET' | 'CV' | 'QU' | 'QD' | 'DONE' | 'BUSY' | 'ERROR' | 'STATUS' | 'NDR';
+  'Q' | 'ET' | 'CV' | 'QU' | 'QD' | 'DONE' | 'BUSY' | 'ERROR' | 'STATUS' | 'NDR' | 'Ack_State';
 
 export const TIMER_KINDS: readonly InstanceKind[] = ['TP', 'TON', 'TOF', 'TONR'];
 export const COUNTER_KINDS: readonly InstanceKind[] = ['CTU', 'CTD', 'CTUD'];
@@ -61,7 +61,7 @@ export const INSTANCE_FIELDS: Record<InstanceKind, Partial<Record<InstanceField,
   TRCV: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   PUT: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   GET: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
-  ALARM: {},
+  ALARM: { Ack_State: 'BOOL' },
 };
 
 /** Statuscodes der Kommunikationsbausteine */
@@ -74,6 +74,8 @@ export const COMM_STATUS = {
   NO_PARTNER: 0x80a3,
   /** empfangene Daten passen nicht zur Länge bzw. zu den Datentypen von DATA */
   LENGTH: 0x80b3,
+  /** Partner nicht erreichbar: Auftrag nach COMM_TIMEOUT_MS abgebrochen */
+  TIMEOUT: 0x80c4,
 } as const;
 
 export type UnaryFn = 'not' | 'neg' | 'abs';

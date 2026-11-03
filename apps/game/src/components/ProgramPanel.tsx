@@ -35,7 +35,7 @@ import {
 } from '@zyklus/fup-model';
 import { LadEditor } from './LadEditor';
 import { showNotice } from '../state/commands';
-import { addToLibrary, insertFromLibrary } from '../state/library';
+import { addToLibrary, insertFromLibrary, latestEntries } from '../state/library';
 import { LibraryDialog } from './LibraryDialog';
 import { GraphEditor } from './GraphEditor';
 import { DbPanel, INSTANCE_TYPES, udtNames } from './DbPanel';
@@ -461,6 +461,15 @@ export function ProgramPanel({
                   <span className="muted" title={t('library.badgeHint')}>
                     {t('library.badge', { version: block.library.version })}
                     {isUnchangedLibraryBlock(block) ? '' : ` (${t('library.changed')})`}
+                    {(() => {
+                      const newest = latestEntries().find(
+                        (e) =>
+                          e.kind === 'block' && e.name.toLowerCase() === block.name.toLowerCase(),
+                      );
+                      return newest && newest.version > block.library.version
+                        ? ` · ${t('library.available', { version: newest.version })}`
+                        : '';
+                    })()}
                   </span>
                 )}
                 <button
@@ -725,6 +734,7 @@ export function ProgramPanel({
 
       {showLibrary && (
         <LibraryDialog
+          project={project}
           onClose={() => setShowLibrary(false)}
           onInsert={(e) => {
             change((p) => insertFromLibrary(p, e));

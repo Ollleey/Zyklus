@@ -4085,3 +4085,22 @@ text.fup-live-num {
   color: var(--red);
   font-size: 12px;
 }
+
+.hmi-ack {
+  margin-left: 8px;
+}
+.hmi-alarm-unacked {
+  animation: hmi-blink 1s steps(2, start) infinite;
+}
+@keyframes hmi-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.hmi-setup {
+  margin-bottom: 6px;
+}
+.hmi-setup table {
+  margin-top: 4px;
+}

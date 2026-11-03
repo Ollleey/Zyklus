@@ -316,6 +316,34 @@ describe('CPU-CPU-Kommunikation (TSEND_C/TRCV_C)', () => {
     expect(c1.readSlot('W.neu')).toBe(true);
   });
 
+  it('Zeitüberschreitung: holt der Empfänger nie ab, bricht der zweite Auftrag mit 16#80C4 ab', () => {
+    const sender =
+      DB('Senden', 'TSEND_C') +
+      DATA +
+      'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Senden"(REQ := "Ein", ID := 1, DATA := "Daten".werte);\n"Daten".fehler := "Daten".fehler OR "Senden".ERROR;\n"Daten".status := "Senden".STATUS;\nEND_ORGANIZATION_BLOCK';
+    const s = solution(sender, ob(''));
+    const c = compileSolution(level, s);
+    const test = {
+      id: 't',
+      name: { de: 't' },
+      durationMs: 2000,
+      seeds: [1],
+      stimuli: {
+        S1: [
+          [100, true],
+          [200, false],
+          [300, true],
+        ] as [number, boolean][],
+      },
+    };
+    const run = new LevelRun(level, s, c.programs, { test, seed: 1 });
+    run.runTo(1200);
+    expect(run.cpus.get('cpu1')!.readSlot('Daten.fehler')).toBe(false);
+    run.runTo(2000);
+    expect(run.cpus.get('cpu1')!.readSlot('Daten.fehler')).toBe(true);
+    expect(run.cpus.get('cpu1')!.readSlot('Daten.status')).toBe(0x80c4);
+  });
+
   it('PUT: ADDR_1 muss ein Merker gleicher Größe sein', () => {
     const bad = (body: string) => {
       const s = solution(DB('Schreiben', 'PUT') + ob(body), ob(''));
@@ -557,4 +585,50 @@ describe('GRAPH-light: Auftrag 10 als Schrittkette', () => {
       );
     expect(failed).toEqual([]);
   });
+});
+
+describe('PID_Compact: Selbstoptimierung an der Ofenstrecke (Auftrag 22)', () => {
+  it('optimiert sich nach dem Start selbst und hält danach 180 °C', () => {
+    const level = levelById('22-ofen-pid')!;
+    const board = JSON.parse(
+      readFileSync(join(__dirname, '..', 'data', 'reference', 'boards.json'), 'utf8'),
+    )['22-ofen-pid'] as { modules: PlacedModule[]; wires: Wire[] };
+    const src = [
+      'DATA_BLOCK "Ofen_PID"\nNON_RETAIN\nPID_Compact\nBEGIN\n   TuneHyst := 2.0;\nEND_DATA_BLOCK',
+      'DATA_BLOCK "Start"\nVAR\nlaeuft : Bool;\ny : Real;\nEND_VAR\nBEGIN\nEND_DATA_BLOCK',
+      ob(`"Ofen_PID"(Setpoint := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Sollwert", MAX := 27648), MAX := 300.0),
+           Input := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Temperatur", MAX := 27648), MAX := 300.0),
+           Tune := NOT "Start".laeuft, Output => "Start".y);
+"Start".laeuft := TRUE;
+"Heizung" := SCALE_X(MIN := 0, VALUE := LIMIT(MN := 0.0, IN := "Start".y, MX := 100.0) / 100.0, MAX := 27648);`),
+    ].join('\n');
+    const s = build(level, board.modules, board.wires, src);
+    const c = compileSolution(level, s);
+    expect(
+      [...c.cpus.values()].flatMap((r) =>
+        r.diagnostics.filter((d) => d.severity === 'error').map((d) => d.message),
+      ),
+    ).toEqual([]);
+    const test = {
+      id: 't',
+      name: { de: 't' },
+      durationMs: 600000,
+      seeds: [1],
+      stimuli: {
+        B2: [
+          [0, 180],
+          [599999, 180],
+        ] as [number, number][],
+      },
+      plant: { loss: [] },
+    };
+    const run = new LevelRun(level, s, c.programs, { test, seed: 1 });
+    run.runTo(600000);
+    const cpu = run.cpus.get('cpu1')!;
+    expect(cpu.readSlot('Ofen_PID.State')).toBe(3);
+    expect(cpu.readSlot('Ofen_PID.Error')).toBe(false);
+    expect(cpu.readSlot('Ofen_PID.Gain') as number).toBeGreaterThan(0.3);
+    const temp = run.plant!.state().temp!;
+    expect(Math.abs(temp - 180)).toBeLessThan(4);
+  }, 120000);
 });

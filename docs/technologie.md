@@ -117,9 +117,11 @@ Verbindungen legst du im Schaltschrank an der CPU an.
 | 16#0000 | fertig (DONE bzw. NDR)                              |
 | 16#80A3 | keine Verbindung mit dieser ID (ERROR)              |
 | 16#80B3 | Länge bzw. Datentypen von DATA passen nicht (ERROR) |
+| 16#80C4 | Partner 1 s lang nicht erreichbar (ERROR)           |
 
-In FUP und KOP stehen beide Boxen unter „Kommunikation“. Nach einem Neustart der CPU sind
-offene Aufträge verworfen.
+Ist der Partner ausgeschaltet oder holt er eine Nachricht nie ab, bricht der Auftrag nach **1 s**
+mit ERROR und STATUS 16#80C4 ab (gilt auch für PUT/GET). In FUP und KOP stehen beide Boxen unter
+„Kommunikation“. Nach einem Neustart der CPU sind offene Aufträge verworfen.
 
 ### PUT und GET
 
@@ -152,8 +154,10 @@ PLC-Variablentabelle.
 | Eingabefeld      | AI  | ab `%MW220`           | schreibt den eingegebenen Wert (Int)    |
 | Anzeige          | AO  | ab `%MW220`           | liest das Wort im Bildtakt              |
 
-Bits und Wörter werden in der Reihenfolge der Elemente vergeben. Weil das Panel nur bei einer
-Bedienung schreibt, darf das Programm einen Taster-Merker auch selbst zurücksetzen (Quittieren).
+Bits und Wörter werden in der Reihenfolge der Elemente vergeben; über **⚙ Adressen** am Panel lässt
+sich jedem Element eine eigene Merkeradresse geben (leer = automatisch), die Variablentabelle zieht
+mit. Weil das Panel nur bei einer Bedienung schreibt, darf das Programm einen Taster-Merker auch
+selbst zurücksetzen.
 
 **Meldungen** kommen aus dem Programm mit **Program_Alarm** (Instanz-DB vom Typ Program_Alarm):
 
@@ -162,7 +166,9 @@ Bedienung schreibt, darf das Programm einen Taster-Merker auch selbst zurückset
 ```
 
 Jede Flanke an SIG meldet die Meldung kommend bzw. gehend mit Zeitstempel. Das Panel zeigt die
-letzten Meldungen, anstehende rot. Nach einem Neustart der CPU stehen keine Meldungen mehr an.
+letzten Meldungen, anstehende rot. Eine kommende Meldung ist **unquittiert** (blinkt mit „!“), bis
+am Panel **Quittieren** gedrückt wird; das Programm sieht das an `"Ofen_heiss".Ack_State` (FALSE =
+unquittiert). Nach einem Neustart der CPU stehen keine Meldungen mehr an.
 
 ## NORM_X und SCALE_X
 

@@ -48,6 +48,7 @@ export type Command =
   | { type: 'cpuForce'; cpu: string; address: string; value: Value | undefined }
   | { type: 'breakpoints'; cpu: string; lines: { block: string; line: number }[] }
   | { type: 'clearBreak' }
+  | { type: 'ackAlarms' }
   | { type: 'moduleFault'; module: string; kind: 'pulled' | 'noLoad'; on: boolean }
   | {
       type: 'load';
@@ -105,6 +106,7 @@ export interface CpuSnapshot {
   diagActive: number;
   diagnostics: DiagEntry[];
   alarms: AlarmEntry[];
+  unackedAlarms: number[];
 }
 
 /** Stand des Laufs nach einem Rechenblock */

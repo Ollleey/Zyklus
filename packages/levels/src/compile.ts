@@ -18,7 +18,14 @@ import {
   type ProjectDiagnostic,
   type XRef,
 } from '@zyklus/scl-compiler';
-import { compilePlcProject } from '@zyklus/fup-model';
+import {
+  compilePlcProject,
+  isGraphBody,
+  isLadBody,
+  ladBodyToFup,
+  lowerFupBlock,
+  lowerGraphBlock,
+} from '@zyklus/fup-model';
 
 export interface CpuCompileResult {
   ok: boolean;
@@ -93,6 +100,29 @@ export function lineChanges(a: string[], b: string[]): number {
   return n + m - 2 * prev[m]!;
 }
 
+/**
+ * Projekt mit FUP-, KOP- und GRAPH-Bausteinen als SCL (abgesenkt), damit ein Sprachwechsel als
+ * Umschreiben zählt und nicht der alte SCL-Text verglichen wird
+ */
+function asScl(project: PlcProject): PlcProject {
+  return {
+    ...project,
+    blocks: project.blocks.map((b) => {
+      if (b.kind !== 'OB' && b.kind !== 'FB' && b.kind !== 'FC') return b;
+      if (b.lang === 'SCL') return b;
+      if (b.lang === 'GRAPH') {
+        return {
+          ...lowerGraphBlock({ ...b, graph: isGraphBody(b.graph) ? b.graph : undefined }).block,
+          generatedFrom: undefined,
+        };
+      }
+      const fup = b.lang === 'KOP' ? ladBodyToFup(isLadBody(b.kop) ? b.kop : { lad: [] }) : b.fup;
+      const l = lowerFupBlock({ ...b, fup }, project).block;
+      return { ...l, lang: 'SCL' as const };
+    }),
+  };
+}
+
 /** Änderungsumfang einer Lösung gegenüber dem gelieferten Programm (alle CPUs) */
 export function solutionChanges(level: Level, solution: Solution): number | undefined {
   const g = level.given;
@@ -104,7 +134,7 @@ export function solutionChanges(level: Level, solution: Solution): number | unde
     const given = before ? sourceToProject(before).project : undefined;
     const a = given ? codeLines(projectToSource(given)) : [];
     const p = solution.projects[cpu];
-    const b = p ? codeLines(projectToSource(p)) : [];
+    const b = p ? codeLines(projectToSource(asScl(p))) : [];
     total += lineChanges(a, b);
   }
   return total;
