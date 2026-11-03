@@ -3461,3 +3461,44 @@ code {
 .var-table td.var-retain input {
   width: auto;
 }
+
+/* ---------- Beobachten & Forcen ---------- */
+
+.online-panel section {
+  margin-bottom: 14px;
+}
+.online-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+}
+.online-head h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  flex: 1;
+}
+.online-cyclic {
+  font-size: 12px;
+  color: var(--muted);
+}
+.online-table td.online-live {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  white-space: nowrap;
+  min-width: 90px;
+}
+.online-table select {
+  width: auto;
+}
+.online-forcing {
+  font-size: 12px;
+  color: var(--amber);
+}
+.badge-warn {
+  background: var(--amber-dim);
+  color: #111;
+}

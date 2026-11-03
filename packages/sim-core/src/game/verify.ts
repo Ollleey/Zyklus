@@ -3,7 +3,7 @@ import type { Solution } from './board';
 import { probeKey, type Check, type Edge, type Level } from './level';
 import type { Text } from './text';
 import type { Value } from '../types';
-import { LevelRun } from './run';
+import { LevelRun, type RunOptions } from './run';
 import { valueAt } from './signals';
 
 export interface TraceCheck {
@@ -166,12 +166,14 @@ export function verifySolution(
   solution: Solution,
   programs: Map<string, IrProgram>,
   size: number,
+  forces?: RunOptions['forces'],
 ): Verification {
+  const forced = Object.values(forces ?? {}).some((l) => l.length > 0);
   const runs: RunResult[] = [];
   let cost = 0;
   for (const test of level.tests) {
     for (const seed of test.seeds) {
-      const run = new LevelRun(level, solution, programs, { test, seed });
+      const run = new LevelRun(level, solution, programs, { test, seed, forces });
       cost = run.analysis.cost;
       run.runToEnd();
       const checks: Record<string, TraceCheck> = {};
@@ -179,6 +181,8 @@ export function verifySolution(
       const criteria = (test.checks ?? []).map((c) =>
         evaluateCheck(c, traces, test.durationMs, run.probes),
       );
+      // wie an der Anlage: mit aktiven Forceaufträgen wird nicht abgenommen
+      if (forced) criteria.push({ name: { de: 'Keine Forceaufträge aktiv' }, ok: false });
       for (const [dev, expected] of Object.entries(test.expect ?? {})) {
         checks[dev] = compareTrace(
           expected,

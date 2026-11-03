@@ -1,5 +1,21 @@
 # Changelog
 
+## M9a – Beobachtungs- und Forcetabelle (2026-11-03)
+
+- Neuer Reiter **„Beobachten & Forcen“** im Programmbereich, je CPU, gespeichert je Auftrag
+- **Beobachtungstabelle**: Operanden (`"Motor"`, `%IW64`, `"Daten".Wert`, `"Lager".Fach[2].Teil`,
+  `"T1".ET`) mit Anzeigeformat DEZ/HEX/BIN/Zeit; **Steuern** einmalig je Zeile, „Alle steuern“
+  oder **zyklisch** (in jedem Bild neu); Eingänge ins PAE, Ausgänge ins PAA, Merker und Variablen
+  direkt
+- **Forcetabelle** für Ein- und Ausgänge an der Peripherie: Eingänge ersetzen das Feldsignal,
+  Ausgänge gelten an der Klemme, auch in STOP; **MAINT-LED** gelb an der CPU, Kennzeichen „F“ am
+  Reiter
+- Mit aktiven Forceaufträgen wird ein Auftrag nicht abgenommen (Kriterium „Keine Forceaufträge
+  aktiv“)
+- Kern: `Cpu.force`, `Cpu.modify`, `LevelRun.setForce/modify`, Forcen beim Prüfen über
+  `verifySolution(…, forces)`; Web Worker des Sandkastens unterstützt beides
+- 693 Tests
+
 ## M8g – Arbeitsspeicher, Aufträge 18–19, Handbuch (2026-11-03)
 
 - **Arbeitsspeicher in Byte** je CPU (klein/kompakt 1024, schnell 4096, mittel 8192 Byte): Daten

@@ -38,6 +38,15 @@ import { plantOf, type RunView } from '../sim/types';
 import { useSimulation, type SimControls } from '../state/useSimulation';
 import { showNotice, useCommand, useWindowTitle } from '../state/commands';
 import { FILE_TYPES, platform } from '@zyklus/platform';
+import { activeForces, type OnlineAccess } from '../components/OnlinePanel';
+import {
+  loadOnline,
+  parseValue,
+  resolveOperand,
+  saveOnline,
+  type OnlineState,
+  type Target,
+} from '../state/online';
 
 /** Standardanordnung der Aufträge: wie bisher Schrank links, Programm rechts, Simulation unten */
 const LEVEL_DOCK: DockLayout = {
@@ -97,6 +106,8 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => saveSolution(level.id, solution), [level.id, solution]);
+  const [online, setOnline] = useState<OnlineState>(() => loadOnline(level.id));
+  useEffect(() => saveOnline(level.id, online), [level.id, online]);
 
   // Sandkasten: Leitungen zu entfernten Bauteilen fallen weg
   useEffect(() => {
@@ -140,6 +151,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           mode: c.mode,
           error: !!c.stopInfo && c.stopInfo.reason !== 'SWITCH' && c.stopInfo.reason !== 'POWER',
           load: c.load,
+          force: c.forceCount > 0,
         });
       }
     }
@@ -176,12 +188,112 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
     }
   };
 
+  /** Beobachtungs- und Forcetabelle: Lesen und Steuern in der laufenden CPU */
+  const onlineAccess = (cpu: string): OnlineAccess | undefined => {
+    const c = run?.cpus.get(cpu);
+    if (!run || !c) return undefined;
+    return {
+      read: (target: Target) => {
+        try {
+          if (target.kind === 'address') return c.readImage(target.address, target.t);
+          if (target.kind === 'slot') return c.readSlot(target.name);
+          return c.readInstance(target.name, target.field as never);
+        } catch {
+          return undefined;
+        }
+      },
+      readIo: (address) => {
+        try {
+          return c.read(address);
+        } catch {
+          return undefined;
+        }
+      },
+      modify: (target: Target, v) => {
+        if (target.kind === 'instance') return;
+        try {
+          run.modify(
+            cpu,
+            target.kind === 'address' ? { address: target.address } : { slot: target.name },
+            v,
+          );
+        } catch {
+          /* ungültiges Ziel: Zeile ist markiert */
+        }
+        sim.redraw();
+      },
+    };
+  };
+
+  // aktive Forceaufträge je CPU; wirken im laufenden Versuch und machen die Prüfung ungültig
+  const forces = useMemo(() => {
+    const out: Record<string, [string, boolean | number | string][]> = {};
+    for (const [cpu, tables] of Object.entries(online)) {
+      const project = solution.projects[cpu];
+      if (project) out[cpu] = activeForces(project, tables);
+    }
+    return out;
+  }, [online, solution]);
+  const forceKey = JSON.stringify(forces);
+  const appliedForces = useRef<{ run: RunView; list: typeof forces } | null>(null);
+  useEffect(() => {
+    if (!run) return;
+    const prev = appliedForces.current?.run === run ? appliedForces.current.list : {};
+    for (const [cpu, list] of Object.entries(prev)) {
+      for (const [address] of list) {
+        if (!forces[cpu]?.some(([a]) => a === address)) {
+          try {
+            run.setForce(cpu, address, undefined);
+          } catch {
+            /* Adresse entfällt */
+          }
+        }
+      }
+    }
+    for (const [cpu, list] of Object.entries(forces)) {
+      for (const [address, v] of list) {
+        try {
+          run.setForce(cpu, address, v);
+        } catch {
+          /* Adresse außerhalb */
+        }
+      }
+    }
+    appliedForces.current = { run, list: forces };
+    sim.redraw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run, forceKey]);
+
+  // „zyklisch steuern“: Steuerwerte in jedem Bild erneut schreiben
+  useEffect(() => {
+    if (!run || !sim.running) return;
+    for (const [cpu, tables] of Object.entries(online)) {
+      const project = solution.projects[cpu];
+      if (!tables.cyclic || !project) continue;
+      for (const r of tables.watch) {
+        const target = resolveOperand(project, r.operand);
+        const v = r.modify ? parseValue(r.modify) : undefined;
+        if ('error' in target || target.kind === 'instance' || v === undefined) continue;
+        try {
+          run.modify(
+            cpu,
+            target.kind === 'address' ? { address: target.address } : { slot: target.name },
+            v,
+          );
+        } catch {
+          /* ungültig */
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sim.frame]);
+
   const stopped = run && [...run.cpus.values()].find((c) => c.mode === 'STOP');
   const test = sim.mode === 'test' ? level.tests[sim.testIdx] : undefined;
 
   const verify = () => {
     if (!compiled.ok) return;
-    const v = verifySolution(level, solution, compiled.programs, compiled.size);
+    const v = verifySolution(level, solution, compiled.programs, compiled.size, forces);
     setResult(v);
     if (v.passed) onProgress(recordSolved(level.id, v.metrics));
   };
@@ -255,6 +367,11 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           compiled={compiled.cpus}
           onChange={setSolution}
           watch={run ? watch : undefined}
+          online={{
+            state: online,
+            onChange: (cpu, tb) => setOnline({ ...online, [cpu]: tb }),
+            access: run ? onlineAccess : undefined,
+          }}
         />
       ),
     },

@@ -66,6 +66,12 @@ export class SimHost {
       case 'powerCycle':
         run.powerCycle(cmd.cpu);
         break;
+      case 'cpuForce':
+        run.setForce(cmd.cpu, cmd.address, cmd.value);
+        break;
+      case 'modify':
+        run.modify(cmd.cpu, cmd.target, cmd.value);
+        break;
       case 'control':
         plant?.setControl(cmd.ref, cmd.value);
         break;
@@ -131,6 +137,7 @@ export class SimHost {
         mode: c.mode,
         stopInfo: c.stopInfo,
         load: c.load,
+        forceCount: c.forceCount,
       })),
       forced: run.forcedIds.map((id) => [id, run.forced(id)!]),
       values,

@@ -7,6 +7,7 @@ import type {
   RunOptions,
   Solution,
   StopInfo,
+  Value,
 } from '@zyklus/sim-core';
 import type { PartState, WorkpieceSpec, WorkpieceState } from '@zyklus/plant-sim';
 
@@ -42,6 +43,8 @@ export type Command =
   | { type: 'force'; device: string; value: boolean | number | undefined }
   | { type: 'cpuSwitch'; cpu: string; mode: 'RUN' | 'STOP' }
   | { type: 'powerCycle'; cpu: string }
+  | { type: 'cpuForce'; cpu: string; address: string; value: Value | undefined }
+  | { type: 'modify'; cpu: string; target: { address: string } | { slot: string }; value: Value }
   | { type: 'control'; ref: string; value: boolean | number }
   | { type: 'estop'; ref: string }
   | { type: 'magazine'; ref: string }
@@ -81,6 +84,7 @@ export interface CpuSnapshot {
   mode: 'RUN' | 'STOP';
   stopInfo?: StopInfo;
   load: number;
+  forceCount: number;
 }
 
 /** Stand des Laufs nach einem Rechenblock */

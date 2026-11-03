@@ -216,6 +216,8 @@ export interface CpuStatus {
   mode: 'RUN' | 'STOP';
   error: boolean;
   load: number;
+  /** Forceaufträge aktiv (MAINT-LED gelb) */
+  force?: boolean;
 }
 
 const Led = ({
@@ -313,7 +315,13 @@ export function CpuFront({
       <Led x={left + 7} y={y + 17} on={run} color={LED.green} label="RUN" />
       <Led x={left + 7} y={y + 23.5} on={stop} color={LED.yellow} label="STOP" />
       <Led x={left + 7} y={y + 30} on={err} color={LED.red} label="ERROR" />
-      <Led x={left + 7} y={y + 36.5} on={false} color={LED.yellow} label="MAINT" />
+      <Led
+        x={left + 7}
+        y={y + 36.5}
+        on={powered && !!status?.force}
+        color={LED.yellow}
+        label="MAINT"
+      />
       {/* Typschild / Anzeige */}
       <rect x={left + 26} y={y + 13} width={w - 34} height={27} rx={1} fill="#0F1A1E" />
       <text x={left + 28.5} y={y + 19.5} className="hw-display hw-display-strong">

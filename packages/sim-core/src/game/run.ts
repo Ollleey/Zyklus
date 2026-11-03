@@ -20,6 +20,8 @@ export interface RunOptions {
   /** Testfall mit Stimuli; ohne Testfall läuft der Handbetrieb */
   test?: TestCase;
   seed?: number;
+  /** Forceaufträge je CPU (Forcetabelle), z. B. { cpu1: [['%I0.0', true]] } */
+  forces?: Record<string, [address: string, value: Value][]>;
 }
 
 interface RelayState {
@@ -79,6 +81,9 @@ export class LevelRun {
           program,
         ),
       );
+    }
+    for (const [cpu, list] of Object.entries(opts.forces ?? {})) {
+      for (const [address, value] of list) this.cpus.get(cpu)?.force(address, value);
     }
     this.devices = level.devices;
     const seed = opts.seed ?? 1;
@@ -194,6 +199,16 @@ export class LevelRun {
     const c = this.cpus.get(cpuId);
     c?.powerOff(this.sim.time);
     c?.powerOn(this.sim.time);
+  }
+
+  /** Forceauftrag an einer E/A-Adresse einer CPU setzen bzw. mit `undefined` aufheben */
+  setForce(cpuId: string, address: string, value: Value | undefined): void {
+    this.cpus.get(cpuId)?.force(address, value);
+  }
+
+  /** Steuern: Wert einmalig in ein Prozessabbild, einen Merker oder eine Variable schreiben */
+  modify(cpuId: string, target: { address: string } | { slot: string }, value: Value): void {
+    this.cpus.get(cpuId)?.modify(target, value);
   }
 
   /** Betriebsartenschalter einer CPU (Sandkasten) */

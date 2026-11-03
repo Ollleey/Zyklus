@@ -24,8 +24,10 @@ import { SclEditor } from './SclEditor';
 import { TagTable } from './TagTable';
 import { ELEMENTARY_TYPES, VarTable } from './VarTable';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { OnlinePanel, type OnlineAccess } from './OnlinePanel';
+import { EMPTY_TABLES, type OnlineState, type OnlineTables } from '../state/online';
 
-type Tab = 'main' | 'tags' | 'dbs';
+type Tab = 'main' | 'tags' | 'dbs' | 'online';
 
 /** Wert eines Operanden in der laufenden Simulation */
 export type WatchReader = (
@@ -39,6 +41,12 @@ interface Props {
   onChange: (s: Solution) => void;
   /** Beobachten: nur während einer Simulation gesetzt */
   watch?: WatchReader;
+  /** Beobachtungs- und Forcetabellen je CPU; `access` nur während einer Simulation */
+  online?: {
+    state: OnlineState;
+    onChange: (cpu: string, t: OnlineTables) => void;
+    access?: (cpu: string) => OnlineAccess | undefined;
+  };
 }
 
 const REF_RE = /"([^"]+)"(?:\.([A-Za-z_][A-Za-z0-9_]*))?|#([A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*)/g;
@@ -80,7 +88,7 @@ function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
   return { kind, name, number, lang: 'SCL', iface, source: '', ...(event ? { event } : {}) };
 }
 
-export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
+export function ProgramPanel({ solution, compiled, onChange, watch, online }: Props) {
   const boolFormat = useBoolFormat();
   const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
   const [cpuId, setCpuId] = useState<string | undefined>(cpus[0]?.id);
@@ -227,6 +235,17 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
         >
           {t('program.dbs')}
         </button>
+        {online && (
+          <button
+            className={`tab ${tab === 'online' ? 'tab-active' : ''}`}
+            onClick={() => setTab('online')}
+          >
+            {t('program.online')}
+            {online.state[cpuId]?.force.some((f) => f.active) && (
+              <span className="badge badge-warn">F</span>
+            )}
+          </button>
+        )}
         <span className="tab-spacer" />
         {result && (
           <span
@@ -470,6 +489,16 @@ export function ProgramPanel({ solution, compiled, onChange, watch }: Props) {
             tags={project.tags}
             onChange={(tags) => change((p) => ({ ...p, tags }))}
             errorRows={errorRows.get('tags')}
+          />
+        </div>
+      )}
+      {tab === 'online' && online && (
+        <div className="scroll">
+          <OnlinePanel
+            project={project}
+            tables={online.state[cpuId] ?? EMPTY_TABLES}
+            onChange={(tb) => online.onChange(cpuId, tb)}
+            live={online.access?.(cpuId)}
           />
         </div>
       )}

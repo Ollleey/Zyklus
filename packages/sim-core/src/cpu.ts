@@ -3,7 +3,7 @@ import { createInstance, type InstanceState } from './instances';
 import { execute, precomputeEnergy } from './interpreter';
 import { INSTANCE_FIELDS, type InstanceField, type IrProgram, type IrTask } from './ir';
 import { ByteArea } from './memory';
-import type { DataType, Value } from './types';
+import { STRING_DEFAULT_LEN, normalize, type DataType, type Value } from './types';
 import { IrValidationError, validateProgram } from './validate';
 
 export interface CpuConfig {
@@ -59,6 +59,11 @@ export class Cpu {
 
   private readonly energy: number[];
   private readonly tempSlots: number[];
+  /** Forceaufträge an der Peripherie (Eingänge vor dem PAE, Ausgänge nach dem PAA) */
+  private readonly forces = new Map<
+    string,
+    { area: 'I' | 'Q'; type: DataType; byte: number; bit: number; value: Value }
+  >();
   /** Anlauf-OBs liefen seit dem letzten Neustart */
   private started = false;
   private powered = true;
@@ -99,6 +104,7 @@ export class Cpu {
    * dann fällige Weckalarme, dann OB1, falls dessen Zyklus fällig ist.
    */
   step(now: number): void {
+    this.applyInputForces();
     if (this.mode !== 'RUN') return;
     if (!this.started && !this.startup(now)) return;
     for (const task of this.program.tasks ?? []) {
@@ -128,8 +134,64 @@ export class Cpu {
   private runTask(task: IrTask, now: number): void {
     this.pae.copyFrom(this.inputs);
     if (!this.runCode(now, task.start, task.end)) return;
-    this.outputs.copyFrom(this.paa);
+    this.writeOutputs();
     this.metrics.interrupts++;
+  }
+
+  /** PAA an die Ausgangsklemmen, dann geforcte Ausgänge */
+  private writeOutputs(): void {
+    this.outputs.copyFrom(this.paa);
+    this.applyOutputForces();
+  }
+
+  private applyInputForces(): void {
+    for (const f of this.forces.values()) {
+      if (f.area === 'I') this.inputs.write(f.type, f.byte, f.bit, f.value);
+    }
+  }
+
+  private applyOutputForces(): void {
+    for (const f of this.forces.values()) {
+      if (f.area === 'Q') this.outputs.write(f.type, f.byte, f.bit, f.value);
+    }
+  }
+
+  /**
+   * Forcen wie in TIA: ein Eingang erhält den Wert an der Peripherie statt des Feldsignals,
+   * ein Ausgang gibt ihn statt des PAA aus – auch in STOP. `undefined` hebt den Auftrag auf.
+   */
+  force(address: string, value: Value | undefined, t?: DataType): void {
+    const { a, type } = this.access(address, t);
+    if (a.area === 'M') throw new AddressError('Forcen geht nur an Ein- und Ausgängen (%I, %Q)');
+    const key = `${a.area}${a.byte}.${a.bit}|${type}`;
+    if (value === undefined) {
+      this.forces.delete(key);
+      return;
+    }
+    this.forces.set(key, { area: a.area, type, byte: a.byte, bit: a.bit, value });
+    if (a.area === 'Q') this.applyOutputForces();
+    else this.applyInputForces();
+  }
+
+  /** Anzahl aktiver Forceaufträge (MAINT-LED) */
+  get forceCount(): number {
+    return this.forces.size;
+  }
+
+  /**
+   * Steuern (einmalig): Eingänge ins PAE, Ausgänge ins PAA, Merker direkt; Variablen über den
+   * Slotnamen (`Daten.Wert`, `Feld[2]`). Der nächste Zyklus kann den Wert wieder überschreiben.
+   */
+  modify(target: { address: string; t?: DataType } | { slot: string }, value: Value): void {
+    if ('slot' in target) {
+      const i = this.slotIndex(target.slot);
+      const d = this.program.slots[i]!;
+      const n = normalize(d.t, value);
+      this.slots[i] = d.t === 'STRING' ? (n as string).slice(0, d.len ?? STRING_DEFAULT_LEN) : n;
+      return;
+    }
+    const { a, type } = this.access(target.address, target.t);
+    this.area(a.area, 'image').write(type, a.byte, a.bit, value);
   }
 
   /**
@@ -197,12 +259,13 @@ export class Cpu {
 
   /** Ein vollständiger Zyklus zum Zeitpunkt `now` (ms). In STOP passiert nichts. */
   scan(now: number): void {
+    this.applyInputForces();
     if (this.mode !== 'RUN') return;
     if (!this.started && !this.startup(now)) return;
     this.pae.copyFrom(this.inputs);
     const ok = this.runCode(now);
     this.metrics.cycles++;
-    if (ok) this.outputs.copyFrom(this.paa);
+    if (ok) this.writeOutputs();
   }
 
   /** CPU geht in STOP: Ausgänge werden abgeschaltet. */
@@ -211,6 +274,7 @@ export class Cpu {
     this.stopInfo = { time, reason, message };
     this.paa.clear();
     this.outputs.clear();
+    this.applyOutputForces();
   }
 
   /**
@@ -299,9 +363,13 @@ export class Cpu {
   }
 
   readSlot(name: string): Value {
+    return this.slots[this.slotIndex(name)]!;
+  }
+
+  private slotIndex(name: string): number {
     const i = this.program.slots.findIndex((s) => s.name.toLowerCase() === name.toLowerCase());
     if (i < 0) throw new Error(`Variable „${name}“ unbekannt`);
-    return this.slots[i]!;
+    return i;
   }
 
   readInstance(name: string, field: InstanceField): Value {

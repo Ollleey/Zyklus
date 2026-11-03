@@ -503,3 +503,14 @@ describe('Fehllösungen der Level 16–17', () => {
     expect(detail).toMatch(/'6:00:02 Extruder' statt '06:00:02 Extruder'/);
   });
 });
+
+describe('Forcen bei der Prüfung', () => {
+  it('aktive Forceaufträge machen die Abnahme ungültig', () => {
+    const level = levelById('01-foerderband')!;
+    const solution = reference(level);
+    const c = compileSolution(level, solution);
+    const v = verifySolution(level, solution, c.programs, c.size, { cpu1: [['%Q0.0', true]] });
+    expect(v.passed).toBe(false);
+    expect(v.runs[0]!.criteria.map((x) => x.name.de)).toContain('Keine Forceaufträge aktiv');
+  });
+});

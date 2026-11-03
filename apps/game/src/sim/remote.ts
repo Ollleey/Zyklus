@@ -173,12 +173,21 @@ export class RemoteRun implements RunView {
   powerCycle(cpuId: string): void {
     this.command({ type: 'powerCycle', cpu: cpuId });
   }
+
+  setForce(cpuId: string, address: string, value: Value | undefined): void {
+    this.command({ type: 'cpuForce', cpu: cpuId, address, value });
+  }
+
+  modify(cpuId: string, target: { address: string } | { slot: string }, value: Value): void {
+    this.command({ type: 'modify', cpu: cpuId, target, value });
+  }
 }
 
 class RemoteCpu implements CpuView {
   mode: 'RUN' | 'STOP' = 'RUN';
   stopInfo?: StopInfo;
   load = 0;
+  forceCount = 0;
 
   constructor(
     private readonly id: string,
@@ -189,6 +198,7 @@ class RemoteCpu implements CpuView {
     this.mode = c.mode;
     this.stopInfo = c.stopInfo;
     this.load = c.load;
+    this.forceCount = c.forceCount;
   }
 
   read(address: string, t?: DataType): Value {

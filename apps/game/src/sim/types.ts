@@ -6,6 +6,8 @@ export interface CpuView {
   readonly mode: 'RUN' | 'STOP';
   readonly stopInfo?: StopInfo;
   readonly load: number;
+  /** aktive Forceaufträge (MAINT-LED) */
+  readonly forceCount: number;
   read(address: string, t?: DataType): Value;
   readImage(address: string, t?: DataType): Value;
   readSlot(name: string): Value;
@@ -30,6 +32,10 @@ export interface RunView {
   setCpuSwitch(cpuId: string, mode: 'RUN' | 'STOP'): void;
   /** Spannung aus und wieder ein (Neustart) */
   powerCycle(cpuId: string): void;
+  /** Forceauftrag an einer E/A-Adresse (`undefined` hebt auf) */
+  setForce(cpuId: string, address: string, value: Value | undefined): void;
+  /** Steuern: Wert einmalig schreiben */
+  modify(cpuId: string, target: { address: string } | { slot: string }, value: Value): void;
 }
 
 /** Anlage des Sandkastens im Lauf (direkt oder gespiegelt) */
