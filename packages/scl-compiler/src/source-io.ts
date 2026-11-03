@@ -172,13 +172,15 @@ export function projectToSource(project: PlcProject): string {
       out.push(`{ S7_Optimized_Access := 'TRUE' }`, 'VERSION : 0.1');
       // Das Startereignis ist in TIA Teil der Gerätekonfiguration, nicht der Quelle
       if (b.kind === 'OB' && b.event) out.push(`// Ereignis: ${eventText(b.event)}`);
+      if (b.comment) out.push(...b.comment.split('\n').map((l) => `// ${l}`));
       for (const s of IFACE_SECTIONS) {
         const rows = b.iface[s];
         if (!rows?.length) continue;
         out.push(...varSections(SECTION_HEADER[s], rows), '');
       }
+      // geschützte Bausteine: nur die Schnittstelle, kein Code
       const body = rewriteBoolLiterals(
-        b.source,
+        b.protected ? '// Baustein ist geschützt' : b.source,
         literals.filter((l) => l.block === b.name),
       );
       out.push('', 'BEGIN', indentBody(body), end, '');

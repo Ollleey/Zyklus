@@ -1,5 +1,17 @@
 # Changelog
 
+## M11c – Eigene Bausteine als Box, Kommentare, Bausteinschutz (2026-11-03)
+
+- **Eigene FB/FC als Boxen** in FUP (Palette „Eigene Bausteine“) und KOP (Box-Auswahl): Pins
+  aus der Schnittstelle (Input/InOut, Output, `Ret_Val`), EN/ENO; FB mit automatisch angelegtem
+  Instanz-DB oder Multiinstanz (`#Static`-Variable vom FB-Typ), FC ohne Instanz
+- Absenkung: FB-Aufruf mit Instanz, Ausgänge aus der Instanz gelesen; FC-Aufruf mit Ret_Val;
+  EN = 0 überspringt den Aufruf
+- **Bausteinkommentar** im Editor und als `//`-Kopfzeilen in der SCL-Quelle
+- **Bausteinschutz** (`protected`): nur die Schnittstelle sichtbar, Code und Sprache gesperrt,
+  zählt nicht zur Programmgröße; die Quelle enthält keinen Code
+- 741 Tests
+
 ## M11b – KOP-Editor (2026-11-03)
 
 - Sprachwahl je Baustein **SCL / FUP / KOP**; FUP → KOP wird umgewandelt, wo darstellbar (sonst

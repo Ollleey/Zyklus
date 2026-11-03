@@ -32,6 +32,31 @@ Variable im Global-DB.
 Funktionsboxen haben **EN/ENO**: Ist EN verbunden bzw. belegt, wird die Box nur bei EN = 1
 ausgeführt; ENO = EN. Ohne EN läuft die Box immer, ENO = 1.
 
+### Eigene Bausteine
+
+Unter **Eigene Bausteine** stehen alle FB und FC des Projekts (außer dem gerade bearbeiteten) als
+Box, in KOP im Box-Auswahlfeld. Die Pins kommen aus der Schnittstelle: Input und InOut links,
+Output rechts, beim FC mit Rückgabewert zusätzlich `Ret_Val`. Bool-Pins lassen sich verbinden,
+alle anderen bekommen einen Operanden. Dazu kommen EN/ENO wie bei den Funktionsboxen: Bei EN = 0
+wird der Baustein nicht aufgerufen.
+
+- **FB:** Beim Einfügen wird ein Instanz-DB angelegt (`Name_DB`). In einem FB kann der Operand
+  über der Box auch eine statische Variable vom Typ des FB sein (`#Innen`, Multiinstanz).
+- **FC:** kein Operand. Wert-Ausgänge und `Ret_Val` brauchen einen Zieloperanden oder eine
+  Verbindung.
+
+Ändert sich die Schnittstelle, passen sich die Pins an; Operanden an entfernten Pins werden nicht
+mehr übersetzt.
+
+### Kommentare und Bausteinschutz
+
+Jeder Baustein hat einen **Bausteinkommentar** (Zeile unter der Bausteinauswahl), jedes Netzwerk
+Titel und Kommentar. In der SCL-Quelle steht der Bausteinkommentar als `//`-Zeilen im Kopf.
+
+Ein **geschützter Baustein** (vorgegeben im Auftrag) zeigt nur seine Schnittstelle: Code und
+Sprache lassen sich weder ansehen noch ändern, er wird aber normal übersetzt und aufgerufen und
+zählt nicht zur Programmgröße.
+
 ## Semantik
 
 FUP wird netzwerkweise nach SCL übersetzt und dann vom selben Compiler wie SCL in die IR gebracht.

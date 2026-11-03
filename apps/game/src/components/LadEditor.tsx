@@ -3,6 +3,8 @@ import type { Block, CodeBlock, PlcProject } from '@zyklus/sim-core';
 import type { ProjectDiagnostic } from '@zyklus/scl-compiler';
 import {
   boxSpec,
+  callType,
+  setCallSignatures,
   inputPins,
   isLadBody,
   outputPins,
@@ -142,6 +144,11 @@ function allIds(body: LadBody): Set<string> {
  */
 export function LadEditor({ project, block, diagnostics, onChange, live }: Props) {
   const body: LadBody = isLadBody(block.kop) ? block.kop : { lad: [] };
+  // eigene FB/FC als Boxen (ohne den Baustein selbst)
+  setCallSignatures(project);
+  const ownBlocks = project.blocks.filter(
+    (b): b is CodeBlock => (b.kind === 'FB' || b.kind === 'FC') && b.name !== block.name,
+  );
   const [sel, setSel] = useState<Sel>(null);
   const [boxType, setBoxType] = useState('TON');
 
@@ -449,6 +456,15 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
               {boxSpec(b).label}
             </option>
           ))}
+          {ownBlocks.length > 0 && (
+            <optgroup label="Eigene Bausteine">
+              {ownBlocks.map((b) => (
+                <option key={b.name} value={callType(b.name)}>
+                  {b.name} ({b.kind})
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
         <button className="btn btn-small" onClick={addBox} title="Box hinter der Auswahl einfügen">
           + Box

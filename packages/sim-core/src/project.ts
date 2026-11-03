@@ -102,6 +102,11 @@ export interface CodeBlock {
   event?: ObEvent;
   /** nur FC: Datentyp des Rückgabewerts `Ret_Val` (fehlt oder „Void“: keiner) */
   returnType?: string;
+  /**
+   * Bausteinschutz: vorgegebener Baustein, dessen Code weder sichtbar noch änderbar ist
+   * (nur die Schnittstelle). Zählt nicht zur Programmgröße.
+   */
+  protected?: boolean;
 }
 
 /** Globaler Datenbaustein */

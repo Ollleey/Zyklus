@@ -1,3 +1,5 @@
+import type { PlcProject, VarDecl } from '@zyklus/sim-core';
+
 /**
  * Boxkatalog wie im TIA-FUP-Editor. Bool-Pins lassen sich verbinden und negieren,
  * Wert-Pins bekommen einen Operanden.
@@ -21,10 +23,17 @@ export type BoxKind =
   | 'edge' // P_TRIG, N_TRIG (Operand = Flankenmerker)
   | 'instance' // Zeiten, Zähler, R_TRIG, F_TRIG (Operand = Instanz-DB)
   | 'compare' // CMP, IN_RANGE, OUT_RANGE
-  | 'function'; // MOVE, ADD, …, mit EN/ENO
+  | 'function' // MOVE, ADD, …, mit EN/ENO
+  | 'call'; // eigener FB/FC (Typ CALL:<Name>), mit EN/ENO
 
 export type Category =
-  'Bitverknüpfungen' | 'Zeiten' | 'Zähler' | 'Vergleicher' | 'Mathematik' | 'Übertragen';
+  | 'Bitverknüpfungen'
+  | 'Zeiten'
+  | 'Zähler'
+  | 'Vergleicher'
+  | 'Mathematik'
+  | 'Übertragen'
+  | 'Bausteine';
 
 export interface BoxSpec {
   type: string;
@@ -332,7 +341,67 @@ export const CATEGORIES: Category[] = [
   'Übertragen',
 ];
 
+/** Schnittstellen der eigenen FB/FC des aktuellen Projekts (für Boxen CALL:<Name>) */
+const CALLS = new Map<
+  string,
+  { name: string; kind: 'FB' | 'FC'; inputs: PinSpec[]; outputs: PinSpec[] }
+>();
+
+export const CALL_PREFIX = 'CALL:';
+export const isCallType = (type: string) => type.startsWith(CALL_PREFIX);
+export const callType = (name: string) => `${CALL_PREFIX}${name}`;
+
+/**
+ * Schnittstellen der eigenen Bausteine bekannt machen (vor Absenkung und Darstellung):
+ * Input/InOut → Eingänge, Output/Ret_Val → Ausgänge; Bool-Pins lassen sich verbinden.
+ */
+export function setCallSignatures(project: PlcProject): void {
+  CALLS.clear();
+  for (const b of project.blocks) {
+    if (b.kind !== 'FB' && b.kind !== 'FC') continue;
+    const pin = (v: VarDecl): PinSpec => ({
+      name: v.name,
+      kind: v.type.trim().toLowerCase() === 'bool' ? 'bool' : 'value',
+      optional: b.kind === 'FB',
+    });
+    const ret =
+      b.kind === 'FC' && b.returnType && b.returnType.trim().toLowerCase() !== 'void'
+        ? [
+            {
+              name: 'Ret_Val',
+              kind: b.returnType.trim().toLowerCase() === 'bool' ? 'bool' : 'value',
+              optional: true,
+            } as PinSpec,
+          ]
+        : [];
+    CALLS.set(b.name.toLowerCase(), {
+      name: b.name,
+      kind: b.kind,
+      inputs: [...(b.iface.Input ?? []), ...(b.iface.InOut ?? [])].map(pin),
+      outputs: [...ret, ...(b.iface.Output ?? []).map((v) => ({ ...pin(v), optional: true }))],
+    });
+  }
+}
+
+export function callInfo(type: string) {
+  return CALLS.get(type.slice(CALL_PREFIX.length).toLowerCase());
+}
+
 export function boxSpec(type: string): BoxSpec {
+  if (isCallType(type)) {
+    const name = type.slice(CALL_PREFIX.length);
+    const sig = callInfo(type);
+    return {
+      type,
+      label: sig?.name ?? name,
+      kind: 'call',
+      category: 'Bausteine',
+      inputs: [EN, ...(sig?.inputs ?? [])],
+      outputs: [ENO, ...(sig?.outputs ?? [])],
+      ...(sig?.kind !== 'FC' ? { operandLabel: 'Instanz', instanceType: sig?.name ?? name } : {}),
+      description: sig ? `Eigener ${sig.kind} „${sig.name}“` : `Baustein „${name}“ fehlt`,
+    };
+  }
   const s = BOX_SPECS[type];
   if (!s) throw new Error(`Unbekannter Boxtyp ${type}`);
   return s;

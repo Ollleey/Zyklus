@@ -373,5 +373,7 @@
   "savegame.offerTitle": "Spielstand aus der Web-Version übernehmen?",
   "savegame.offerText": "Wenn du schon im Browser gespielt hast: Dort im Posteingang unter „Spielstand → Alles exportieren“ die Datei spielstand-export.json speichern und hier auswählen. Das geht auch später über das Menü „Spielstand“.",
   "savegame.offerYes": "Datei wählen …",
-  "savegame.offerNo": "Nein, neu beginnen"
+  "savegame.offerNo": "Nein, neu beginnen",
+  "block.comment": "Bausteinkommentar",
+  "block.protected": "Geschützter Baustein: Der Code ist nicht einsehbar und lässt sich nicht ändern. Verwenden kannst du ihn über seine Schnittstelle."
 }

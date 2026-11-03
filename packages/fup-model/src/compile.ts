@@ -9,6 +9,7 @@ import {
 } from '@zyklus/scl-compiler';
 import { lowerFupBlock, type LineOrigin } from './lower';
 import { countLadElements, isLadBody, ladBodyToFup } from './lad';
+import { setCallSignatures } from './catalog';
 import { countBoxes, isFupBody, type FupBody } from './model';
 
 export interface PlcCompileResult extends CompileResult {
@@ -34,13 +35,14 @@ export function compilePlcProject(
   let networks = 0;
   let lang: 'SCL' | 'FUP' | 'KOP' = 'SCL';
   const kopBlocks = new Set<string>();
+  setCallSignatures(project);
 
   const blocks = project.blocks.map((b) => {
     if (b.kind !== 'OB' && b.kind !== 'FB' && b.kind !== 'FC') return b;
     const code = b as CodeBlock;
     if (code.name === 'Main') lang = code.lang;
     if (code.lang === 'SCL') {
-      size += countStatements(parseBody(code.source).body);
+      size += code.protected ? 0 : countStatements(parseBody(code.source).body);
       return code;
     }
     let body: FupBody;
@@ -48,10 +50,10 @@ export function compilePlcProject(
       // KOP über das FUP-Modell absenken; Größe = Kontakte, Boxen, Spulen
       const lad = isLadBody(code.kop) ? code.kop : { lad: [] };
       body = ladBodyToFup(lad);
-      size += countLadElements(lad);
+      if (!code.protected) size += countLadElements(lad);
     } else {
       body = isFupBody(code.fup) ? code.fup : { networks: [] };
-      size += countBoxes(body);
+      if (!code.protected) size += countBoxes(body);
     }
     networks += body.networks.length;
     const lowered = lowerFupBlock({ ...code, fup: body }, project);

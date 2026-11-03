@@ -5,6 +5,9 @@ import {
   BOX_SPECS,
   CATEGORIES,
   boxSpec,
+  callType,
+  isCallType,
+  setCallSignatures,
   inputPins,
   isFupBody,
   outputPins,
@@ -54,7 +57,9 @@ export function newInstanceName(blocks: Block[], type: string): string {
       ? 'IEC_Timer'
       : spec.instanceType === 'IEC_COUNTER'
         ? 'IEC_Counter'
-        : type;
+        : isCallType(type)
+          ? spec.label
+          : type;
   const taken = new Set(blocks.map((b) => b.name.toLowerCase()));
   if (
     spec.instanceType !== 'IEC_TIMER' &&
@@ -89,6 +94,11 @@ type Selection = { network: number; box?: string; wire?: number } | null;
 
 export function FupEditor({ project, block, diagnostics, onChange, focus, live }: Props) {
   const body: FupBody = isFupBody(block.fup) ? block.fup : { networks: [] };
+  // eigene FB/FC als Boxen (ohne den Baustein selbst – keine Rekursion)
+  setCallSignatures(project);
+  const ownBlocks = project.blocks.filter(
+    (b): b is CodeBlock => (b.kind === 'FB' || b.kind === 'FC') && b.name !== block.name,
+  );
   const [selection, setSelection] = useState<Selection>(null);
   const [openCats, setOpenCats] = useState<Set<string>>(new Set(['Bitverknüpfungen', 'Zeiten']));
   const netRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -143,11 +153,12 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
 
   const addBox = (networkIdx: number, type: string, x: number, y: number) => {
     const nw = body.networks[networkIdx]!;
+    const stem = type.toLowerCase().replace(/[^a-z0-9_]/g, '');
     let n = 1;
-    while (nw.boxes.some((b) => b.id === `${type.toLowerCase()}${n}`)) n++;
+    while (nw.boxes.some((b) => b.id === `${stem}${n}`)) n++;
     const spec = boxSpec(type);
     const box: FupBox = {
-      id: `${type.toLowerCase()}${n}`,
+      id: `${stem}${n}`,
       type,
       x: Math.max(STUB + OPW + 10, Math.round(x / SNAP) * SNAP),
       y: Math.max(28, Math.round(y / SNAP) * SNAP),
@@ -227,6 +238,44 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
             </div>
           );
         })}
+        {ownBlocks.length > 0 && (
+          <div>
+            <button
+              className="fup-cat"
+              onClick={() => {
+                const next = new Set(openCats);
+                if (next.has('Bausteine')) next.delete('Bausteine');
+                else next.add('Bausteine');
+                setOpenCats(next);
+              }}
+            >
+              {openCats.has('Bausteine') ? '▾' : '▸'} Eigene Bausteine
+            </button>
+            {openCats.has('Bausteine') &&
+              ownBlocks.map((b) => (
+                <div
+                  key={b.name}
+                  className="fup-item"
+                  draggable
+                  title={`${b.kind} „${b.name}“${b.kind === 'FB' ? ' – legt einen Instanz-DB an' : ''}
+Ziehen ins Netzwerk oder klicken zum Einfügen`}
+                  onDragStart={(e) =>
+                    e.dataTransfer.setData('application/x-fup-box', callType(b.name))
+                  }
+                  onClick={() => {
+                    const target = selection?.network ?? lastNetwork;
+                    const nw = body.networks[target];
+                    if (!nw) return;
+                    const y = nw.boxes.reduce((m, x) => Math.max(m, x.y + boxHeight(x)), 0) + 40;
+                    addBox(target, callType(b.name), STUB + OPW + 20, y);
+                  }}
+                >
+                  <span className="fup-item-label">{b.name}</span>
+                  <span className="fup-item-type">{b.kind}</span>
+                </div>
+              ))}
+          </div>
+        )}
       </aside>
 
       <div className="fup-networks">

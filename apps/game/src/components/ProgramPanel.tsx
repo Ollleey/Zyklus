@@ -414,7 +414,7 @@ export function ProgramPanel({
               <option value="rackFailure">{t('block.add.rackFailure')}</option>
               <option value="programError">{t('block.add.programError')}</option>
             </select>
-            {block.name !== MAIN_OB && (
+            {block.name !== MAIN_OB && !block.protected && (
               <>
                 <input
                   className="block-name"
@@ -433,6 +433,20 @@ export function ProgramPanel({
               </>
             )}
           </div>
+          <textarea
+            className="block-comment"
+            rows={1}
+            placeholder={t('block.comment')}
+            aria-label={t('block.comment')}
+            value={block.comment ?? ''}
+            readOnly={block.protected}
+            onChange={(e) =>
+              changeBlock((b) => {
+                const { comment: _, ...rest } = b;
+                return e.target.value ? { ...rest, comment: e.target.value } : rest;
+              })
+            }
+          />
           {block.event && (
             <EventEditor
               event={block.event}
@@ -446,6 +460,7 @@ export function ProgramPanel({
                   key={l}
                   role="radio"
                   aria-checked={block.lang === l}
+                  disabled={block.protected}
                   className={`lang ${block.lang === l ? 'lang-active' : ''}`}
                   onClick={() => switchLang(l)}
                 >
@@ -460,7 +475,7 @@ export function ProgramPanel({
               </span>
             </button>
             {showIface && (
-              <div className="iface-sections">
+              <fieldset className="iface-sections" disabled={block.protected}>
                 {block.kind === 'FC' && (
                   <div className="iface-section">
                     <h4>Return</h4>
@@ -512,10 +527,12 @@ export function ProgramPanel({
                     />
                   </div>
                 ))}
-              </div>
+              </fieldset>
             )}
           </div>
-          {block.lang === 'KOP' ? (
+          {block.protected ? (
+            <div className="block-protected">🔒 {t('block.protected')}</div>
+          ) : block.lang === 'KOP' ? (
             <LadEditor
               key={block.name}
               project={project}

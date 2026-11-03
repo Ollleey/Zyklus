@@ -1,6 +1,13 @@
 import type { Block, CodeBlock, PlcProject, VarDecl } from '@zyklus/sim-core';
 import { instanceType, parseExpression, type ProjectDiagnostic } from '@zyklus/scl-compiler';
-import { boxSpec, inputPins, outputPins, type BoxSpec } from './catalog';
+import {
+  boxSpec,
+  callInfo,
+  inputPins,
+  outputPins,
+  setCallSignatures,
+  type BoxSpec,
+} from './catalog';
 import { isFupBody, type FupBody, type FupBox, type FupNetwork } from './model';
 
 /** Herkunft einer erzeugten SCL-Zeile. */
@@ -64,6 +71,7 @@ function wrapped(e: string): boolean {
  * entlang der Verbindungen, bei Gleichstand nach Lage (oben vor unten, links vor rechts).
  */
 export function lowerFupBlock(block: CodeBlock, project: PlcProject): Lowered {
+  setCallSignatures(project);
   const body: FupBody = isFupBody(block.fup) ? block.fup : { networks: [] };
   const lines: string[] = [];
   const origins: (LineOrigin | undefined)[] = [];
@@ -338,7 +346,55 @@ export function lowerFupBlock(block: CodeBlock, project: PlcProject): Lowered {
           return lowerInstance(box, spec, ins);
         case 'function':
           return lowerFunction(box, ins);
+        case 'call':
+          return lowerCall(box, spec, ins);
       }
+    }
+
+    /** Eigener FB/FC: SCL-Aufruf, EN als IF, Bool-Ausgänge verbindbar */
+    function lowerCall(box: FupBox, spec: BoxSpec, ins: ReturnType<typeof inputPins>): void {
+      const sig = callInfo(box.type);
+      if (!sig) throw new LoweringError(`Baustein „${spec.label}“ ist nicht vorhanden`);
+      const en = boolIn(box, 'EN', true);
+      const params: string[] = [];
+      for (const p of ins) {
+        if (p.name === 'EN') continue;
+        const e = p.kind === 'bool' ? boolIn(box, p.name, true) : valueIn(box, p.name, true);
+        if (e !== undefined) params.push(`${p.name} := ${e}`);
+      }
+      const at = { network: n, box: box.id };
+      const later: (() => void)[] = [];
+      let ret: string | undefined;
+      for (const p of outputPins(box.type)) {
+        if (p.name === 'ENO') continue;
+        const key = `${box.id}.${p.name}`;
+        const target = box.outputs[p.name]?.trim();
+        const wired = (fanout.get(key) ?? 0) > 0;
+        if (!wired && !target) continue;
+        if (sig.kind === 'FB' && p.name !== 'Ret_Val') {
+          // FB: Ausgänge nach dem Aufruf aus der Instanz lesen
+          const inst = requireOperand(box, spec);
+          later.push(() => {
+            if (p.kind === 'bool') provide(box, p.name, `${inst}.${p.name}`);
+            else emit(`${operandOf(target, p.name)} := ${inst}.${p.name};`, at);
+          });
+          continue;
+        }
+        let dest: string;
+        if (p.kind === 'bool') {
+          dest = newTemp();
+          later.push(() => provide(box, p.name, dest));
+        } else dest = operandOf(target, p.name)!;
+        if (p.name === 'Ret_Val') ret = dest;
+        else params.push(`${p.name} => ${dest}`);
+      }
+      const call =
+        sig.kind === 'FB'
+          ? `${requireOperand(box, spec)}(${params.join(', ')});`
+          : `${ret ? `${ret} := ` : ''}"${sig.name}"(${params.join(', ')});`;
+      emit(en ? `IF ${en} THEN ${call} END_IF;` : call, at);
+      for (const f of later) f();
+      provide(box, 'ENO', en ?? 'TRUE');
     }
 
     function requireOperand(box: FupBox, spec: BoxSpec): string {
