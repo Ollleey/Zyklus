@@ -14,7 +14,7 @@ import {
 import { projectToSource } from '@zyklus/scl-compiler';
 import { compileSolution, givenSolution, levelById } from '@zyklus/levels';
 import { LevelGuide } from '../components/LevelGuide';
-import { t } from '../i18n';
+import { msg, t, tx } from '../i18n';
 import { Cabinet, type CpuStatus } from '../components/Cabinet';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
 import { PlantView } from '../components/PlantView';
@@ -539,7 +539,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             )}
             {stopped && (
               <span className="sim-stop">
-                {t('sim.stopped')}: {stopped.stopInfo?.message}
+                {t('sim.stopped')}: {msg(stopped.stopInfo?.message ?? '')}
               </span>
             )}
           </div>
@@ -754,7 +754,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
               {t('level.datasheet')}
             </button>
             <span className="tab-spacer" />
-            <button className="icon-btn" onClick={() => setBrief(null)} aria-label="Schließen">
+            <button className="icon-btn" onClick={() => setBrief(null)} aria-label={t('dialog.close')}>
               ✕
             </button>
           </div>
@@ -765,7 +765,8 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                   <span className="muted">{t('mail.from')}:</span> {tr(level.mail.from)}
                 </div>
                 <div>
-                  <span className="muted">{t('mail.subject')}:</span> <b>{tr(level.mail.subject)}</b>
+                  <span className="muted">{t('mail.subject')}:</span>{' '}
+                  <b>{tr(level.mail.subject)}</b>
                 </div>
               </div>
               <Markdown text={tr(level.mail.body)} />

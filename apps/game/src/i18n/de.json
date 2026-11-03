@@ -437,5 +437,11 @@
   "graph.target": "Zielschritt",
   "graph.transition": "Transition",
   "graph.step": "Schritt",
-  "graph.hint": "Je Zyklus wird höchstens eine Transition des aktiven Schritts geschaltet. In Bedingungen steht „Schrittzeit“ für die Zeit seit Aktivierung des Schritts. N und D gelten nur im aktiven Schritt, S und R speichern."
+  "graph.hint": "Je Zyklus wird höchstens eine Transition des aktiven Schritts geschaltet. In Bedingungen steht „Schrittzeit“ für die Zeit seit Aktivierung des Schritts. N und D gelten nur im aktiven Schritt, S und R speichern.",
+  "problem.network": "NW",
+  "problem.line": "Z.",
+  "problem.row": "Zeile",
+  "problem.project": "Projekt",
+  "problem.error": "Fehler",
+  "problem.warning": "Warnung"
 }

@@ -7,6 +7,7 @@ import {
   type ModuleType,
 } from '@zyklus/sim-core';
 import { G, colX, terminalPos, type Layout } from './geometry';
+import { tx } from '../../i18n';
 
 /** Gemeinsame SVG-Definitionen: Materialien, Leuchten, Muster. Einmal je Schrank. */
 export function HardwareDefs() {
@@ -336,10 +337,10 @@ export function CpuFront({
         {id} · {t.cpu!.cycleMs} ms
       </text>
       <text x={left + 28.5} y={y + 32.5} className="hw-display">
-        {powered && status ? `Last ${Math.round(status.load * 100)} %` : 'aus'}
+        {powered && status ? `${tx('Last', 'Load')} ${Math.round(status.load * 100)} %` : tx('aus', 'off')}
       </text>
       <text x={left + 28.5} y={y + 38} className="hw-display hw-display-dim">
-        {t.cpu!.processInterrupt ? 'Weck- und Prozessalarm' : 'nur OB1'}
+        {t.cpu!.processInterrupt ? tx('Weck- und Prozessalarm', 'cyclic and hardware interrupts') : tx('nur OB1', 'OB1 only')}
       </text>
       {/* Betriebsartenschalter */}
       <g
@@ -377,7 +378,7 @@ export function CpuFront({
             onSwitch?.('RESTART');
           }}
         >
-          <title>Spannung aus und wieder ein (Neustart, Anlauf-OB)</title>
+          <title>{tx('Spannung aus und wieder ein (Neustart, Anlauf-OB)', 'Power off and on again (restart, startup OB)')}</title>
           <rect x={left + 4.5} y={y + 70} width={14} height={8} rx={1.2} fill="#1C2024" />
           <text x={left + 7.2} y={y + 75.8} className="hw-label-dark">
             ⏻

@@ -796,3 +796,27 @@ describe('KOP-Lösung', () => {
     });
   });
 });
+
+describe('Englisch', () => {
+  it('jeder Auftrag hat englische Texte für Mail, Datenblatt, Geräte, Tests und Kriterien', () => {
+    const missing: string[] = [];
+    for (const l of LEVELS) {
+      for (const [k, v] of Object.entries({
+        title: l.title,
+        customer: l.customer,
+        from: l.mail.from,
+        subject: l.mail.subject,
+        body: l.mail.body,
+        datasheet: l.datasheet,
+      })) {
+        if (!v.en) missing.push(`${l.id} ${k}`);
+      }
+      for (const d of l.devices) if (!d.name.en) missing.push(`${l.id} ${d.id}`);
+      for (const t of l.tests) {
+        if (!t.name.en) missing.push(`${l.id} test ${t.id}`);
+        for (const c of t.checks ?? []) if (!c.name.en) missing.push(`${l.id} ${c.name.de}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+});

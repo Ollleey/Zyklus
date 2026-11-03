@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { tx } from '../i18n';
 import { betterThan, fakeDistribution, histogram, type MetricKey } from '@zyklus/sim-core';
 
 const W = 220;
@@ -35,7 +36,7 @@ export function HistogramChart({ levelId, metric, label, par, value, best }: Pro
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`${label}: besser als ${share} % der Lösungen`}
+        aria-label={tx(`${label}: besser als ${share} % der Lösungen`, `${label}: better than ${share} % of solutions`)}
       >
         {h.bins.map((b, i) => {
           const bh = (b.count / peak) * (H - 30);

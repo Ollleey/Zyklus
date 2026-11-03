@@ -27,8 +27,52 @@ import level24 from '../data/24-pumpstation.json';
 import level25 from '../data/25-rolltor.json';
 import level26 from '../data/26-saege.json';
 import level27 from '../data/27-hochbehaelter.json';
+import english from '../data/i18n/en.json';
 
 export * from './compile';
+
+interface LevelTexts {
+  title: string;
+  customer: string;
+  'mail.from': string;
+  'mail.subject': string;
+  'mail.body': string;
+  datasheet: string;
+  devices: Record<string, string>;
+  tests: Record<string, string>;
+  checks: Record<string, string>;
+}
+
+/** Englische Texte aus `data/i18n/en.json` eintragen (die Level-Dateien bleiben deutsch) */
+function withEnglish(level: Level): Level {
+  const en = (english as Record<string, LevelTexts>)[level.id];
+  if (!en) return level;
+  return {
+    ...level,
+    title: { ...level.title, en: en.title },
+    customer: { ...level.customer, en: en.customer },
+    mail: {
+      from: { ...level.mail.from, en: en['mail.from'] },
+      subject: { ...level.mail.subject, en: en['mail.subject'] },
+      body: { ...level.mail.body, en: en['mail.body'] },
+    },
+    datasheet: { ...level.datasheet, en: en.datasheet },
+    devices: level.devices.map((d) =>
+      en.devices[d.id] ? { ...d, name: { ...d.name, en: en.devices[d.id] } } : d,
+    ),
+    tests: level.tests.map((t) => ({
+      ...t,
+      ...(en.tests[t.id] ? { name: { ...t.name, en: en.tests[t.id] } } : {}),
+      ...(t.checks
+        ? {
+            checks: t.checks.map((c) =>
+              en.checks[c.name.de] ? { ...c, name: { ...c.name, en: en.checks[c.name.de] } } : c,
+            ),
+          }
+        : {}),
+    })),
+  };
+}
 
 /** Alle Aufträge der Kampagne, sortiert. Wird beim Laden validiert. */
 export const LEVELS: Level[] = [
@@ -61,7 +105,7 @@ export const LEVELS: Level[] = [
   level26,
   level27,
 ]
-  .map((l) => validateLevel(l))
+  .map((l) => withEnglish(validateLevel(l)))
   .sort((a, b) => a.order - b.order);
 
 export function levelById(id: string): Level | undefined {

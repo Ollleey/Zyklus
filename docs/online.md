@@ -91,5 +91,5 @@ Baustein wird dabei aktualisiert. Solange ein eingefügter Baustein **unverände
 
 ## Sprache
 
-Oben im Posteingang wählst du **Deutsch** oder **English**. Übersetzt sind die Oberfläche sowie
-die Einführung und Auftrag 1; Aufträge ohne englischen Text erscheinen auf Deutsch.
+Oben im Posteingang wählst du **Deutsch** oder **English**. Übersetzt sind die Oberfläche, alle
+Aufträge, die Meldungen und das Handbuch.

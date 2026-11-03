@@ -2,6 +2,7 @@ import { setTextLanguage, type Lang } from '@zyklus/sim-core';
 import { platform } from '@zyklus/platform';
 import de from './i18n/de.json';
 import en from './i18n/en.json';
+import { translateMessage } from './i18n/messages';
 
 export type MessageKey = keyof typeof de;
 
@@ -25,7 +26,7 @@ export function language(): Lang {
   return lang;
 }
 
-/** gespeicherte Sprache, sonst die des Browsers (Deutsch, wenn sie nicht angeboten wird) */
+/** gespeicherte Sprache, sonst Deutsch */
 export function initLanguage(): void {
   let l: string | null = null;
   try {
@@ -33,8 +34,7 @@ export function initLanguage(): void {
   } catch {
     l = null;
   }
-  const nav = typeof navigator !== 'undefined' ? navigator.language.slice(0, 2) : 'de';
-  setLanguage(l ?? (nav in catalogs ? nav : 'de'));
+  setLanguage(l ?? 'de');
 }
 
 /** Sprache wechseln und merken; die Oberfläche wird neu geladen */
@@ -55,4 +55,14 @@ export function chooseLanguage(l: Lang): void {
 export function t(key: MessageKey, vars?: Record<string, string | number>): string {
   const text = catalogs[lang]?.[key] ?? de[key] ?? key;
   return vars ? text.replace(/\{(\w+)\}/g, (m, k: string) => String(vars[k] ?? m)) : text;
+}
+
+/** Meldung aus Compiler, Schaltschrankprüfung oder CPU in der Anzeigesprache */
+export function msg(text: string): string {
+  return lang === 'en' ? translateMessage(text) : text;
+}
+
+/** kurzer Oberflächentext in beiden Sprachen (für einzelne Beschriftungen ohne eigenen Schlüssel) */
+export function tx(de: string, en: string): string {
+  return lang === 'en' ? en : de;
 }

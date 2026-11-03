@@ -10,7 +10,7 @@ import {
   type PublishTest,
   type Rule,
 } from '@zyklus/plant-sim';
-import { t } from '../../i18n';
+import { t, tx } from '../../i18n';
 import { putCustomLevel, toAuftragFile } from '../../state/customLevels';
 import { FILE_TYPES, platform, platformFileName } from '@zyklus/platform';
 
@@ -253,7 +253,7 @@ export function PublishDialog({ layout, solution, name, author, onClose, onPubli
                       onChange={(e) => set([at, ref, Number(e.target.value)])}
                     >
                       <option value={0}>0</option>
-                      <option value={1}>Hand</option>
+                      <option value={1}>{tx('Hand', 'Manual')}</option>
                       <option value={2}>Auto</option>
                     </select>
                   ) : part?.type === 'poti' ? (

@@ -1,5 +1,19 @@
 # Changelog
 
+## M14d – Englisch vollständig (2026-11-03)
+
+- **Alle Aufträge auf Englisch**: Mail, Datenblatt, Geräte, Testfälle und Kriterien für alle 28
+  Aufträge; die englischen Texte liegen als Überlagerung in `packages/levels/data/i18n/en.json`
+  (die Level-Dateien bleiben deutsch), ein Test prüft die Vollständigkeit
+- **Meldungen**: Compiler, FUP/KOP/GRAPH, Schaltschrankprüfung, CPU-Diagnosepuffer, STOP-Gründe und
+  Prüfergebnis werden beim Anzeigen übersetzt (Tabelle mit Platzhaltern, `msg()`)
+- **Handbuch** vollständig auf Englisch (`docs/en/`), Seiten, Baugruppen-Datenblätter und
+  Box-Beschreibungen; Baugruppenbeschreibungen im Katalog zweisprachig
+- Restliche feste Oberflächentexte (KOP-Werkzeugleiste, Trace, Anlagenansichten, Schaltschrank,
+  Sandkasten-Einführung, Palettenkategorien) zweisprachig
+- Sprache bleibt Deutsch, bis Englisch gewählt wird
+- 804 Tests
+
 ## M14c – PUT und GET (2026-11-03)
 
 - Neue Systembausteine **PUT** und **GET** (Instanz-DB): Merker der Partner-CPU über eine

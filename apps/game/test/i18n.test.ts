@@ -12,3 +12,29 @@ describe('Übersetzungen', () => {
     }
   });
 });
+
+describe('Meldungen auf Englisch', () => {
+  it('übersetzt typische Compiler-, Schaltschrank- und Prüfmeldungen', async () => {
+    const { translateMessage } = await import('../src/i18n/messages');
+    const { compileScl } = await import('@zyklus/scl-compiler');
+    const broken = [
+      '"Gibts" := TRUE;',
+      '#x := 1;',
+      'IF TRUE "Motor" := TRUE; END_IF;',
+      '"T"(IN := TRUE);',
+      '%MW0 := 1.5 AND 2;',
+    ];
+    const msgs = broken.flatMap((src) => compileScl(src).diagnostics.map((d) => d.message));
+    expect(msgs.length).toBeGreaterThan(3);
+    const german = /[äöüß„]|\b(ist|nicht|fehlt|erwartet|kein|der|die|das)\b/;
+    const left = msgs.map(translateMessage).filter((m) => german.test(m));
+    expect(left).toEqual([]);
+    expect(translateMessage('Kabelkanal in Spalte 3 ist überfüllt (5 von 4 Leitungen)')).toBe(
+      'Cable duct in column 3 is overfull (5 of 4 cables)',
+    );
+    expect(translateMessage('„THEN“ erwartet nach der IF-Bedingung')).toBe(
+      '“THEN” expected after the IF condition',
+    );
+    expect(translateMessage('etwas Unbekanntes')).toBe('etwas Unbekanntes');
+  });
+});

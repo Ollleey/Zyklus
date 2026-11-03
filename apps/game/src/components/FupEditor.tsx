@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { Block, CodeBlock, PlcProject } from '@zyklus/sim-core';
 import { LIBRARY, type ProjectDiagnostic } from '@zyklus/scl-compiler';
+import { t, tx } from '../i18n';
+import { boxDescription } from '../i18n/boxes-en';
 import {
   BOX_SPECS,
   CATEGORIES,
@@ -47,6 +49,21 @@ function pinPos(b: FupBox, pin: string, side: 'in' | 'out'): { x: number; y: num
   );
   const y = b.y + HEAD + i * PITCH + PITCH / 2;
   return side === 'in' ? { x: b.x - STUB, y } : { x: b.x + boxWidth(b.type) + STUB, y };
+}
+
+const CATEGORY_EN: Record<string, string> = {
+  Bitverknüpfungen: 'Bit logic',
+  Zeiten: 'Timers',
+  Zähler: 'Counters',
+  Vergleicher: 'Comparators',
+  Mathematik: 'Math',
+  Übertragen: 'Move',
+  Kommunikation: 'Communication',
+};
+
+/** Name einer Palettenkategorie in der Anzeigesprache */
+export function categoryLabel(cat: string): string {
+  return tx(cat, CATEGORY_EN[cat] ?? cat);
 }
 
 /** Bibliotheksbausteine (Technologie), soweit das Projekt keinen gleichnamigen Baustein hat */
@@ -106,8 +123,8 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
     (b): b is CodeBlock => (b.kind === 'FB' || b.kind === 'FC') && b.name !== block.name,
   );
   const CALL_GROUPS: [string, string, CodeBlock[]][] = [
-    ['Technologie', 'Technologie', libraryFor(project)],
-    ['Bausteine', 'Eigene Bausteine', ownBlocks],
+    ['Technologie', tx('Technologie', 'Technology'), libraryFor(project)],
+    ['Bausteine', tx('Eigene Bausteine', 'Own blocks'), ownBlocks],
   ];
   const [selection, setSelection] = useState<Selection>(null);
   const [openCats, setOpenCats] = useState<Set<string>>(new Set(['Bitverknüpfungen', 'Zeiten']));
@@ -220,7 +237,7 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
                   setOpenCats(next);
                 }}
               >
-                {open ? '▾' : '▸'} {cat}
+                {open ? '▾' : '▸'} {categoryLabel(cat)}
               </button>
               {open &&
                 Object.values(BOX_SPECS)
@@ -230,7 +247,7 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
                       key={s.type}
                       className="fup-item"
                       draggable
-                      title={`${s.description}\nZiehen ins Netzwerk oder klicken zum Einfügen`}
+                      title={`${boxDescription(s.type, s.description)}\n${tx('Ziehen ins Netzwerk oder klicken zum Einfügen', 'Drag into a network or click to insert')}`}
                       onDragStart={(e) => e.dataTransfer.setData('application/x-fup-box', s.type)}
                       onClick={() => {
                         const target = selection?.network ?? lastNetwork;
@@ -269,7 +286,7 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
                       key={b.name}
                       className="fup-item"
                       draggable
-                      title={`${b.kind} „${b.name}“${b.kind === 'FB' ? ' – legt einen Instanz-DB an' : ''}
+                      title={`${b.kind} „${b.name}“${b.kind === 'FB' ? tx(' – legt einen Instanz-DB an', ' – creates an instance DB') : ''}
 Ziehen ins Netzwerk oder klicken zum Einfügen`}
                       onDragStart={(e) =>
                         e.dataTransfer.setData('application/x-fup-box', callType(b.name))
@@ -299,7 +316,7 @@ Ziehen ins Netzwerk oder klicken zum Einfügen`}
               <span className="fup-nw-no">Netzwerk {i + 1}:</span>
               <input
                 className="fup-nw-title"
-                placeholder="Titel"
+                placeholder={tx('Titel', 'Title')}
                 value={nw.title}
                 onChange={(e) => setNetwork(i, { ...nw, title: e.target.value })}
               />
@@ -329,7 +346,7 @@ Ziehen ins Netzwerk oder klicken zum Einfügen`}
               </button>
               <button
                 className="icon-btn"
-                title="Netzwerk löschen"
+                title={tx('Netzwerk löschen', 'Delete network')}
                 onClick={() => setBody({ networks: body.networks.filter((_, k) => k !== i) })}
               >
                 ✕
@@ -578,7 +595,8 @@ function NetworkCanvas({
                 {[
                   spec.description,
                   ...errs.map(
-                    (d) => `${d.severity === 'error' ? 'Fehler' : 'Warnung'}: ${d.message}`,
+                    (d) =>
+                      `${t(d.severity === 'error' ? 'problem.error' : 'problem.warning')}: ${d.message}`,
                   ),
                 ].join('\n')}
               </title>
@@ -692,7 +710,7 @@ function NetworkCanvas({
                         }}
                         onDoubleClick={() => toggleNeg(p.name)}
                       >
-                        <title>Ziehen zum Verbinden · Doppelklick negiert</title>
+                        <title>{tx('Ziehen zum Verbinden · Doppelklick negiert', 'Drag to connect · double-click negates')}</title>
                       </circle>
                     )}
                     {operandAllowed && (!wired || b.outputs[p.name]) && (
@@ -728,7 +746,7 @@ function NetworkCanvas({
                       }))
                     }
                   >
-                    ✚<title>Eingang hinzufügen</title>
+                    ✚<title>{tx('Eingang hinzufügen', 'Add input')}</title>
                   </text>
                   {(b.count ?? spec.variadic.min) > spec.variadic.min && (
                     <text
@@ -747,7 +765,7 @@ function NetworkCanvas({
                         });
                       }}
                     >
-                      ━<title>Letzten Eingang entfernen</title>
+                      ━<title>{tx('Letzten Eingang entfernen', 'Remove last input')}</title>
                     </text>
                   )}
                 </g>

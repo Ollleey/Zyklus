@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import type { VarDecl } from '@zyklus/sim-core';
-import { t } from '../i18n';
+import { t, tx } from '../i18n';
 
 export const ELEMENTARY_TYPES = [
   'Bool',
@@ -116,7 +116,7 @@ export function VarTable({
             <td>
               <button
                 className="icon-btn"
-                title="Zeile löschen"
+                title={tx('Zeile löschen', 'Delete row')}
                 onClick={() => onChange(rows.filter((_, k) => k !== i))}
               >
                 ✕

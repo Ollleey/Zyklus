@@ -437,5 +437,11 @@
   "graph.target": "Target step",
   "graph.transition": "Transition",
   "graph.step": "Step",
-  "graph.hint": "At most one transition of the active step fires per cycle. In conditions, “Schrittzeit” is the time since the step became active. N and D only apply while the step is active, S and R are stored."
+  "graph.hint": "At most one transition of the active step fires per cycle. In conditions, “Schrittzeit” is the time since the step became active. N and D only apply while the step is active, S and R are stored.",
+  "problem.network": "NW",
+  "problem.line": "l.",
+  "problem.row": "row",
+  "problem.project": "Project",
+  "problem.error": "Error",
+  "problem.warning": "Warning"
 }

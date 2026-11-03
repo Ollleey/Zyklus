@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { tx } from '../i18n';
 import type { Block, CodeBlock, PlcProject } from '@zyklus/sim-core';
 import type { ProjectDiagnostic } from '@zyklus/scl-compiler';
 import {
@@ -54,12 +55,12 @@ const LAD_BOXES = [
 ];
 
 const COILS: [CoilKind, string, string][] = [
-  ['=', '( )', 'Spule: Operand = Verknüpfungsergebnis'],
-  ['/=', '(/)', 'negierte Spule'],
-  ['S', '(S)', 'Setzen'],
-  ['R', '(R)', 'Rücksetzen'],
-  ['P', '(P)', 'Spule bei steigender Flanke (einen Zyklus)'],
-  ['N', '(N)', 'Spule bei fallender Flanke (einen Zyklus)'],
+  ['=', '( )', tx('Spule: Operand = Verknüpfungsergebnis', 'Coil: operand = result of logic operation')],
+  ['/=', '(/)', tx('negierte Spule', 'negated coil')],
+  ['S', '(S)', tx('Setzen', 'Set')],
+  ['R', '(R)', tx('Rücksetzen', 'Reset')],
+  ['P', '(P)', tx('Spule bei steigender Flanke (einen Zyklus)', 'Coil on rising edge (one cycle)')],
+  ['N', '(N)', tx('Spule bei fallender Flanke (einen Zyklus)', 'Coil on falling edge (one cycle)')],
 ];
 
 type Sel = { network: number; id: string } | null;
@@ -425,23 +426,23 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
   return (
     <div className="lad">
       <div className="lad-tools" role="toolbar" aria-label="KOP-Elemente">
-        <button className="btn btn-small" onClick={() => addContact(false)} title="Schließer">
+        <button className="btn btn-small" onClick={() => addContact(false)} title={tx('Schließer', 'Normally open contact')}>
           ┤ ├
         </button>
-        <button className="btn btn-small" onClick={() => addContact(true)} title="Öffner">
+        <button className="btn btn-small" onClick={() => addContact(true)} title={tx('Öffner', 'Normally closed contact')}>
           ┤/├
         </button>
         <button
           className="btn btn-small"
           onClick={() => addEdge('P')}
-          title="P-Kontakt (steigende Flanke)"
+          title={tx('P-Kontakt (steigende Flanke)', 'P contact (rising edge)')}
         >
           ┤P├
         </button>
         <button
           className="btn btn-small"
           onClick={() => addEdge('N')}
-          title="N-Kontakt (fallende Flanke)"
+          title={tx('N-Kontakt (fallende Flanke)', 'N contact (falling edge)')}
         >
           ┤N├
         </button>
@@ -449,9 +450,9 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
           className="btn btn-small"
           onClick={parallel}
           disabled={!selId || isCoil(selId)}
-          title="Parallelzweig zur Auswahl (ODER)"
+          title={tx('Parallelzweig zur Auswahl (ODER)', 'Parallel branch to the selection (OR)')}
         >
-          ⫴ Parallel
+          ⫴ {tx('Parallel', 'Parallel')}
         </button>
         <span className="lad-sep" />
         <select value={boxType} onChange={(e) => setBoxType(e.target.value)} aria-label="Box">
@@ -461,7 +462,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
             </option>
           ))}
           {libraryFor(project).length > 0 && (
-            <optgroup label="Technologie">
+            <optgroup label={tx('Technologie', 'Technology')}>
               {libraryFor(project).map((b) => (
                 <option key={b.name} value={callType(b.name)}>
                   {b.name}
@@ -470,7 +471,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
             </optgroup>
           )}
           {ownBlocks.length > 0 && (
-            <optgroup label="Eigene Bausteine">
+            <optgroup label={tx('Eigene Bausteine', 'Own blocks')}>
               {ownBlocks.map((b) => (
                 <option key={b.name} value={callType(b.name)}>
                   {b.name} ({b.kind})
@@ -479,7 +480,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
             </optgroup>
           )}
         </select>
-        <button className="btn btn-small" onClick={addBox} title="Box hinter der Auswahl einfügen">
+        <button className="btn btn-small" onClick={addBox} title={tx('Box hinter der Auswahl einfügen', 'Insert box after the selection')}>
           + Box
         </button>
         <span className="lad-sep" />
@@ -493,7 +494,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
           className="btn btn-small"
           onClick={remove}
           disabled={!selId}
-          title="Auswahl löschen (Entf)"
+          title={tx('Auswahl löschen (Entf)', 'Delete selection (Del)')}
         >
           ✕
         </button>
@@ -506,12 +507,12 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
               <input
                 className="fup-nw-title"
                 value={nw.title}
-                placeholder="Titel"
+                placeholder={tx('Titel', 'Title')}
                 onChange={(e) => setNetwork(i, { ...nw, title: e.target.value })}
               />
               <button
                 className="icon-btn"
-                title="Netzwerk löschen"
+                title={tx('Netzwerk löschen', 'Delete network')}
                 onClick={() => setBody({ lad: body.lad.filter((_, k) => k !== i) })}
               >
                 ✕
@@ -520,7 +521,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
             <input
               className="lad-comment"
               value={nw.comment ?? ''}
-              placeholder="Kommentar"
+              placeholder={tx('Kommentar', 'Comment')}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => setNetwork(i, { ...nw, comment: e.target.value || undefined })}
             />
@@ -538,7 +539,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
                 {nw.coils.length ? (
                   nw.coils.map((c) => renderCoil(c, i))
                 ) : (
-                  <span className="lad-hint">Spule fehlt</span>
+                  <span className="lad-hint">{tx('Spule fehlt', 'Coil missing')}</span>
                 )}
               </div>
               <span className="lad-rail" />

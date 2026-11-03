@@ -9,7 +9,7 @@ import {
   type GraphStep,
   type GraphTransition,
 } from '@zyklus/fup-model';
-import { t } from '../i18n';
+import { t, tx } from '../i18n';
 
 interface Props {
   project: PlcProject;
@@ -21,10 +21,10 @@ interface Props {
 }
 
 const QUALIFIERS: [ActionQualifier, string][] = [
-  ['N', 'N – solange aktiv'],
-  ['S', 'S – setzen'],
-  ['R', 'R – rücksetzen'],
-  ['D', 'D – verzögert'],
+  ['N', tx('N – solange aktiv', 'N – while active')],
+  ['S', tx('S – setzen', 'S – set')],
+  ['R', tx('R – rücksetzen', 'R – reset')],
+  ['D', tx('D – verzögert', 'D – delayed')],
 ];
 
 /**
@@ -59,7 +59,7 @@ export function GraphEditor({ project, block, diagnostics, onChange, activeStep 
   const addStep = () => {
     const no = Math.max(0, ...steps.map((s) => s.no)) + 1;
     set({
-      steps: [...steps, { id: fresh('s'), no, name: `Schritt ${no}`, actions: [] }],
+      steps: [...steps, { id: fresh('s'), no, name: `${tx('Schritt', 'Step')} ${no}`, actions: [] }],
       transitions,
     });
   };

@@ -18,7 +18,7 @@ import {
 } from '@zyklus/sim-core';
 import { formatDiagnostic, type ProjectDiagnostic } from '@zyklus/scl-compiler';
 import type { CpuCompileResult } from '@zyklus/levels';
-import { t } from '../i18n';
+import { msg, t, tx } from '../i18n';
 import { setCompletionSymbols } from '../monaco-setup';
 import { formatValue, useBoolFormat } from '../state/prefs';
 import { updateProject } from '../state/edit';
@@ -160,7 +160,10 @@ export function ProgramPanel({
 
   const project = cpuId ? solution.projects[cpuId] : undefined;
   const result = cpuId ? compiled.get(cpuId) : undefined;
-  const diagnostics = result?.diagnostics ?? [];
+  const diagnostics = useMemo(
+    () => (result?.diagnostics ?? []).map((d) => ({ ...d, message: msg(d.message) })),
+    [result],
+  );
   const codeBlocks = project?.blocks.filter(isCode) ?? [];
   const block =
     codeBlocks.find((b) => b.name === blockName) ?? codeBlocks.find((b) => b.name === MAIN_OB);
@@ -217,7 +220,12 @@ export function ProgramPanel({
       for (const [n, nw] of block.fup.networks.entries()) {
         const r = fupToLad(nw);
         if ('reason' in r) {
-          showNotice(`Netzwerk ${n + 1} lässt sich nicht in KOP darstellen: ${r.reason}`);
+          showNotice(
+            tx(
+              `Netzwerk ${n + 1} lässt sich nicht in KOP darstellen: ${r.reason}`,
+              `Network ${n + 1} cannot be shown in LAD: ${msg(r.reason)}`,
+            ),
+          );
           return;
         }
         lad.push(r.lad);
@@ -866,16 +874,16 @@ function Problems({
           <button key={i} className={`problem problem-${d.severity}`} onClick={() => onJump(d)}>
             <span className="problem-where">
               {d.location.part === 'code' && d.location.network !== undefined
-                ? `NW ${d.location.network + 1}${d.location.box ? ` · ${d.location.box}` : ''}${d.location.pin ? `.${d.location.pin}` : ''}`
+                ? `${t('problem.network')} ${d.location.network + 1}${d.location.box ? ` · ${d.location.box}` : ''}${d.location.pin ? `.${d.location.pin}` : ''}`
                 : d.location.part === 'code'
-                  ? `${d.location.block ?? ''} Z. ${d.start.line}`
+                  ? `${d.location.block ?? ''} ${t('problem.line')} ${d.start.line}`
                   : d.location.part === 'interface'
-                    ? `${d.location.block} · ${d.location.section} Zeile ${(d.location.row ?? 0) + 1}`
+                    ? `${d.location.block} · ${d.location.section} ${t('problem.row')} ${(d.location.row ?? 0) + 1}`
                     : d.location.part === 'tags'
-                      ? `Variablen Zeile ${(d.location.row ?? 0) + 1}`
-                      : (d.location.block ?? 'Projekt')}
+                      ? `${t('program.tags')} ${t('problem.row')} ${(d.location.row ?? 0) + 1}`
+                      : (d.location.block ?? t('problem.project'))}
             </span>
-            {formatDiagnostic(d).replace(/^(Fehler|Warnung) in Zeile \d+, Spalte \d+: /, '')}
+            {d.message}
           </button>
         ))
       )}

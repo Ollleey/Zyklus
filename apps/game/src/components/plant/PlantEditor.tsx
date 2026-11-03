@@ -22,7 +22,7 @@ import {
   type Workpiece,
   type WorkpieceSpec,
 } from '@zyklus/plant-sim';
-import { t } from '../../i18n';
+import { t, tx } from '../../i18n';
 import { Inspector } from './Inspector';
 import {
   PartSide,
@@ -58,10 +58,10 @@ const GRID = 10;
 const snap = (v: number, on: boolean) => (on ? Math.round(v / GRID) * GRID : Math.round(v));
 
 const CATEGORIES: [Category, string][] = [
-  ['foerder', 'Fördertechnik'],
-  ['aktor', 'Aktoren'],
-  ['bedien', 'Bedienelemente'],
-  ['sensor', 'Sensoren'],
+  ['foerder', tx('Fördertechnik', 'Conveying')],
+  ['aktor', tx('Aktoren', 'Actuators')],
+  ['bedien', tx('Bedienelemente', 'Controls')],
+  ['sensor', tx('Sensoren', 'Sensors')],
 ];
 
 const DRAG_PART = 'application/x-zyklus-part';

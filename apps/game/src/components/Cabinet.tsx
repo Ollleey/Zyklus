@@ -22,7 +22,7 @@ import {
   type PulseConfig,
   type Solution,
 } from '@zyklus/sim-core';
-import { t } from '../i18n';
+import { msg, t } from '../i18n';
 import {
   connect,
   disconnect,
@@ -680,7 +680,7 @@ export function Cabinet({
       {errors.length > 0 && (
         <ul className="issues">
           {errors.map((e, i) => (
-            <li key={i}>{e.message}</li>
+            <li key={i}>{msg(e.message)}</li>
           ))}
         </ul>
       )}
@@ -1065,7 +1065,7 @@ function ModuleInspector({
             <ol>
               {status.diagnostics.slice(0, 20).map((e, i) => (
                 <li key={i} className={`diag-${e.kind}`}>
-                  <span className="diag-time">{(e.time / 1000).toFixed(3)} s</span> {e.text}
+                  <span className="diag-time">{(e.time / 1000).toFixed(3)} s</span> {msg(e.text)}
                 </li>
               ))}
             </ol>

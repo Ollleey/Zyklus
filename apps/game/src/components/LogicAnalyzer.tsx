@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { tx } from '../i18n';
 import { compareTrace, tr, valueAt, type Edge, type Level, type TestCase } from '@zyklus/sim-core';
 import type { RunView } from '../sim/types';
 import { formatValue, useBoolFormat } from '../state/prefs';
@@ -72,11 +73,11 @@ export interface TraceConfig {
 }
 
 const COND_LABEL: Record<TriggerCond, string> = {
-  rise: 'steigende Flanke',
-  fall: 'fallende Flanke',
-  eq: 'Wert =',
-  gt: 'Wert >',
-  lt: 'Wert <',
+  rise: tx('steigende Flanke', 'rising edge'),
+  fall: tx('fallende Flanke', 'falling edge'),
+  eq: tx('Wert =', 'value ='),
+  gt: tx('Wert >', 'value >'),
+  lt: tx('Wert <', 'value <'),
 };
 
 /** Erster Zeitpunkt ab `from`, an dem die Triggerbedingung zutrifft */
@@ -177,7 +178,7 @@ export function LogicAnalyzer({ level, run, test, signals, resolveVariable }: Pr
       range: [0, 27648] as [number, number],
     }));
     for (const k of traceKeys ? traceKeys.split(',') : []) {
-      out.push({ key: k, label: `Anlage: ${k.slice(6)}`, analog: true, kind: 'plant' });
+      out.push({ key: k, label: `${tx('Anlage', 'Plant')}: ${k.slice(6)}`, analog: true, kind: 'plant' });
     }
     if (!signals) return out;
     const byKey = new Map(out.map((r) => [r.key, r]));
@@ -248,7 +249,7 @@ export function LogicAnalyzer({ level, run, test, signals, resolveVariable }: Pr
     if (!text || vars.includes(text)) return;
     const r = resolveVariable?.(text);
     if (!r || 'error' in r) {
-      setVarError(r && 'error' in r ? r.error : 'nicht möglich');
+      setVarError(r && 'error' in r ? r.error : tx('nicht möglich', 'not possible'));
       return;
     }
     setVarError('');
@@ -257,7 +258,7 @@ export function LogicAnalyzer({ level, run, test, signals, resolveVariable }: Pr
   };
   const status =
     hitAt !== null
-      ? `ausgelöst bei ${fmtT(hitAt)}${now < hitAt + trig.post ? ' – Nachlauf läuft' : ''}`
+      ? `${tx('ausgelöst bei', 'triggered at')} ${fmtT(hitAt)}${now < hitAt + trig.post ? tx(' – Nachlauf läuft', ' – post-trigger running') : ''}`
       : armedAt !== null
         ? 'wartet auf Trigger …'
         : '';
@@ -267,7 +268,7 @@ export function LogicAnalyzer({ level, run, test, signals, resolveVariable }: Pr
       <div className="trace-bar">
         <details className="trace-signals">
           <summary>
-            Signale ({shownRows.length}/{allRows.length})
+            {tx('Signale', 'Signals')} ({shownRows.length}/{allRows.length})
           </summary>
           <div className="trace-pop">
             {allRows.map((r) => (
@@ -302,7 +303,7 @@ export function LogicAnalyzer({ level, run, test, signals, resolveVariable }: Pr
               <div className="trace-addvar">
                 <input
                   value={varText}
-                  placeholder='+ Variable, z. B. "Daten".Wert'
+                  placeholder={tx('+ Variable, z. B. "Daten".Wert', '+ variable, e.g. "Daten".Wert')}
                   onChange={(e) => setVarText(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addVar()}
                   spellCheck={false}
@@ -349,7 +350,7 @@ export function LogicAnalyzer({ level, run, test, signals, resolveVariable }: Pr
           />
         )}
         <label className="trace-label">
-          Vorlauf{' '}
+          {tx('Vorlauf', 'Pre-trigger')}{' '}
           <input
             type="number"
             className="trace-num"
@@ -361,7 +362,7 @@ export function LogicAnalyzer({ level, run, test, signals, resolveVariable }: Pr
           ms
         </label>
         <label className="trace-label">
-          Nachlauf{' '}
+          {tx('Nachlauf', 'Post-trigger')}{' '}
           <input
             type="number"
             className="trace-num"
@@ -381,7 +382,7 @@ export function LogicAnalyzer({ level, run, test, signals, resolveVariable }: Pr
             onClick={() => setArmedAt(now)}
             title="Ab jetzt auf den Trigger warten"
           >
-            ● Scharf schalten
+            ● {tx('Scharf schalten', 'Arm')}
           </button>
         ) : (
           <button

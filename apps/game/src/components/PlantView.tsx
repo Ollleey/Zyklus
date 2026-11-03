@@ -1,6 +1,6 @@
 import { tr, type AlarmEntry, type Edge, type Level } from '@zyklus/sim-core';
 import { HmiPanel } from './HmiPanel';
-import { t } from '../i18n';
+import { t, tx } from '../i18n';
 import { formatBool, useBoolFormat } from '../state/prefs';
 
 interface Props {
@@ -300,9 +300,9 @@ export function PlantView({
               title={
                 manual
                   ? isSwitch
-                    ? 'Klick schaltet um'
-                    : 'Gedrückt halten'
-                  : 'Im Handbetrieb bedienbar'
+                    ? tx('Klick schaltet um', 'Click toggles')
+                    : tx('Gedrückt halten', 'Hold pressed')
+                  : tx('Im Handbetrieb bedienbar', 'Operable in manual mode')
               }
               onClick={() => manual && isSwitch && onActuate(d.id, !pressed)}
               onPointerDown={() => manual && !isSwitch && press(d.id)}
@@ -317,7 +317,7 @@ export function PlantView({
                 <span className="push-signal">
                   <span className={`led ${signal ? 'led-on' : ''}`} />
                   {d.id}
-                  {d.nc ? ' · Öffner' : ''} = {formatBool(signal, boolFormat)}
+                  {d.nc ? tx(' · Öffner', ' · NC') : ''} = {formatBool(signal, boolFormat)}
                 </span>
               </span>
             </button>
@@ -432,7 +432,7 @@ function StarDelta({ main, star, delta }: { main: boolean; star: boolean; delta:
         className={`motor-round ${main && (star || delta) ? 'motor-on' : ''}`}
       />
       <text x={200} y={110} className="plant-label">
-        {both ? 'KURZSCHLUSS' : main && star ? 'Stern' : main && delta ? 'Dreieck' : 'aus'}
+        {both ? tx('KURZSCHLUSS', 'SHORT CIRCUIT') : main && star ? tx('Stern', 'Star') : main && delta ? tx('Dreieck', 'Delta') : tx('aus', 'off')}
       </text>
     </g>
   );
@@ -543,7 +543,7 @@ function Conveyor({ offset, on }: { offset: number; on: boolean }) {
       <circle cx={342} cy={98} r={10} className="roller" />
       <rect x={160} y={112} width={80} height={24} rx={3} className="motor" />
       <text x={200} y={128} className={`plant-label ${on ? 'plant-on' : ''}`}>
-        M1 {on ? 'läuft' : 'steht'}
+        M1 {on ? tx('läuft', 'running') : tx('steht', 'stopped')}
       </text>
     </g>
   );
@@ -565,7 +565,7 @@ function Press({ pos, on }: { pos: number; on: boolean }) {
       />
       <rect x={155} y={124} width={90} height={14} className="anvil" />
       <text x={200} y={146} className={`plant-label ${on ? 'plant-on' : ''}`}>
-        Y1 {on ? 'fährt' : 'oben'}
+        Y1 {on ? tx('fährt', 'moving') : tx('oben', 'up')}
       </text>
     </g>
   );
@@ -767,7 +767,7 @@ function Pwm({ on, duty, setpoint }: { on: boolean; duty: number; setpoint: numb
         className={`band ${on ? 'band-on' : ''}`}
       />
       <text x={160} y={50} className="plant-label">
-        Heizband {on ? 'ein' : 'aus'}
+        {tx('Heizband', 'Heating band')} {on ? tx('ein', 'on') : tx('aus', 'off')}
       </text>
       <rect x={60} y={112} width={200} height={8} className="bar-bg" />
       <rect x={60} y={112} width={200 * Math.min(1, duty)} height={8} className="bar-display" />
@@ -807,7 +807,7 @@ function PumpHouse(p: { pump: boolean; run: boolean; fault: boolean; tripped: bo
         K1
       </text>
       <text x={297} y={124} className={`plant-label ${p.tripped ? 'plant-alarm' : ''}`}>
-        {p.tripped ? 'ausgelöst' : 'Motorschutz'}
+        {p.tripped ? tx('ausgelöst', 'tripped') : tx('Motorschutz', 'Motor protection')}
       </text>
       <path d="M192,120 v14" className="bus-link" />
     </g>
@@ -871,11 +871,11 @@ function DriveView({
       </text>
       <circle cx={300} cy={30} r={9} className={`bulb ${enabled ? 'bulb-on' : ''}`} />
       <text x={318} y={34} className="plant-label plant-left">
-        Freigabe
+        {tx('Freigabe', 'Enable')}
       </text>
       {overload > 0 && (
         <text x={200} y={30} className="plant-label plant-alarm">
-          {overload}× gekippt
+          {overload}× {tx('gekippt', 'tipped over')}
         </text>
       )}
     </g>
@@ -923,7 +923,7 @@ function AxisView({
         {pos.toFixed(1)} mm
       </text>
       <text x={300} y={34} className="plant-label">
-        {fast ? 'Eilgang' : slow ? 'Schleichgang' : 'steht'}
+        {fast ? tx('Eilgang', 'rapid') : slow ? tx('Schleichgang', 'creep') : tx('steht', 'stopped')}
         {(fast || slow) && back ? ' ←' : fast || slow ? ' →' : ''}
       </text>
     </g>
@@ -938,7 +938,7 @@ function Lamp({ on }: { on: boolean }) {
       <line x1={200} y1={20} x2={200} y2={40} className="cord" />
       <circle cx={200} cy={62} r={22} className={`bulb ${on ? 'bulb-on' : ''}`} />
       <text x={200} y={132} className={`plant-label ${on ? 'plant-on' : ''}`}>
-        H1 {on ? 'an' : 'aus'}
+        H1 {on ? tx('an', 'on') : tx('aus', 'off')}
       </text>
     </g>
   );

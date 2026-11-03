@@ -1,0 +1,630 @@
+{
+  "02-zweihand": {
+    "title": "Two-hand control",
+    "customer": "Pressenwerk Ulmer & Söhne",
+    "mail.from": "Konrad Ulmer <k.ulmer@pressenwerk-ulmer.example>",
+    "mail.subject": "Press 7 – safety circuit",
+    "mail.body": "Good day,\n\nafter last week's accident the trade association shut down our press 7. The operators had taped one of the two buttons down to keep a hand free. That must never be possible again.\n\nWe need a real two-hand control: both buttons have to be pressed within half a second, and after every stroke both have to be released again.\n\nThe details are in the datasheet. Please test thoroughly – fingers are at stake.\n\nKind regards\nKonrad Ulmer\nPlant management",
+    "datasheet": "# Press 7 – two-hand control\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Left button, normally open |\n| S2 | DI | Right button, normally open |\n| Y1 | DO | Press valve, 1 = ram moves |\n\n## Function\n\n1. **Y1** may only be switched on while **both** buttons are pressed.\n2. The second button must be pressed **within 0.5 s** after the first. Otherwise the press stays off until both buttons have been released.\n3. If a button is released, Y1 drops out immediately. Pressing only that button again does **not** restart the press – first **both** buttons must be released.\n4. The order of the buttons does not matter.\n\n## Timing\n\nY1 must react no later than 15 ms after the second button press or after releasing.\n\n## Note\n\nTimers need an instance DB, e.g. `\"Fenster\"` of type `IEC_TIMER`, called with `\"Fenster\".TON(IN := …, PT := T#500ms);`. States that must persist over several cycles belong in a global DB.",
+    "devices": {
+      "S1": "Left button (S1)",
+      "S2": "Right button (S2)",
+      "Y1": "Press valve (Y1)"
+    },
+    "tests": {
+      "gleichzeitig": "Both buttons at once",
+      "andere-reihenfolge": "Right first, just within 0.5 s",
+      "zu-spaet": "Second button too late",
+      "nachgreifen": "One button pressed again",
+      "zwei-huebe": "Two strokes in a row"
+    },
+    "checks": {}
+  },
+  "03-stromstoss": {
+    "title": "Impulse switch with bouncing button",
+    "customer": "Haustechnik Lindner KG",
+    "mail.from": "Mara Lindner <mara@haustechnik-lindner.example>",
+    "mail.subject": "Corridor light acting up",
+    "mail.body": "Hi all,\n\nin the office building Am Wehr we replaced the old impulse relays with a small controller. Since then the tenants complain: sometimes the light goes on when pressed and immediately off again, sometimes nothing happens at all.\n\nI suspect the old buttons – they bounce like crazy. One press on, one press off, that's all anyone wants. Could you solve this cleanly?\n\nThanks and best regards\nMara Lindner",
+    "datasheet": "# Corridor light Am Wehr\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Light button, normally open, **bounces** |\n| H1 | DO | Corridor lighting, 1 = on |\n\n## Bouncing of S1\n\nWhen pressed and released, the contact switches 2 to 6 extra times, 1 to 5 ms apart. After that the signal is stable.\n\n## Function\n\n1. Every press of **S1** toggles **H1** (on → off → on …).\n2. Releasing the button changes nothing.\n3. One press must toggle **exactly once** – bouncing must not cause extra toggles.\n\n## Timing\n\nThe lamp should toggle **15 to 65 ms** after the press. Faster is not possible without falling for the bounce.\n\n## Note\n\nA proven approach: only treat the signal as pressed once it has been stable for a certain time (on-delay), then evaluate the rising edge (`R_TRIG`).",
+    "devices": {
+      "S1": "Light button (S1)",
+      "H1": "Corridor lighting (H1)"
+    },
+    "tests": {
+      "ein-aus": "On and off again",
+      "schnell": "Quickly one after another"
+    },
+    "checks": {}
+  },
+  "04-ampel": {
+    "title": "Roadworks traffic light",
+    "customer": "Stadtwerke Kleinhausen",
+    "mail.from": "Bernd Aigner <b.aigner@stadtwerke-kleinhausen.example>",
+    "mail.subject": "Traffic light for the bridge repair",
+    "mail.body": "Hello,\n\nfrom Monday we are repairing the Mühlbach bridge, traffic runs in a single lane. Our rented traffic light is broken, and until a replacement arrives we need our own controller.\n\nThe sequence is the usual: red, red-amber, green, amber, red again. The times are in the datasheet. The key switch turns the light on and off. When switched on it must always start with red.\n\nBest regards\nBernd Aigner\nCivil engineering",
+    "datasheet": "# Roadworks traffic light\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Key switch “Operation” (1 = on) |\n| H1 | DO | Red |\n| H2 | DO | Amber |\n| H3 | DO | Green |\n\n## Sequence (repeats while S1 = 1)\n\n| Phase | Duration | Red | Amber | Green |\n|---|---|---|---|---|\n| Red | 3 s | 1 | 0 | 0 |\n| Red-amber | 1 s | 1 | 1 | 0 |\n| Green | 3 s | 0 | 0 | 1 |\n| Amber | 1 s | 0 | 1 | 0 |\n\n## Function\n\n1. With S1 = 1 the sequence starts with the phase **red**.\n2. With S1 = 0 all lamps are off immediately.\n3. Switching on again starts at red again.\n\n## Timing\n\nSwitching times may deviate by at most ±60 ms.\n\n## Note\n\nA single timer for the whole cycle is enough: the elapsed time `ET` can be compared with time constants, e.g. `\"Takt\".ET < T#3s`.",
+    "devices": {
+      "S1": "Key switch operation (S1)",
+      "H1": "Red (H1)",
+      "H2": "Amber (H2)",
+      "H3": "Green (H3)"
+    },
+    "tests": {
+      "umlauf": "One and a half cycles",
+      "aus-und-ein": "Switch off and restart"
+    },
+    "checks": {}
+  },
+  "05-zaehler": {
+    "title": "Part counter with light barrier",
+    "customer": "Verpackungstechnik Brandl",
+    "mail.from": "Sabine Brandl <s.brandl@brandl-verpackung.example>",
+    "mail.subject": "Boxes are shipped half empty",
+    "mail.body": "Good morning,\n\non line 2 the parts drop from the belt into a box. After five parts a lamp should light up so the operator swaps the box and acknowledges.\n\nBut the old controller often reports “full” after just two or three parts. I looked at the light barrier: when a part passes, the signal flutters at the edges. Please program it so that every part counts exactly once.\n\nKind regards\nSabine Brandl",
+    "datasheet": "# Line 2 – box counter\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | DI | Light barrier, 1 = part in the beam (approx. 100 ms per part), **flutters** at the edges |\n| S1 | DI | Button “Acknowledge”, normally open |\n| H1 | DO | Lamp “Box full” |\n\n## Fluttering of B1\n\nWhen a part enters and leaves, the signal switches 2 to 8 extra times, 1 to 3 ms apart.\n\n## Function\n\n1. Every part counts exactly once.\n2. After the **5th part** H1 lights up.\n3. **S1** resets the counter to 0 and clears H1 – even if the box was not full yet.\n\n## Timing\n\nH1 should come on **0 to 70 ms** after the 5th part enters; after S1 off immediately.\n\n## Note\n\nCounters need an instance DB, e.g. of type `CTU_INT` or `IEC_COUNTER`.",
+    "devices": {
+      "B1": "Light barrier (B1)",
+      "S1": "Acknowledge button (S1)",
+      "H1": "Lamp box full (H1)"
+    },
+    "tests": {
+      "zwei-kartons": "Two full boxes",
+      "frueh-quittiert": "Acknowledge with a half-full box"
+    },
+    "checks": {}
+  },
+  "06-stern-dreieck": {
+    "title": "Star-delta starting",
+    "customer": "Mühle Ostertag",
+    "mail.from": "Jakob Ostertag <jakob@muehle-ostertag.example>",
+    "mail.subject": "Fuse blows when starting",
+    "mail.body": "Hi,\n\nour big fan motor is started in star-delta so the inrush current doesn't blow the fuse. Since the conversion there's a bang every now and then when switching over – the electrician says the star and delta contactors were briefly closed at the same time. That's a short circuit!\n\nPlease build a controller that reliably prevents it. The contactors don't switch instantly, that's in the datasheet of the relay module.\n\nGreetings from the mill\nJakob Ostertag",
+    "datasheet": "# Fan – star-delta starting\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Button “Start”, normally open |\n| S2 | DI | Button “Stop”, **normally closed** |\n| K1 | DO | Mains contactor – **power output** |\n| K2 | DO | Star contactor – **power output** |\n| K3 | DO | Delta contactor – **power output** |\n\nContactors must be driven via a **relay module (REL 4)**. Its contacts close 15 ms after the command and only open 30 ms after it.\n\n## Sequence\n\n1. **Start:** K1 and K2 on (star operation).\n2. After **2 s**: K2 off.\n3. **Changeover pause** of at least 50 ms, at most 200 ms.\n4. K3 on (delta operation), K1 stays on.\n5. **Stop** (or a wire break at S2) switches everything off immediately. Stop has priority over start.\n\n## Safety\n\n**K2 and K3 must never be closed at the same time** – not even for a millisecond.",
+    "devices": {
+      "S1": "Start button (S1)",
+      "S2": "Stop button, NC (S2)",
+      "K1": "Mains contactor (K1)",
+      "K2": "Star contactor (K2)",
+      "K3": "Delta contactor (K3)"
+    },
+    "tests": {
+      "anlauf": "Start and stop",
+      "stopp-im-stern": "Stop during star operation",
+      "start-bei-stopp": "Start while stop is pressed"
+    },
+    "checks": {
+      "Dreieckbetrieb nach max. 200 ms Pause": "Delta operation after at most 200 ms pause",
+      "Kein Dreieck vor Ablauf der Sternzeit": "No delta before the star time has elapsed",
+      "Kein Dreieckbetrieb": "No delta operation",
+      "Motor bleibt aus": "Motor stays off",
+      "Nach Stopp alles aus (K1)": "Everything off after stop (K1)",
+      "Nach Stopp alles aus (K2)": "Everything off after stop (K2)",
+      "Nach Stopp: Dreieckschütz aus": "After stop: delta contactor off",
+      "Nach Stopp: Netzschütz aus": "After stop: mains contactor off",
+      "Netzschütz im Betrieb ein": "Mains contactor on during operation",
+      "Netzschütz läuft an": "Mains contactor switches on",
+      "Stern- und Dreieckschütz nie gleichzeitig": "Star and delta contactor never at the same time",
+      "Sternbetrieb ca. 2 s": "Star operation approx. 2 s",
+      "Sternschütz nach dem Umschalten aus": "Star contactor off after changeover"
+    }
+  },
+  "07-tank": {
+    "title": "Elevated tank with level control",
+    "customer": "Zweckverband Wasser Talgrund",
+    "mail.from": "Petra Wendlinger <p.wendlinger@wasser-talgrund.example>",
+    "mail.subject": "Pump is switching itself to death",
+    "mail.body": "Hello,\n\nthe Talgrund elevated tank is filled by a pump from the well. The level probe delivers an analog signal. Our current controller switches the pump on and off at 60 % – and because the signal jitters a little, it switches dozens of times a minute there. The second pump this year is already broken.\n\nPlease: pump on below 40 %, off above 80 %. In between it should simply stay as it is.\n\nBest regards\nPetra Wendlinger\nNetwork operations",
+    "datasheet": "# Elevated tank Talgrund\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Level probe 0…100 % → 0…27648, **noisy** (± approx. 0.3 %) |\n| P1 | DO | Well pump – **power output** (via REL 4) |\n\n## Plant\n\nThe pump fills at 12 %/s, consumption draws 2 to 9 %/s depending on the time of day. Initial level 50 %.\n\n## Function (two-point control with hysteresis)\n\n1. Level **below 40 %** → pump on.\n2. Level **above 80 %** → pump off.\n3. In between the pump keeps its state.\n\n## Verification\n\n- The level stays between 35 % and 85 %.\n- The pump switches at most 10 times per test.\n\n## Note\n\nRaw value in percent: `NORM_X(MIN := 0, VALUE := \"Fuellstand\", MAX := 27648)` gives 0.0…1.0, `SCALE_X` scales to 0.0…100.0.",
+    "devices": {
+      "B1": "Level probe (B1)",
+      "P1": "Well pump (P1)"
+    },
+    "tests": {
+      "normal": "Normal consumption",
+      "wechselnd": "Changing consumption"
+    },
+    "checks": {
+      "Füllstand zwischen 35 % und 85 %": "Level between 35 % and 85 %",
+      "Pumpe schaltet höchstens 10-mal": "Pump switches at most 10 times"
+    }
+  },
+  "08-drahtbruch": {
+    "title": "Wire break at the temperature sensor",
+    "customer": "Lackiererei Seidel",
+    "mail.from": "Tobias Seidel <t.seidel@lackiererei-seidel.example>",
+    "mail.subject": "Drying oven – almost burned down",
+    "mail.body": "Hello,\n\nlast night the cable to the temperature sensor of the drying oven chafed through. The controller read a nonsense value and kept the heating running. Luckily the over-temperature switch tripped.\n\nWe need a temperature control that detects a sensor fault, then immediately switches off the heating and sets a fault lamp. The lamp should only go out once someone has acknowledged and the sensor is fine again.\n\nRegards\nTobias Seidel",
+    "datasheet": "# Drying oven – temperature control\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Temperature sensor 0…150 °C → 0…27648 |\n| S1 | DI | Button “Acknowledge”, normally open |\n| K1 | DO | Heating contactor – **power output** (via REL 4) |\n| H1 | DO | Fault lamp |\n\n## Sensor faults\n\nOn **wire break** or **overflow** the module delivers the raw value **32767**, on **underflow** **−32768**. Valid values lie between −4864 and 32511.\n\n## Function\n\n1. **Control:** below 60 °C heating on, above 65 °C heating off, unchanged in between.\n2. **Sensor fault:** substitute reaction “heating **off**” (safe state), **H1 on**.\n3. When the fault ends, the heating controls normally again right away.\n4. **H1** stays on until **S1** is pressed **and** no fault is present any more.\n\n## Timing\n\nDeviation at most ±40 ms. Mind the relay switching times (on 15 ms, off 30 ms).",
+    "devices": {
+      "B1": "Temperature sensor (B1)",
+      "S1": "Acknowledge button (S1)",
+      "K1": "Heating contactor (K1)",
+      "H1": "Fault lamp (H1)"
+    },
+    "tests": {
+      "rampe-und-bruch": "Control and wire break",
+      "ohne-quittung": "Short break, not acknowledged",
+      "quittieren-waehrend-bruch": "Acknowledge during the fault"
+    },
+    "checks": {}
+  },
+  "09-mittelwert": {
+    "title": "Calm display for a restless value",
+    "customer": "Brauerei Kranz",
+    "mail.from": "Lena Kranz <lena@brauerei-kranz.example>",
+    "mail.subject": "Flow display jumps around",
+    "mail.body": "Hello,\n\nin the brewhouse the flow display at the wort cooler jumps so wildly that nobody can read what is really flowing. The manufacturer says the noise comes from the flow and is normal – you just have to smooth the value.\n\nCan you condition the analog signal so the display is calm but still follows the real flow?\n\nCheers and thanks!\nLena Kranz",
+    "datasheet": "# Brewhouse – flow display\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Flow meter 0…100 m³/h → 0…27648, **very noisy** (standard deviation approx. 900 digits) |\n| A1 | AO | Display 0…100 m³/h ← 0…27648 |\n\n## Function\n\nA1 shows the **smoothed** measured value. The display may deviate from the true flow by at most **±1200 digits** (approx. 4 m³/h) – from 0.5 s after the start.\n\n## Notes\n\n- **Moving average:** mean of the last n values.\n- **Exponential average** (simpler, no buffer): `y := y + (x − y) / n` in every cycle. A larger n smooths more but reacts more slowly.\n- Keep intermediate values as `Real` in a global DB; for output `REAL_TO_INT`.",
+    "devices": {
+      "B1": "Flow meter (B1)",
+      "A1": "Display (A1)"
+    },
+    "tests": {
+      "rampe": "Flow rises slowly",
+      "konstant": "Constant flow"
+    },
+    "checks": {
+      "Anzeige folgt dem Durchfluss (±1200)": "Display follows the flow (±1200)",
+      "Anzeige ruhig (±1200)": "Display calm (±1200)"
+    }
+  },
+  "10-bohrstation": {
+    "title": "Drilling station as a sequence",
+    "customer": "Feinmechanik Ostermann KG",
+    "mail.from": "Jonas Ostermann <j.ostermann@feinmechanik-ostermann.example>",
+    "mail.subject": "Drilling station – please as a step sequence",
+    "mail.body": "Hello,\n\nour drilling station should finally run automatically: insert the workpiece, press start, done. The last attempt was a tangle of memory bits, and the drill got stuck in the material twice.\n\nPlease make it a clean step sequence – one step after the other, each with a clear condition to move on. The order is in the datasheet.\n\nRegards\nJonas Ostermann",
+    "datasheet": "# Drilling station BS-2\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Start button |\n| B1 | DI | Drill up (end position) |\n| B2 | DI | Drill down (drilling depth reached) |\n| B3 | DI | Workpiece clamped |\n| Y1 | DO | Clamping cylinder (1 = clamp) |\n| M1 | DO | Drill motor – **power output** (via REL 4) |\n| Y2 | DO | Feed down |\n| Y3 | DO | Feed up |\n\n## Sequence\n\n| Step | Activity | next when |\n|---|---|---|\n| 0 Home | everything off | start **pressed** (edge) and drill up |\n| 1 Clamp | Y1 | workpiece clamped (B3) |\n| 2 Drill | Y1, M1, Y2 | drilling depth reached (B2) |\n| 3 Dwell | Y1, M1 | at least **250 ms** at the bottom |\n| 4 Lift | Y1, M1, Y3 | drill up (B1) |\n| 5 Release | everything off | workpiece no longer clamped (B3 = 0) |\n\n## Mechanics\n\nClamping takes 150 ms, lowering 1 s, lifting 0.5 s. From 60 % depth the drill is inside the workpiece: there the workpiece must be clamped and the motor running, otherwise there is **damage**. Lowering and lifting at the same time jams the feed.\n\n## Note\n\nStep number in a data block (Int), advance with `CASE … OF`, then derive the outputs from the step number. Alternatively write the sequence in a function block in **GRAPH**.",
+    "devices": {
+      "S1": "Start button (S1)",
+      "B1": "Drill up (B1)",
+      "B2": "Drill down (B2)",
+      "B3": "Workpiece clamped (B3)",
+      "Y1": "Clamping cylinder (Y1)",
+      "M1": "Drill motor (M1)",
+      "Y2": "Feed down (Y2)",
+      "Y3": "Feed up (Y3)"
+    },
+    "tests": {
+      "drei": "Three workpieces",
+      "ungeduldig": "Impatient operator"
+    },
+    "checks": {
+      "2 saubere Bohrungen": "2 clean holes",
+      "3 saubere Bohrungen": "3 clean holes",
+      "Festhalten von Start löst keinen neuen Ablauf aus": "Holding start does not trigger a new cycle",
+      "Kein Schaden an Bohrer oder Werkstück": "No damage to drill or workpiece",
+      "Keine Bohrung ohne Verweilzeit": "No hole without dwell time",
+      "Senken und Heben nie gleichzeitig": "Lowering and lifting never at the same time"
+    }
+  },
+  "11-sortierweiche": {
+    "title": "Sorting diverter by height",
+    "customer": "Paketzentrum Nordheide",
+    "mail.from": "Aylin Karaca <a.karaca@pz-nordheide.example>",
+    "mail.subject": "Tall parcels end up on the wrong chute",
+    "mail.body": "Hi,\n\non the sorting belt we measure the parcel height at the first light barrier. The diverter, however, sits almost a metre further on. As long as there's only one parcel on the track everything works – but when it gets busy, the diverter is set for the parcel that was just measured, not for the one that is just arriving.\n\nSo the controller has to remember what is on its way. Can you manage that?\n\nAylin Karaca\nEngineering",
+    "datasheet": "# Sorting track SW-1\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | DI | Light barrier at the measuring point (1 = parcel present) |\n| B2 | AI | Height sensor above B1, 0…300 mm → 0…27648, slightly noisy |\n| B3 | DI | Light barrier before the diverter |\n| Y1 | DO | Diverter (1 = tall parcels to the side) |\n\n## Track\n\nThe belt always runs. A parcel needs **900 ms** from B1 to B3 and occupies a light barrier for 250 ms. Parcels follow at least 350 ms apart – so three or more can be on the way at the same time.\n\n## Function\n\n- Parcels **taller than 120 mm** go to the side (Y1 = 1), lower ones straight on (Y1 = 0).\n- What counts is the diverter position at the moment the parcel **leaves** B3.\n- Measuring happens while the parcel is in B1.\n\n## Note\n\nParcels don't overtake each other. A queue of bits fits in a Word: `SHL`/`SHR` shift, `AND`/`OR` set and read.",
+    "devices": {
+      "B1": "Light barrier measuring point (B1)",
+      "B2": "Height sensor (B2)",
+      "B3": "Light barrier diverter (B3)",
+      "Y1": "Diverter (Y1)"
+    },
+    "tests": {
+      "locker": "Light traffic",
+      "dicht": "Dense traffic"
+    },
+    "checks": {
+      "Alle 14 Pakete sortiert": "All 14 parcels sorted",
+      "Alle 8 Pakete sortiert": "All 8 parcels sorted",
+      "Kein Paket falsch einsortiert": "No parcel sorted wrongly"
+    }
+  },
+  "12-pwm": {
+    "title": "Heating band in cycles",
+    "customer": "Kunststofftechnik Lindauer",
+    "mail.from": "Moritz Lindauer <m.lindauer@kt-lindauer.example>",
+    "mail.subject": "Heating band stepless – but only with a switching output",
+    "mail.body": "Hello,\n\nthe heating band at the extruder nozzle hangs on a solid-state relay that can only do on/off. We still want to set the power with the potentiometer: 0 to 100 %.\n\nThe idea: switch on every second and off again sooner or later depending on the setpoint. Unfortunately there's no analog output.\n\nBest regards\nMoritz Lindauer",
+    "datasheet": "# Nozzle heating DH-3\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Enable (switch) |\n| B1 | AI | Power potentiometer 0…100 % → 0…27648 |\n| E1 | DO | Solid-state relay heating band |\n\n## Function (pulse width modulation)\n\n- Period **1 s**.\n- In every period E1 is on for as long as the setpoint says: 30 % → 300 ms on, 700 ms off.\n- Without enable E1 stays off.\n\n## Verification\n\nIn every one-second window the on-share must be accurate to **3 percentage points**. The window right after a setpoint change is not evaluated.\n\n## Note\n\nA timer that restarts itself (`IN := NOT Q`) gives, via `ET`, a running time within the period. `TIME_TO_DINT` converts it to milliseconds.",
+    "devices": {
+      "S1": "Enable (S1)",
+      "B1": "Power potentiometer (B1)",
+      "E1": "Heating band (E1)"
+    },
+    "tests": {
+      "stufen": "Setpoint steps",
+      "freigabe": "Enable off and on"
+    },
+    "checks": {
+      "Tastverhältnis = Sollwert (± 3 %)": "Duty cycle = setpoint (± 3 %)"
+    }
+  },
+  "13-koppel": {
+    "title": "Pump house and control room",
+    "customer": "Stadtwerke Rabenfeld",
+    "mail.from": "Dr. Ines Kowalczyk <i.kowalczyk@sw-rabenfeld.example>",
+    "mail.subject": "Two cabinets, one pump",
+    "mail.body": "Good day,\n\nthe controls for the waste-water pump are in the control room, the pump itself in the pump house next door. Between them is a fire wall – no cables may pass. Only the bus cable between two coupler modules is allowed.\n\nSo: one CPU per side, and the two have to talk to each other. Details in the datasheet.\n\nKind regards\nI. Kowalczyk",
+    "datasheet": "# Pumping station Rabenfeld\n\n## Field devices\n\n| Device | Side | Kind | Description |\n|---|---|---|---|\n| S1 | Control room | DI | Pump on (switch) |\n| S2 | Control room | DI | Acknowledge (button) |\n| H1 | Control room | DO | Lamp running |\n| H2 | Control room | DO | Lamp fault |\n| B1 | Pump house | DI | Motor protection – **normally closed** (1 = OK) |\n| K1 | Pump house | DO | Pump contactor – **power output** (via REL 4) |\n\n## Cabinet\n\nThere is a **partition** in the middle: no module on it, no cable through it. Each side needs its own CPU. A **coupler module (KOP)** per CPU connects the two: what one CPU writes to %QW100 and %QW102, the other reads in %IW100 and %IW102 – from its next cycle. Single bits work too: %Q100.0 arrives as %I100.0.\n\n## Function\n\n1. The pump runs while S1 is on and no fault is present.\n2. If the motor protection trips (B1 = 0), a **fault is latched**: pump off, H2 on.\n3. S2 clears the fault – but only once the motor protection is OK again.\n4. H1 shows that the pump is switched on.",
+    "devices": {
+      "S1": "Pump on (S1)",
+      "S2": "Acknowledge (S2)",
+      "H1": "Lamp running (H1)",
+      "H2": "Lamp fault (H2)",
+      "B1": "Motor protection (B1)",
+      "K1": "Pump contactor (K1)"
+    },
+    "tests": {
+      "stoerung": "Fault and acknowledge",
+      "aus": "Fault with the pump switched off"
+    },
+    "checks": {}
+  },
+  "14-impulse": {
+    "title": "Filling by pulses",
+    "customer": "Mosterei Hagedorn",
+    "mail.from": "Greta Hagedorn <greta@mosterei-hagedorn.example>",
+    "mail.subject": "Bottles overflow",
+    "mail.body": "Hello,\n\nour flow meter gives one pulse per tenth of a litre – very short, only 2 ms. Filling should close after 120 pulses. But our controller counts too few and the bottles overflow.\n\nThe dealer said we'd need an “interrupt-capable input card”. We're not allowed to use a faster CPU, the medium one is mandatory.\n\nBest regards\nGreta Hagedorn",
+    "datasheet": "# Filling AF-120\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Start filling (button) |\n| B1 | DI | Flow meter: **2 ms pulse** per 0.1 l, 9…22 ms apart |\n| Y1 | DO | Filling valve |\n\n## Function\n\n1. Start opens the valve and starts counting at 0.\n2. At the **120th pulse** the valve closes (no later than 30 ms after it).\n\n## Hardware\n\nOnly the **CPU mittel** (5 ms cycle) is permitted – a pulse is shorter than its cycle. The **DI 8 HF** input card can trigger a **hardware interrupt** on every edge: the CPU then interrupts immediately and runs an interrupt OB (OB40). Its channel 0 can alternatively count pulses as a **high-speed counter**.\n\n## Note\n\nCreate an OB of type *hardware interrupt* in the block tree and set input and edge. The interrupt OB counts, OB1 controls the valve. Both share a data block.",
+    "devices": {
+      "S1": "Start filling (S1)",
+      "B1": "Flow meter (B1)",
+      "Y1": "Filling valve (Y1)"
+    },
+    "tests": {
+      "eine": "One bottle",
+      "zwei": "Two bottles"
+    },
+    "checks": {}
+  },
+  "15-pi-regler": {
+    "title": "Temperature control for the hardening furnace",
+    "customer": "Härterei Brandtner",
+    "mail.from": "Felix Brandtner <f.brandtner@haerterei-brandtner.example>",
+    "mail.subject": "Furnace never reaches the temperature",
+    "mail.body": "Hi,\n\nour tempering furnace always stays a few degrees below the setpoint. If you turn the gain up, it starts to oscillate. A colleague said we're missing the integral part.\n\nCan you build us a PI controller? The furnace reacts sluggishly and with a delay, details in the datasheet.\n\nFelix Brandtner",
+    "datasheet": "# Tempering furnace AO-200\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Furnace temperature 0…200 °C → 0…27648, noisy |\n| B2 | AI | Setpoint adjuster 0…200 °C |\n| E1 | AO | Heating power 0…100 % → 0…27648 |\n\n## Process\n\nFirst-order lag with dead time: 100 % heating power results in 20 °C + 180 °C in the steady state. Time constant **6 s**, dead time **1.5 s**. Without heating the furnace cools down to 20 °C. Opening the door loses up to 25 °C.\n\n## Requirement\n\n- After settling **± 2 °C** around the setpoint.\n- At most 8 °C overshoot.\n\n## Note (PI controller)\n\n`y = Kp · (e + 1/Ti · ∫e dt)` with e = setpoint − actual. Starting values: Kp = 1.5 %/°C, Ti = 5 s. Sample evenly: a **cyclic interrupt OB** (e.g. OB30, every 100 ms) calls the controller; an own **FB** “PI” keeps the integral in its static data. Limit the output to 0…100 % and then stop integrating (anti-windup).",
+    "devices": {
+      "B1": "Furnace temperature (B1)",
+      "B2": "Setpoint adjuster (B2)",
+      "E1": "Heating power (E1)"
+    },
+    "tests": {
+      "anfahren": "Heating up to 120 °C",
+      "stufe": "Setpoint step and door open"
+    },
+    "checks": {
+      "120 °C ± 2 °C zwischen 25 s und 40 s": "120 °C ± 2 °C between 25 s and 40 s",
+      "150 °C ± 2 °C zwischen 52 s und 60 s": "150 °C ± 2 °C between 52 s and 60 s",
+      "150 °C ± 2 °C zwischen 80 s und 90 s": "150 °C ± 2 °C between 80 s and 90 s",
+      "80 °C ± 2 °C zwischen 20 s und 30 s": "80 °C ± 2 °C between 20 s and 30 s",
+      "Kein Überschwingen über Sollwert + 8 °C": "No overshoot above setpoint + 8 °C"
+    }
+  },
+  "16-zwei-behaelter": {
+    "title": "Two tanks, one controller",
+    "customer": "Brauerei Kaltenecker",
+    "mail.from": "Lena Kaltenecker <l.kaltenecker@brauerei-kaltenecker.example>",
+    "mail.subject": "New level probes – and nobody notices the cable break",
+    "mail.body": "Hello,\n\nwe installed new 4–20 mA level probes in both supply tanks. The pumps should refill as before, each tank on its own.\n\nThe real reason for the change: last month a probe cable was torn off, the old controller read 0 % and kept the pump running until the tank overflowed. With 4–20 mA that should no longer happen.\n\nRegards\nLena Kaltenecker",
+    "datasheet": "# Supply tanks VB-1 and VB-2\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Level VB-1, 0…100 %, **4–20 mA** |\n| B2 | AI | Level VB-2, 0…100 %, **4–20 mA** |\n| P1 | DO | Pump VB-1 – power output (via REL 4) |\n| P2 | DO | Pump VB-2 – power output (via REL 4) |\n| H1 | DO | Lamp fault |\n\n## Function per tank\n\n1. Level **below 40 %** → pump on.\n2. Level **above 80 %** → pump off.\n3. **Wire break** of the probe (raw value 32767) → pump off immediately, H1 on while the fault is present.\n\n## Analog inputs\n\nAnalog channels are set to **0–10 V** by default. A 4–20 mA probe on a 0–10 V channel only delivers overflow. The measuring range is set on the plugged-in module (click the module). Only in the 4–20 mA range does the channel detect a wire break.\n\n## Note\n\nBoth tanks behave the same – an own function (FC), called twice, saves statements.",
+    "devices": {
+      "B1": "Level VB-1 (B1)",
+      "B2": "Level VB-2 (B2)",
+      "P1": "Pump VB-1 (P1)",
+      "P2": "Pump VB-2 (P2)",
+      "H1": "Lamp fault (H1)"
+    },
+    "tests": {
+      "normal": "Normal operation",
+      "kabelbruch": "Cable break at B1"
+    },
+    "checks": {
+      "Keine Störmeldung": "No fault indication",
+      "Keine Störung vorher": "No fault before",
+      "P1 aus während des Kabelbruchs": "P1 off during the cable break",
+      "P1 schaltet höchstens 10-mal": "P1 switches at most 10 times",
+      "P2 schaltet höchstens 10-mal": "P2 switches at most 10 times",
+      "Störung während des Kabelbruchs": "Fault during the cable break",
+      "VB-1 läuft nie über": "VB-1 never overflows",
+      "VB-1 zwischen 35 % und 85 %": "VB-1 between 35 % and 85 %",
+      "VB-2 läuft unbeeinflusst weiter": "VB-2 keeps running unaffected",
+      "VB-2 zwischen 35 % und 85 %": "VB-2 between 35 % and 85 %"
+    }
+  },
+  "17-frequenzumrichter": {
+    "title": "Conveyor on a frequency inverter",
+    "customer": "Logistikzentrum Weißenfeld",
+    "mail.from": "Tomasz Nowak <t.nowak@lz-weissenfeld.example>",
+    "mail.subject": "Belt knocks the boxes over when starting",
+    "mail.body": "Hello,\n\nour feed belt now hangs on a frequency inverter. Unfortunately the inverter does exactly what it's told: if the setpoint jumps, the belt jumps – and the boxes fall over.\n\nThe operator sets the speed with the potentiometer. The controller should ramp up and down smoothly and report when the belt has reached its speed. The feedback comes from the inverter.\n\nTomasz Nowak",
+    "datasheet": "# Feed belt ZB-3\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Belt on (switch) |\n| B1 | AI | Speed potentiometer 0…100 %, **0–10 V** |\n| H1 | DO | Lamp “Speed reached” |\n| K1 | DO | Inverter enable |\n| A1 | AO | Frequency setpoint 0…50 Hz, **0–10 V** |\n| B2 | AI | Actual frequency from the inverter 0…50 Hz, **4–20 mA** |\n\n## Function\n\n1. Potentiometer 0…100 % corresponds to 0…50 Hz.\n2. With S1 on: K1 on, the setpoint at A1 ramps at **10 Hz/s** to the potentiometer value.\n3. S1 off: the setpoint ramps at 10 Hz/s to 0, then K1 off.\n4. H1 lights up when S1 is on and the **actual frequency** (B2) matches the potentiometer value to within 1 Hz.\n\n## Inverter\n\nThe inverter has no ramp of its own. If the frequency changes faster than **15 Hz/s**, the boxes tip over (overload). Without enable the belt coasts down.\n\n## Note\n\nOB1 runs at the CPU's fixed cycle. With a 10 ms cycle, 10 Hz/s is exactly 0.1 Hz per cycle – a faster CPU needs a smaller step. Analog channels are set to 0–10 V by default.",
+    "devices": {
+      "S1": "Belt on (S1)",
+      "B1": "Speed potentiometer (B1)",
+      "H1": "Lamp speed reached (H1)",
+      "K1": "Inverter enable (K1)",
+      "A1": "Frequency setpoint (A1)",
+      "B2": "Inverter actual frequency (B2)"
+    },
+    "tests": {
+      "fahrt": "Start, faster, stop",
+      "unterbrochen": "Briefly off and on again"
+    },
+    "checks": {
+      "30 Hz am Ende": "30 Hz at the end",
+      "30 Hz nach dem Anfahren": "30 Hz after starting",
+      "50 Hz nach der Erhöhung": "50 Hz after the increase",
+      "Band steht am Ende": "Belt stopped at the end",
+      "Freigabe am Ende aus": "Enable off at the end",
+      "Freigabe während der Fahrt": "Enable while running",
+      "H1 aus beim Hochfahren": "H1 off while ramping up",
+      "H1 meldet erreicht": "H1 reports reached",
+      "H1 meldet erreicht (30 Hz)": "H1 reports reached (30 Hz)",
+      "H1 meldet erreicht (50 Hz)": "H1 reports reached (50 Hz)",
+      "Keine Überlastung": "No overload"
+    }
+  },
+  "18-lackmischer": {
+    "title": "Paint mixer with recipes",
+    "customer": "Lackfabrik Oberhuber",
+    "mail.from": "Theresa Oberhuber <t.oberhuber@oberhuber-lacke.example>",
+    "mail.subject": "Three recipes, one mixer – and the power keeps failing",
+    "mail.body": "Good day,\n\nour mixer doses base paint and hardener into a vessel and then stirs. We run three recipes; the operator chooses the current one with three buttons.\n\nThe old controller has two quirks: if someone picks another recipe during a mix, it changes the times in the middle of the sequence. And after every power failure – we have a few of those in winter – it is back on recipe 1, even if the whole shift runs recipe 3.\n\nPlease store the recipe data cleanly as a table, we want to add more recipes later.\n\nThanks and kind regards\nTheresa Oberhuber",
+    "datasheet": "# Mixer M2 – recipe control\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Button “Recipe 1”, normally open |\n| S2 | DI | Button “Recipe 2”, normally open |\n| S3 | DI | Button “Recipe 3”, normally open |\n| S4 | DI | Button “Start”, normally open |\n| Y1 | DO | Valve base paint |\n| Y2 | DO | Valve hardener |\n| M1 | DO | Stirrer |\n\n## Recipes\n\n| Recipe | Base paint (Y1) | Hardener (Y2) | Stirring (M1) |\n|---|---|---|---|\n| 1 | 2.0 s | 1.0 s | 3.0 s |\n| 2 | 1.0 s | 2.5 s | 2.0 s |\n| 3 | 3.0 s | – | 4.0 s |\n\n## Sequence\n\n1. S1 … S3 choose the recipe, at any time. Without a choice **recipe 1** applies.\n2. **Start** (S4, rising edge) begins a mix with the chosen recipe: first Y1, then Y2, then M1 – each for the time from the table, back to back. A recipe without hardener skips Y2.\n3. During a mix neither start nor a new choice affects the running sequence; the choice applies from the next mix.\n4. **Power failure**: the mix aborts, all outputs are off. After power returns nothing continues until start is pressed. The **chosen recipe is kept**.\n\n## Timing\n\nTolerance ± 50 ms per switching edge.\n\n## Notes\n\n- A PLC data type `\"Rezept\"` with three times and a global DB with `Array[1..3] of \"Rezept\"` hold the table; at start take a copy of the chosen recipe.\n- Whatever should survive a power failure must be **retentive** (column “Retain”). Start values for the table can also be set in the **startup OB (OB100)**.",
+    "devices": {
+      "S1": "Button recipe 1 (S1)",
+      "S2": "Button recipe 2 (S2)",
+      "S3": "Button recipe 3 (S3)",
+      "S4": "Start button (S4)",
+      "Y1": "Valve base paint (Y1)",
+      "Y2": "Valve hardener (Y2)",
+      "M1": "Stirrer (M1)"
+    },
+    "tests": {
+      "auswahl": "Recipe 1, choice during the mix",
+      "stromausfall": "Power failure in the middle of recipe 3"
+    },
+    "checks": {}
+  },
+  "19-schichtbuch": {
+    "title": "Shift log for fault messages",
+    "customer": "Kunststoffwerk Petrov",
+    "mail.from": "Milan Petrov <m.petrov@petrov-kunststoff.example>",
+    "mail.subject": "When exactly did the extruder fail?",
+    "mail.body": "Hello,\n\non the film line there are two fault signals: extruder and cooling. So far only a common fault lamp lights up, and at the end of the shift nobody knows what happened when.\n\nWe'd like a small shift log in the controller: the last five messages with the time as text, so the control room can display them directly. It is cleared at the shift handover. And please make sure a power failure doesn't empty the log – that's exactly when we need it most.\n\nBest regards\nMilan Petrov",
+    "datasheet": "# Film line 1 – shift log\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | DI | Extruder fault, 1 = fault |\n| B2 | DI | Cooling fault, 1 = fault |\n| S1 | DI | Button “Shift handover”, normally open |\n| H1 | DO | Common fault lamp |\n\n## Function\n\n1. H1 is lit while B1 or B2 report a fault.\n2. Every **new** fault (rising edge at B1 or B2) creates an entry with the controller's time (`RD_SYS_T`) in the format `hh:mm:ss Extruder` or `hh:mm:ss Kuehlung`, two digits with a leading zero, e.g. `06:00:02 Extruder`.\n3. Entries are stored in **`\"Schichtbuch\".Eintrag`** – `Array[0..4] of String[20]` – as a **ring buffer**: the n-th entry since the handover (counted from 0) goes into `Eintrag[n MOD 5]`, so the sixth overwrites `Eintrag[0]`. **`\"Schichtbuch\".Anzahl`** (Int) counts the entries since the handover.\n4. **S1** clears all entries (empty text) and sets Anzahl to 0.\n5. The shift log survives a **power failure**.\n\n## Verification\n\nThe check reads `\"Schichtbuch\".Eintrag[0]` … `[4]` and `\"Schichtbuch\".Anzahl` at the end of every test case – the names must be exactly these. The controller clock starts every test on Monday, 5 January 2026, at 06:00:00.\n\n## Notes\n\n- `RD_SYS_T(OUT => #jetzt);` with `#jetzt : DTL` gives hour, minute and second (`#jetzt.HOUR` …, type USInt).\n- `USINT_TO_STRING`, `CONCAT` and a small FC with a return value for the leading zero save typing.",
+    "devices": {
+      "B1": "Extruder fault (B1)",
+      "B2": "Cooling fault (B2)",
+      "S1": "Shift handover button (S1)",
+      "H1": "Common fault lamp (H1)"
+    },
+    "tests": {
+      "drei-meldungen": "Three messages",
+      "ringpuffer": "Ring buffer and power failure",
+      "uebergabe": "Shift handover clears the log"
+    },
+    "checks": {
+      "Anzahl": "Anzahl",
+      "Eintrag[0]": "Eintrag[0]",
+      "Eintrag[1]": "Eintrag[1]",
+      "Eintrag[2]": "Eintrag[2]",
+      "Eintrag[3]": "Eintrag[3]",
+      "Eintrag[4]": "Eintrag[4]"
+    }
+  },
+  "20-kuehlpumpe": {
+    "title": "Cooling pump with fallback mode",
+    "customer": "Gießerei Haselbach",
+    "mail.from": "Jonas Haselbach <j.haselbach@haselbach-guss.example>",
+    "mail.subject": "Mould overheated because the measurement was gone",
+    "mail.body": "Hello,\n\nour mould cooling switches the pump according to the water temperature. Last week the measuring module failed – the controller then read 0 °C, switched the pump off and the mould overheated. A wire break at the sensor does exactly the same.\n\nIf the measurement isn't right, the pump should simply keep running and a fault lamp should come on. When the measurement returns, normal operation continues. And please don't go to STOP – that would be the worst.\n\nRegards\nJonas Haselbach",
+    "datasheet": "# Mould cooling K3\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Water temperature 0 … 100 °C (raw value 0 … 27648) |\n| M1 | DO | Cooling pump |\n| H1 | DO | Fault lamp “Measurement faulty” |\n\n## Function\n\n1. Normal operation: pump **on from 60 °C**, **off below 50 °C**, in between the state stays.\n2. **Measurement faulty** – wire break (raw value 32767) or **measuring module failed**: the pump runs continuously (fallback mode), H1 is lit.\n3. Once the measurement is OK again, normal operation applies immediately, H1 goes out.\n4. The CPU must never go to STOP.\n\n## Timing\n\nTolerance ± 50 ms per switching edge.\n\n## Notes\n\n- A failed module delivers 0 – that looks like 0 °C. Only the **rack failure OB (OB86)** reports the failure: `#Event_Class = 16#39` coming, `16#38` going.\n- A wire break can be detected from the raw value or via the module's **diagnostics** and the **diagnostic interrupt OB (OB82)**.\n- Without an error OB the CPU stays in RUN on a module failure – but it doesn't notice either.",
+    "devices": {
+      "B1": "Temperature sensor (B1)",
+      "M1": "Cooling pump (M1)",
+      "H1": "Fault lamp (H1)"
+    },
+    "tests": {
+      "normal": "Normal operation with hysteresis",
+      "drahtbruch": "Wire break at the sensor",
+      "baugruppe": "Measuring module fails"
+    },
+    "checks": {}
+  },
+  "21-ruhige-anzeige": {
+    "title": "Calm display without cycle time errors",
+    "customer": "Molkerei Steinberger",
+    "mail.from": "Petra Steinberger <p.steinberger@molkerei-steinberger.example>",
+    "mail.subject": "The new averaging brings the controller to a halt",
+    "mail.body": "Hello,\n\nthe flow meter at the filling line is very noisy. Our working student programmed a moving average over the last four seconds – the display is calm, but after a few seconds the CPU goes to STOP with “cycle time exceeded”.\n\nPlease solve it so the display stays calm but follows a jump within four and a half seconds at the latest – and the controller keeps running.\n\nBest regards\nPetra Steinberger",
+    "datasheet": "# Filling L2 – flow display\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Flow 0 … 100 m³/h, **very noisy** |\n| A1 | AO | Display 0 … 100 m³/h (same raw range as B1) |\n\n## Function\n\n1. A1 shows the **moving average of the last 800 values** (with a 5 ms cycle: 4 s).\n2. Deviation from the true flow at most **± 800** raw units once the window is full (from 4.5 s after start or after a jump).\n3. The CPU must not go to STOP.\n\n## Notes\n\n- The medium CPU manages **2000 instructions per cycle**. A loop over 800 values in every cycle needs several times that.\n- A moving average can be updated continuously: add the new value to the sum, subtract the oldest. Alternatively spread the work over several cycles.\n- 800 values take 1600 bytes – more than the small CPU has in work memory.\n- A **time error OB (OB80)** tolerates a single overrun, but not a permanent one.",
+    "devices": {
+      "B1": "Flow meter (B1)",
+      "A1": "Display (A1)"
+    },
+    "tests": {
+      "konstant": "Constant flow",
+      "sprung": "Flow jumps"
+    },
+    "checks": {
+      "4,5 s nach dem Sprung (±800)": "4.5 s after the jump (±800)",
+      "Anzeige ruhig (±800)": "Display calm (±800)",
+      "vor dem Sprung (±800)": "before the jump (±800)"
+    }
+  },
+  "22-ofen-pid": {
+    "title": "Furnace control with PID_Compact",
+    "customer": "Emaillierwerk Kofler",
+    "mail.from": "Lena Kofler <l.kofler@kofler-email.example>",
+    "mail.subject": "Every time someone opens the door …",
+    "mail.body": "Hello,\n\nour stoving furnace should hold a fixed temperature. The old controller was home-made and had to be re-tuned after every modification. This time please use the ready-made PID block – supposedly it can tune itself.\n\nThe actual problem is the loading door: when it is open the temperature drops, and by the time the controller notices, the batch is ruined. Can't you see what's coming from the door contact?\n\nBest regards\nLena Kofler",
+    "datasheet": "# Stoving furnace E2\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Furnace temperature 0 … 300 °C (raw value 0 … 27648), slightly noisy |\n| B2 | AI | Setpoint adjuster 0 … 300 °C |\n| S1 | DI | Door contact: 1 = loading door open |\n| E1 | AO | Heating power 0 … 100 % (raw value 0 … 27648) |\n\n## Process\n\n- Full heating power raises the temperature by **300 °C** above ambient (20 °C).\n- Time constant **20 s**, dead time **2 s** between heating and measurement.\n- Open door: **50 °C** heat loss, effective immediately. Compensating it needs about **17 %** more heating power.\n\n## Requirements\n\n1. Heat up to the setpoint without overshooting above **setpoint + 8 °C**.\n2. From 80 s after the start: temperature **± 4 °C** around the setpoint.\n3. Also while the door is open and afterwards: **± 6 °C**.\n\n## Notes\n\n- **PID_Compact** (technology): create an instance DB, start values Gain, Ti in the Data blocks tab. Self-tuning (Tune) shows suitable values – but it takes longer than a test.\n- Rules of thumb for this process: Gain ≈ 1.3, Ti ≈ 18 s.\n- **Feedforward**: if the cause of a disturbance can be measured (door contact), the program can adjust the output immediately instead of waiting for the control error.",
+    "devices": {
+      "B1": "Furnace temperature (B1)",
+      "B2": "Setpoint adjuster (B2)",
+      "S1": "Door contact (S1)",
+      "E1": "Heating power (E1)"
+    },
+    "tests": {
+      "anfahren": "Heating up to 180 °C",
+      "tuer": "Door open for 30 s"
+    },
+    "checks": {
+      "180 °C ± 4 °C ab 80 s": "180 °C ± 4 °C from 80 s",
+      "180 °C ± 4 °C vor dem Öffnen": "180 °C ± 4 °C before opening",
+      "180 °C ± 6 °C mit offener Tür und danach": "180 °C ± 6 °C with the door open and afterwards",
+      "Kein Überschwingen über 188 °C": "No overshoot above 188 °C"
+    }
+  },
+  "23-positionieren": {
+    "title": "Positioning with a high-speed counter",
+    "customer": "Holzbau Stöckl",
+    "mail.from": "Martin Stöckl <m.stoeckl@holzbau-stoeckl.example>",
+    "mail.subject": "The saw always cuts too long",
+    "mail.body": "Hello,\n\nthe stop on our cross-cut saw moves with an incremental encoder. The old program counts the pulses in the cycle – and at rapid speed apparently more pulses arrive than the controller notices. The boards come out too long every time.\n\nPlease make the stop move exactly 400 mm further on every start. Exactly means: to within one millimetre.\n\nThanks and regards\nMartin Stöckl",
+    "datasheet": "# Stop A1 on the cross-cut saw\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Start button |\n| B1 | DI | Incremental encoder, **2 pulses per mm** |\n| M1 | DO | Drive rapid speed (200 mm/s) |\n| M2 | DO | Drive creep speed (20 mm/s) |\n\n## Mechanics\n\n- The stop is at 0 mm when switched on.\n- Accelerating and braking at **1000 mm/s²**: from rapid speed the drive needs 20 mm to reach creep speed, from creep speed 0.2 mm to stand still.\n- If M1 is on, rapid speed applies (M2 doesn't matter); only M2: creep speed.\n\n## Function\n\n1. Every rising edge at S1 moves the target by **400 mm** (targets 400, 800, …).\n2. The stop starts at rapid speed, switches to creep speed in time and stops at the target **± 1 mm**.\n\n## Notes\n\n- At rapid speed 400 pulses arrive per second – one every 2.5 ms. In the cycle the CPU only sees every second to fourth one.\n- The **DI 8 HF** counts every edge itself at channel 0 as a **high-speed counter (HSC)** (control cabinet: click the module). Count value in `%ID112`, handbook “Technology”.",
+    "devices": {
+      "S1": "Start button (S1)",
+      "B1": "Incremental encoder (B1)",
+      "M1": "Drive rapid speed (M1)",
+      "M2": "Drive creep speed (M2)"
+    },
+    "tests": {
+      "einmal": "One board",
+      "drei": "Three boards in a row"
+    },
+    "checks": {
+      "1200 mm ± 1 mm": "1200 mm ± 1 mm",
+      "400 mm ± 1 mm": "400 mm ± 1 mm",
+      "800 mm ± 1 mm": "800 mm ± 1 mm",
+      "Anschlag bei 400 mm ± 1 mm": "Stop at 400 mm ± 1 mm"
+    }
+  },
+  "24-pumpstation": {
+    "title": "Pumping station with operator panel",
+    "customer": "Wasserverband Obere Ache",
+    "mail.from": "Andreas Gruber <a.gruber@wv-obere-ache.example>",
+    "mail.subject": "New pumping station – without cables across the site",
+    "mail.body": "Hello,\n\nthe new pumping station is 200 m away from the operations building. We don't want to run control cables there: in the station there is only a distributed I/O station on the network, the CPU stays in the operations building.\n\nOperation is via the new panel: start, stop, running and fault indication. If the connection to the station breaks or the motor protection trips, we want to see an alarm on the panel – and the pump must not restart on its own afterwards.\n\nRegards\nAndreas Gruber",
+    "datasheet": "# Pumping station PS 4\n\n## Field devices\n\n| Device | Kind | Location | Description |\n|---|---|---|---|\n| B1 | DI | Station | Motor protection: 1 = OK, 0 = tripped |\n| K1 | DO | Station | Pump contactor (power: relay output) |\n| P1 | Panel | – | Start button |\n| P2 | Panel | – | Stop button |\n| P3 | Panel | – | Lamp running |\n| P4 | Panel | – | Lamp motor protection fault |\n| P5 | Panel | – | Lamp station failed |\n\n## Layout\n\n- The station is to the right of the partition. Cables don't pass through the wall: there sits an **interface module IM PN** with the I/O modules, the CPU stays on the left.\n- The panel is connected via memory bits (tags P_Start, P_Stopp, P_Betrieb, P_Motorschutz, P_Station).\n\n## Function\n\n1. Start (P1) switches the pump on, stop (P2) off. P3 shows operation.\n2. **Fault**: motor protection tripped **or station failed** → pump off, an **alarm** (Program_Alarm) is active as long as the fault lasts.\n3. The lamps tell the cause apart: P4 only when the motor protection tripped, P5 only when the station failed.\n4. Once the fault is over, the pump stays off until start is pressed again; the lamp goes out with the fault.\n5. The CPU must not go to STOP.\n\n## Timing\n\nTolerance ± 100 ms (update time, panel refresh cycle).\n\n## Notes\n\n- The **rack failure OB (OB86)** reports the station failure with `#Event_Class` 16#39 (coming) or 16#38 (going).\n- While the station has failed, the CPU reads the motor protection as 0 – without OB86 a station failure looks like a tripped motor protection.",
+    "devices": {
+      "B1": "Motor protection (B1)",
+      "K1": "Pump contactor (K1)",
+      "P1": "Start",
+      "P2": "Stop",
+      "P3": "Running",
+      "P4": "Motor protection fault",
+      "P5": "Station failed"
+    },
+    "tests": {
+      "bedienen": "Start and stop on the panel",
+      "motorschutz": "Motor protection trips",
+      "station": "Connection to the station breaks"
+    },
+    "checks": {
+      "Meldung steht während der Störung an": "Alarm active during the fault",
+      "Meldung steht während des Ausfalls an": "Alarm active during the failure",
+      "keine Meldung nach der Störung": "no alarm after the fault"
+    }
+  },
+  "25-rolltor": {
+    "title": "Existing plant: roller door hall 2",
+    "customer": "Spedition Wallner",
+    "mail.from": "Bernd Wallner <b.wallner@spedition-wallner.example>",
+    "mail.subject": "Our roller door does whatever it wants",
+    "mail.body": "Hello,\n\nthe roller door in hall 2 was programmed by a company that no longer exists. Since then there's trouble: if someone presses “close” while it's going up, the motor hums in both directions, the warning lamp only flashes when going down, and the maintenance counter shows fantasy values.\n\nThe program is attached – please repair it, but don't rewrite it: the plant has been accepted and we have to document every change. The less you change, the better.\n\nRegards\nBernd Wallner",
+    "datasheet": "# Roller door hall 2\n\n**Existing plant:** hardware and program are supplied. Find the faults and change as little as possible – the **amount of change** is scored as well (changed program lines; blank and comment lines don't count). “Discard solution” restores the supplied state.\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Button open |\n| S2 | DI | Button close |\n| B1 | DI | End position up |\n| B2 | DI | End position down (roller switch, **bounces** for up to 50 ms) |\n| B3 | DI | Light barrier, normally closed: 1 = clear |\n| M1 | DO | Motor open |\n| M2 | DO | Motor close |\n| H1 | DO | Warning lamp |\n\n## Required function\n\n1. Open (S1) moves the door to the upper end position, close (S2) to the lower end position.\n2. **Never both motors at the same time.** The button for the opposite direction is ignored while moving.\n3. Light barrier interrupted while closing: stop immediately and open again.\n4. The **warning lamp** is lit while the door moves – in both directions.\n5. `\"Tor\".zyklen` counts the **closing operations** (arrival in the lower end position), exactly once per operation.\n\n## Timing\n\nTolerance ± 50 ms per switching edge.\n\n## Notes\n\n- The compiler warns when a variable is written in several places.\n- Against bouncing switches the module's **input delay** helps (control cabinet: click the module) – a configuration change does not count as a program change.",
+    "devices": {
+      "S1": "Button open (S1)",
+      "S2": "Button close (S2)",
+      "B1": "End position up (B1)",
+      "B2": "End position down (B2)",
+      "B3": "Light barrier (B3)",
+      "M1": "Motor open (M1)",
+      "M2": "Motor close (M2)",
+      "H1": "Warning lamp (H1)"
+    },
+    "tests": {
+      "auf_zu": "Open and close again",
+      "verriegelung": "Pressing close while opening",
+      "lichtschranke": "Light barrier while closing",
+      "zaehler": "Two closing operations"
+    },
+    "checks": {
+      "Nie beide Motoren": "Never both motors",
+      "Zähler: zwei Schließvorgänge": "Counter: two closing operations"
+    }
+  },
+  "26-saege": {
+    "title": "Extension: cut on the cross-cut saw",
+    "customer": "Holzbau Stöckl",
+    "mail.from": "Martin Stöckl <m.stoeckl@holzbau-stoeckl.example>",
+    "mail.subject": "The stop works – now the saw, please",
+    "mail.body": "Hello,\n\nsince your modification the stop moves to the millimetre. Now the saw should be added: clamp, blade down, back up, release – all at the push of a button.\n\nImportant: nothing may change about the stop, it runs as it is. And while sawing, the stop must under no circumstances move.\n\nRegards\nMartin Stöckl",
+    "datasheet": "# Cross-cut saw – extension cut\n\n**Extension:** you start with your solution of job 23 (or, if there is none, with the supplied one). Its tests keep running as **regression tests** and must still pass.\n\n## New field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S2 | DI | Button cut |\n| B3 | DI | Saw down |\n| B4 | DI | Saw up |\n| Y1 | DO | Clamping cylinder |\n| M3 | DO | Saw down (blade running) |\n| M4 | DO | Saw up |\n\nThe existing output module is full – plan a second one.\n\n## Cut\n\n1. Rising edge at S2 while the stop is standing and no cut is running: **Y1 on**.\n2. **300 ms** later (clamping time): **M3 on** until B3 (saw down).\n3. Then **M4 on** until B4 (saw up).\n4. Then **Y1 off** – the cut is done.\n\n## Interlock\n\n- While a cut is running, the stop doesn't move; a start during this time is not stored.\n- M3 and M4 never at the same time.\n\n## Timing\n\nTolerance ± 50 ms per switching edge.",
+    "devices": {
+      "S1": "Start button (S1)",
+      "B1": "Incremental encoder (B1)",
+      "M1": "Drive rapid speed (M1)",
+      "M2": "Drive creep speed (M2)",
+      "S2": "Button cut (S2)",
+      "B3": "Saw down (B3)",
+      "B4": "Saw up (B4)",
+      "Y1": "Clamping cylinder (Y1)",
+      "M3": "Saw down (M3)",
+      "M4": "Saw up (M4)"
+    },
+    "tests": {
+      "alt_einmal": "Regression: One board",
+      "alt_drei": "Regression: Three boards in a row",
+      "schnitt": "One cut",
+      "sperre": "Start during the cut"
+    },
+    "checks": {
+      "1200 mm ± 1 mm": "1200 mm ± 1 mm",
+      "400 mm ± 1 mm": "400 mm ± 1 mm",
+      "800 mm ± 1 mm": "800 mm ± 1 mm",
+      "Anschlag bei 400 mm ± 1 mm": "Stop at 400 mm ± 1 mm",
+      "Anschlag steht während des Schnitts": "Stop stands still during the cut",
+      "Säge nie gleichzeitig ab und auf": "Saw never down and up at the same time",
+      "danach 400 mm ± 1 mm": "then 400 mm ± 1 mm"
+    }
+  },
+  "27-hochbehaelter": {
+    "title": "Masterpiece: high-level tank",
+    "customer": "Gemeindewerke Altenstein",
+    "mail.from": "Claudia Altmann <c.altmann@gw-altenstein.example>",
+    "mail.subject": "To finish: our high-level tank",
+    "mail.body": "Hello,\n\nwe were told you have controlled pretty much everything that moves by now. So to finish, something a whole municipality depends on: our high-level tank.\n\nThe pump should hold the level, the attendant wants to switch automatic mode on and off at the panel and see what's going on. And if the measurement fails, the pump must not keep running blindly – then an alarm should appear.\n\nOnce that works, you have our thanks – and a place on the wall of former apprentices.\n\nClaudia Altmann",
+    "datasheet": "# High-level tank Altenstein\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| B1 | AI | Level 0 … 100 %, signal **4–20 mA** |\n| P1 | DO | Feed pump (power: relay output) |\n| P2 | Panel | Switch automatic |\n| P3 | Panel | Lamp pump running |\n| P4 | Panel | Lamp measurement faulty |\n\n## Function\n\n1. **Automatic** (P2 on): pump on below **40 %**, off above **80 %** (hysteresis).\n2. Automatic off: pump off.\n3. **Measurement faulty** (wire break at the sensor): pump off, P4 on, an **alarm** (Program_Alarm) is active. Once the measurement is back, normal operation continues.\n4. P3 shows whether the pump is running.\n5. Level always between **35 % and 85 %** in operation, the pump switches at most 10 times in 40 s.\n\n## Notes\n\n- The sensor delivers 4–20 mA: set the analog module's measuring range accordingly. On a wire break the channel delivers **32767**.\n- The panel is connected via memory bits (tags P_Auto, P_Pumpe, P_Stoerung).",
+    "devices": {
+      "B1": "Level probe (B1)",
+      "P1": "Feed pump (P1)",
+      "P2": "Automatic",
+      "P3": "Pump running",
+      "P4": "Measurement faulty"
+    },
+    "tests": {
+      "normal": "Automatic, normal consumption",
+      "aus": "Automatic off",
+      "drahtbruch": "Wire break at the sensor"
+    },
+    "checks": {
+      "Füllstand zwischen 35 % und 85 %": "Level between 35 % and 85 %",
+      "Meldung ist gegangen": "Alarm has gone",
+      "Meldung steht an": "Alarm is active",
+      "Pumpe aus ohne Automatik": "Pump off without automatic",
+      "Pumpe aus während der Störung": "Pump off during the fault",
+      "Pumpe schaltet höchstens 10-mal": "Pump switches at most 10 times",
+      "Störlampe danach aus": "Fault lamp off afterwards",
+      "Störlampe während der Störung": "Fault lamp during the fault",
+      "keine Meldung": "no alarm"
+    }
+  }
+}

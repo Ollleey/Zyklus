@@ -1,6 +1,6 @@
 import { bitWidth, type DataType, type Tag } from '@zyklus/sim-core';
 import { TIA_NAMES } from '@zyklus/scl-compiler';
-import { t } from '../i18n';
+import { t, tx } from '../i18n';
 
 // 64-bit-Typen gibt es im Spiel nur in Datenbausteinen
 const TYPES = (Object.keys(TIA_NAMES) as DataType[]).filter(
@@ -76,7 +76,7 @@ export function TagTable({ tags, onChange, errorRows, live }: Props) {
                 {!device && (
                   <button
                     className="icon-btn"
-                    title="Zeile löschen"
+                    title={tx('Zeile löschen', 'Delete row')}
                     onClick={() => onChange(tags.filter((_, k) => k !== i))}
                   >
                     ✕

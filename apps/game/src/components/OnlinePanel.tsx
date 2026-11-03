@@ -1,5 +1,5 @@
 import type { PlcProject, Value } from '@zyklus/sim-core';
-import { t } from '../i18n';
+import { t, tx } from '../i18n';
 import { formatValue, useBoolFormat } from '../state/prefs';
 import {
   formatAs,
@@ -31,7 +31,7 @@ const FORMATS: [WatchFormat, string][] = [
   ['dec', 'DEZ'],
   ['hex', 'HEX'],
   ['bin', 'BIN'],
-  ['time', 'Zeit'],
+  ['time', tx('Zeit', 'Time')],
 ];
 
 /**

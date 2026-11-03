@@ -1,5 +1,5 @@
 import { tr, type Level, type Verification } from '@zyklus/sim-core';
-import { t } from '../i18n';
+import { msg, t } from '../i18n';
 import type { Best } from '../state/persistence';
 import { HistogramChart } from './HistogramChart';
 
@@ -40,7 +40,7 @@ export function ResultDialog({ level, result, best, onClose, onInspect }: Props)
                     {firstFail && (
                       <button className="link-btn" onClick={() => onInspect(i, firstFail.seed)}>
                         Seed {firstFail.seed} ansehen
-                        {firstFail.stop ? ` – ${firstFail.stop}` : ''}
+                        {firstFail.stop ? ` – ${msg(firstFail.stop)}` : ''}
                       </button>
                     )}
                     {firstFail?.criteria
@@ -48,7 +48,7 @@ export function ResultDialog({ level, result, best, onClose, onInspect }: Props)
                       .map((c, k) => (
                         <div key={k} className="criterion-fail">
                           ✗ {tr(c.name)}
-                          {c.detail ? ` (${c.detail})` : ''}
+                          {c.detail ? ` (${msg(c.detail)})` : ''}
                         </div>
                       ))}
                   </td>

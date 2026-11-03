@@ -48,7 +48,8 @@ der CPU an.
   zentrale Baugruppen (oder an einen HSC in der Station).
 - **Stationsausfall** (Leitung unterbrochen, Station ohne Spannung): alle Baugruppen der Station
   liefern 0 bzw. schalten ab, die CPU meldet einen Baugruppenträgerausfall – OB86 mit
-  `#Event_Class = 16#39` (kommend) und `16#38` (gehend); ohne OB86 geht die CPU in STOP.
+  `#Event_Class = 16#39` (kommend) und `16#38` (gehend); ohne OB86 bleibt die CPU in RUN und merkt
+  den Ausfall nicht.
 - Im Sandkasten: Interfacemodul ziehen = Stationsausfall.
 
 ## Fehler-OBs

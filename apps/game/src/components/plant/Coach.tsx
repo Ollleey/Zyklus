@@ -1,4 +1,4 @@
-import { moduleType } from '@zyklus/sim-core';
+import { moduleType, tr, type Text } from '@zyklus/sim-core';
 import type { Layout } from '@zyklus/plant-sim';
 import { t } from '../../i18n';
 import { plantOf } from '../../sim/types';
@@ -6,9 +6,9 @@ import type { SlotContext } from '../../screens/LevelScreen';
 
 /** Ein Schritt des geführten Einstiegs; `done` erkennt, dass er erledigt ist */
 interface Step {
-  title: string;
-  text: string;
-  hint?: string;
+  title: Text;
+  text: Text;
+  hint?: Text;
   done: (layout: Layout, ctx: SlotContext) => boolean;
 }
 
@@ -17,51 +17,90 @@ const moduleKinds = (ctx: SlotContext) => ctx.solution.modules.map((m) => module
 
 export const COACH_STEPS: Step[] = [
   {
-    title: 'Förderband aufstellen',
-    text: 'Zieh aus der Bibliothek links ein **Förderband** auf die Fläche (oder klick es an).',
-    hint: 'Mit dem Mausrad zoomst du, mit gedrückter Maus auf freier Fläche verschiebst du die Ansicht.',
+    title: { de: 'Förderband aufstellen', en: 'Place a conveyor' },
+    text: {
+      de: 'Zieh aus der Bibliothek links ein **Förderband** auf die Fläche (oder klick es an).',
+      en: 'Drag a **conveyor** from the library on the left onto the canvas (or click it).',
+    },
+    hint: {
+      de: 'Mit dem Mausrad zoomst du, mit gedrückter Maus auf freier Fläche verschiebst du die Ansicht.',
+      en: 'The mouse wheel zooms, dragging on an empty area pans the view.',
+    },
     done: (l) => has(l, 'belt'),
   },
   {
-    title: 'Sensor am Band',
-    text: 'Stell einen **Induktiven Sensor** neben das Band. Drück **R**, bis die Erfassungszone über das Band zeigt.',
-    hint: 'Die halbtransparente Zone zeigt, wo der Sensor erkennt. Im Inspektor rechts stellst du den Schaltabstand ein.',
+    title: { de: 'Sensor am Band', en: 'Sensor at the belt' },
+    text: {
+      de: 'Stell einen **Induktiven Sensor** neben das Band. Drück **R**, bis die Erfassungszone über das Band zeigt.',
+      en: 'Place an **inductive sensor** next to the belt. Press **R** until the detection zone points over the belt.',
+    },
+    hint: {
+      de: 'Die halbtransparente Zone zeigt, wo der Sensor erkennt. Im Inspektor rechts stellst du den Schaltabstand ein.',
+      en: 'The translucent zone shows where the sensor detects. In the inspector on the right you set the switching distance.',
+    },
     done: (l) => has(l, 'inductive'),
   },
   {
-    title: 'Schalter zum Einschalten',
-    text: 'Unter **Bedienelemente** gibt es einen **Schalter**. Stell ihn irgendwo hin – damit schaltest du das Band später ein.',
+    title: { de: 'Schalter zum Einschalten', en: 'A switch to turn it on' },
+    text: {
+      de: 'Unter **Bedienelemente** gibt es einen **Schalter**. Stell ihn irgendwo hin – damit schaltest du das Band später ein.',
+      en: 'Under **Controls** there is a **switch**. Put it anywhere – you will use it to switch the belt on later.',
+    },
     done: (l) => has(l, 'switch'),
   },
   {
-    title: 'CPU stecken',
-    text: 'Wechsle zum Tab **Schaltschrank** und steck eine **CPU klein** auf die Hutschiene.',
-    hint: 'Die Feldgeräte deiner Anlage hängen schon am Rand des Schranks: Eingänge links, Ausgänge rechts.',
+    title: { de: 'CPU stecken', en: 'Plug in a CPU' },
+    text: {
+      de: 'Wechsle zum Tab **Schaltschrank** und steck eine **CPU klein** auf die Hutschiene.',
+      en: 'Switch to the **Control cabinet** tab and plug a **CPU klein** onto the DIN rail.',
+    },
+    hint: {
+      de: 'Die Feldgeräte deiner Anlage hängen schon am Rand des Schranks: Eingänge links, Ausgänge rechts.',
+      en: 'The field devices of your plant already hang at the edge of the cabinet: inputs left, outputs right.',
+    },
     done: (_, c) => moduleKinds(c).includes('cpu'),
   },
   {
-    title: 'Ein- und Ausgänge',
-    text: 'Steck rechts neben die CPU eine **DI 8** für Sensor und Schalter und ein **REL 4** – der Bandmotor ist ein Leistungsverbraucher und braucht ein Relais.',
+    title: { de: 'Ein- und Ausgänge', en: 'Inputs and outputs' },
+    text: {
+      de: 'Steck rechts neben die CPU eine **DI 8** für Sensor und Schalter und ein **REL 4** – der Bandmotor ist ein Leistungsverbraucher und braucht ein Relais.',
+      en: 'Plug a **DI 8** for sensor and switch and a **REL 4** to the right of the CPU – the belt motor is a power consumer and needs a relay.',
+    },
     done: (_, c) => {
       const k = moduleKinds(c);
       return k.includes('rel') && (k.includes('di') || k.includes('dio'));
     },
   },
   {
-    title: 'Verdrahten',
-    text: 'Klick ein Gerät am Schrankrand an und dann eine freie Klemme – oder im Tab **Signale** auf **Automatisch verdrahten**.',
-    hint: 'Beim Verdrahten legt das Spiel die PLC-Variablen an, z. B. „M1_Bandmotor“ und „S1_Schalter“.',
+    title: { de: 'Verdrahten', en: 'Wire up' },
+    text: {
+      de: 'Klick ein Gerät am Schrankrand an und dann eine freie Klemme – oder im Tab **Signale** auf **Automatisch verdrahten**.',
+      en: 'Click a device at the cabinet edge and then a free terminal – or in the **Signals** tab click **Wire automatically**.',
+    },
+    hint: {
+      de: 'Beim Verdrahten legt das Spiel die PLC-Variablen an, z. B. „M1_Bandmotor“ und „S1_Schalter“.',
+      en: 'When wiring, the game creates the PLC tags, e.g. “M1_Bandmotor” and “S1_Schalter”.',
+    },
     done: (_, c) => c.analysis.bindings.size > 0 && c.solution.wires.length >= 3,
   },
   {
-    title: 'Programm schreiben',
-    text: 'Schreib rechts im **Programm** (SCL): `"M1_Bandmotor" := "S1_Schalter";`',
-    hint: 'Die Namen findest du unter PLC-Variablen. Rote Unterstreichung zeigt Fehler.',
+    title: { de: 'Programm schreiben', en: 'Write the program' },
+    text: {
+      de: 'Schreib rechts im **Programm** (SCL): `"M1_Bandmotor" := "S1_Schalter";`',
+      en: 'Write in the **program** on the right (SCL): `"M1_Bandmotor" := "S1_Schalter";`',
+    },
+    hint: {
+      de: 'Die Namen findest du unter PLC-Variablen. Rote Unterstreichung zeigt Fehler.',
+      en: 'You find the names under PLC tags. A red underline shows errors.',
+    },
     done: (_, c) => c.compiledOk && c.size > 0,
   },
   {
-    title: 'Starten',
-    text: 'Unten **▶ Start** drücken und in der Anlage auf den **Schalter** klicken. Das Band läuft – leg mit Rechtsklick ein Werkstück darauf.',
+    title: { de: 'Starten', en: 'Start' },
+    text: {
+      de: 'Unten **▶ Start** drücken und in der Anlage auf den **Schalter** klicken. Das Band läuft – leg mit Rechtsklick ein Werkstück darauf.',
+      en: 'Press **▶ Start** below and click the **switch** in the plant. The belt runs – right-click to put a workpiece on it.',
+    },
     done: (l, c) => {
       const p = plantOf(c.run);
       const belt = l.parts.find((x) => x.type === 'belt');
@@ -116,13 +155,13 @@ export function Coach({ step, layout, ctx, onStep, onClose }: Props) {
         <span className="coach-no">
           {step + 1} / {COACH_STEPS.length}
         </span>
-        <h3>{s.title}</h3>
+        <h3>{tr(s.title)}</h3>
         <button className="icon-btn" onClick={onClose} aria-label={t('coach.close')}>
           ✕
         </button>
       </div>
-      <p>{rich(s.text)}</p>
-      {s.hint && <p className="muted coach-hint">{rich(s.hint)}</p>}
+      <p>{rich(tr(s.text))}</p>
+      {s.hint && <p className="muted coach-hint">{rich(tr(s.hint))}</p>}
       <div className="coach-progress">
         {COACH_STEPS.map((_, i) => (
           <span

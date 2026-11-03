@@ -1,4 +1,5 @@
 import { tr, type Device } from '@zyklus/sim-core';
+import { tx } from '../../i18n';
 
 /**
  * Feldgeräte am Schrankrand als Schaltzeichen-nahe Symbole (12 × 12 mm) mit Kennzeichnung wie im
@@ -227,7 +228,7 @@ export function DeviceSymbol({ d, on, x, y }: { d: Device; on: boolean; x: numbe
 /** Signalart unter der Kennzeichnung */
 export function signalLabel(d: Device): string {
   const parts: string[] = [d.kind];
-  if (d.nc) parts.push('Öffner');
+  if (d.nc) parts.push(tx('Öffner', 'NC'));
   if (d.power) parts.push('Leistung');
   if (d.analog) parts.push(`${d.analog.min}…${d.analog.max} ${d.analog.unit}`);
   return parts.join(', ');
