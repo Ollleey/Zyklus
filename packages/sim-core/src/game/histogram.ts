@@ -7,8 +7,8 @@ import type { MetricKey } from './level';
  * langer Schwanz deutlich darüber, wenige darunter.
  */
 
-const SPREAD: Record<MetricKey, number> = { cost: 0.3, energy: 0.6, size: 0.7 };
-const BELOW: Record<MetricKey, number> = { cost: 0.9, energy: 0.75, size: 0.7 };
+const SPREAD: Record<MetricKey, number> = { cost: 0.3, energy: 0.6, size: 0.7, changes: 0.8 };
+const BELOW: Record<MetricKey, number> = { cost: 0.9, energy: 0.75, size: 0.7, changes: 0.7 };
 export const SAMPLE_SIZE = 600;
 
 export function fakeDistribution(

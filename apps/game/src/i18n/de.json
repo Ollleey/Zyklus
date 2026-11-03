@@ -399,5 +399,7 @@
   "hmi.title": "Bedienpanel",
   "hmi.alarms": "Meldungen",
   "hmi.noAlarms": "keine Meldungen",
-  "hmi.manualOnly": "Im Handbetrieb bedienbar"
+  "hmi.manualOnly": "Im Handbetrieb bedienbar",
+  "metrics.changes": "Änderungen",
+  "metrics.changes.title": "Geänderte Programmzeilen gegenüber dem gelieferten Programm (Leer- und Kommentarzeilen zählen nicht)"
 }

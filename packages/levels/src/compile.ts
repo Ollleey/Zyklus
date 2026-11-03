@@ -1,14 +1,23 @@
 import {
+  SOLUTION_VERSION,
   analyzeBoard,
   dataBytes,
   emptyProject,
   moduleType,
+  syncDeviceTags,
   type BoardAnalysis,
   type IrProgram,
   type Level,
+  type PlcProject,
   type Solution,
 } from '@zyklus/sim-core';
-import type { CallRef, ProjectDiagnostic, XRef } from '@zyklus/scl-compiler';
+import {
+  projectToSource,
+  sourceToProject,
+  type CallRef,
+  type ProjectDiagnostic,
+  type XRef,
+} from '@zyklus/scl-compiler';
 import { compilePlcProject } from '@zyklus/fup-model';
 
 export interface CpuCompileResult {
@@ -37,6 +46,68 @@ export interface SolutionCompileResult {
   cpus: Map<string, CpuCompileResult>;
   /** Programmgröße über alle CPUs */
   size: number;
+  /** Bestandsanlage: geänderte Zeilen gegenüber dem gelieferten Programm */
+  changes?: number;
+}
+
+/** Gelieferter Stand eines Auftrags (Bestandsanlage, Erweiterung) als Lösung */
+export function givenSolution(level: Level): Solution | undefined {
+  const g = level.given;
+  if (!g) return undefined;
+  const base: Solution = {
+    version: SOLUTION_VERSION,
+    modules: g.modules.map((m) => ({ ...m })),
+    wires: g.wires.map((w) => ({ ...w })),
+    projects: {},
+    ...(g.config ? { config: structuredClone(g.config) as Solution['config'] } : {}),
+  };
+  const analysis = analyzeBoard(level, base);
+  const projects: Record<string, PlcProject> = {};
+  for (const [cpu, src] of Object.entries(g.sources)) {
+    const p = sourceToProject(src).project ?? emptyProject();
+    projects[cpu] = syncDeviceTags(level, analysis, cpu, p);
+  }
+  return { ...base, projects };
+}
+
+/** Zeilen einer Quelle für den Vergleich: ohne Leerzeilen und reine Kommentarzeilen */
+function codeLines(src: string): string[] {
+  return src
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+/g, ' ').trim())
+    .filter((l) => l && !l.startsWith('//'));
+}
+
+/** Anzahl hinzugefügter plus entfernter Zeilen (längste gemeinsame Teilfolge) */
+export function lineChanges(a: string[], b: string[]): number {
+  const n = a.length;
+  const m = b.length;
+  let prev = new Array<number>(m + 1).fill(0);
+  for (let i = 1; i <= n; i++) {
+    const cur = new Array<number>(m + 1).fill(0);
+    for (let j = 1; j <= m; j++) {
+      cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1]! + 1 : Math.max(prev[j]!, cur[j - 1]!);
+    }
+    prev = cur;
+  }
+  return n + m - 2 * prev[m]!;
+}
+
+/** Änderungsumfang einer Lösung gegenüber dem gelieferten Programm (alle CPUs) */
+export function solutionChanges(level: Level, solution: Solution): number | undefined {
+  const g = level.given;
+  if (!g) return undefined;
+  let total = 0;
+  const cpus = new Set([...Object.keys(g.sources), ...Object.keys(solution.projects)]);
+  for (const cpu of cpus) {
+    const before = g.sources[cpu];
+    const given = before ? sourceToProject(before).project : undefined;
+    const a = given ? codeLines(projectToSource(given)) : [];
+    const p = solution.projects[cpu];
+    const b = p ? codeLines(projectToSource(p)) : [];
+    total += lineChanges(a, b);
+  }
+  return total;
 }
 
 /**
@@ -140,5 +211,6 @@ export function compileSolution(level: Level, solution: Solution): SolutionCompi
     size += r.size;
   }
   const ok = analysis.ok && cpus.size > 0 && [...cpus.values()].every((c) => c.ok);
-  return { ok, analysis, programs, cpus, size };
+  const changes = solutionChanges(level, solution);
+  return { ok, analysis, programs, cpus, size, ...(changes !== undefined ? { changes } : {}) };
 }

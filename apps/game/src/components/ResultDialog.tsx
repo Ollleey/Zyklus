@@ -64,6 +64,9 @@ export function ResultDialog({ level, result, best, onClose, onInspect }: Props)
                 ['cost', t('metrics.cost'), result.metrics.cost],
                 ['energy', t('metrics.energy'), result.metrics.energy],
                 ['size', t('metrics.size'), result.metrics.size],
+                ...(result.metrics.changes !== undefined
+                  ? ([['changes', t('metrics.changes'), result.metrics.changes]] as const)
+                  : []),
               ] as const
             ).map(([key, label, value]) =>
               level.par ? (
@@ -72,7 +75,7 @@ export function ResultDialog({ level, result, best, onClose, onInspect }: Props)
                     levelId={level.id}
                     metric={key}
                     label={label}
-                    par={level.par[key]}
+                    par={level.par[key] ?? value}
                     value={value}
                     best={best?.[key]}
                   />

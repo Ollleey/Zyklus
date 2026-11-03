@@ -1,0 +1,567 @@
+{
+  "id": "25-rolltor",
+  "order": 25,
+  "kind": "bestand",
+  "title": {
+    "de": "Bestandsanlage: Rolltor Halle 2"
+  },
+  "customer": {
+    "de": "Spedition Wallner"
+  },
+  "mail": {
+    "from": {
+      "de": "Bernd Wallner <b.wallner@spedition-wallner.example>"
+    },
+    "subject": {
+      "de": "Unser Rolltor macht, was es will"
+    },
+    "body": {
+      "de": "Hallo,\n\ndas Rolltor in Halle 2 hat eine Firma programmiert, die es nicht mehr gibt. Seitdem gibt es Ärger: Wenn jemand beim Hochfahren „Zu“ drückt, brummt der Motor in beide Richtungen, die Warnleuchte blinkt nur beim Runterfahren, und der Wartungszähler zeigt Fantasiewerte.\n\nDas Programm liegt bei – bitte reparieren, aber nicht neu schreiben: Die Anlage ist abgenommen, jede Änderung müssen wir dokumentieren. Je weniger du änderst, desto besser.\n\nGruß\nBernd Wallner"
+    }
+  },
+  "datasheet": {
+    "de": "# Rolltor Halle 2\n\n**Bestandsanlage:** Aufbau und Programm sind geliefert. Finde die Fehler und ändere so wenig wie möglich – bewertet wird zusätzlich der **Änderungsumfang** (geänderte Programmzeilen; Leer- und Kommentarzeilen zählen nicht). „Neu beginnen“ stellt den gelieferten Stand wieder her.\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster Auf |\n| S2 | DI | Taster Zu |\n| B1 | DI | Endlage oben |\n| B2 | DI | Endlage unten (Rollenschalter, **prellt** bis zu 50 ms) |\n| B3 | DI | Lichtschranke, Öffner: 1 = frei |\n| M1 | DO | Motor Auf |\n| M2 | DO | Motor Zu |\n| H1 | DO | Warnleuchte |\n\n## Soll-Funktion\n\n1. Auf (S1) fährt das Tor bis zur Endlage oben, Zu (S2) bis zur Endlage unten.\n2. **Nie beide Motoren gleichzeitig.** Der Taster der Gegenrichtung wird während der Fahrt nicht beachtet.\n3. Lichtschranke unterbrochen beim Zufahren: sofort stoppen und wieder auffahren.\n4. Die **Warnleuchte** leuchtet, solange das Tor fährt – in beide Richtungen.\n5. `\"Tor\".zyklen` zählt die **Schließvorgänge** (Ankunft in der Endlage unten), je Vorgang genau einmal.\n\n## Zeitverhalten\n\nToleranz ± 50 ms je Schaltflanke.\n\n## Hinweise\n\n- Der Compiler warnt, wenn eine Variable an mehreren Stellen beschrieben wird.\n- Gegen prellende Schalter hilft die **Eingangsverzögerung** der Baugruppe (Schaltschrank: Baugruppe anklicken) – eine Konfigurationsänderung zählt nicht als Programmänderung."
+  },
+  "board": {
+    "width": 15,
+    "ductCapacity": 6
+  },
+  "allowedModules": [
+    "cpu-klein",
+    "di8",
+    "do8"
+  ],
+  "toleranceMs": 50,
+  "par": {
+    "cost": 8,
+    "energy": 15225,
+    "size": 17,
+    "changes": 11
+  },
+  "plant": {
+    "type": "panel"
+  },
+  "given": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do8",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "S2",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "B1",
+        "module": "di1",
+        "channel": 2
+      },
+      {
+        "device": "B2",
+        "module": "di1",
+        "channel": 3
+      },
+      {
+        "device": "B3",
+        "module": "di1",
+        "channel": 4
+      },
+      {
+        "device": "M1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "M2",
+        "module": "do1",
+        "channel": 1
+      },
+      {
+        "device": "H1",
+        "module": "do1",
+        "channel": 2
+      }
+    ],
+    "sources": {
+      "cpu1": "DATA_BLOCK \"Tor\"\n{ S7_Optimized_Access := 'TRUE' }\nVERSION : 0.1\nNON_RETAIN\n   VAR\n      auf : Bool;\n      zu : Bool;\n      zyklen : Int;   // Schließvorgänge für die Wartung\n   END_VAR\n\nBEGIN\n\nEND_DATA_BLOCK\n\nORGANIZATION_BLOCK \"Main\"\nTITLE = Rolltor Halle 2\n{ S7_Optimized_Access := 'TRUE' }\nVERSION : 0.1\n\nBEGIN\n\t// Rolltor Halle 2 – Programm Stand 2019\n\tIF \"Taster_Auf\" THEN\n\t    \"Tor\".auf := TRUE;\n\tEND_IF;\n\tIF \"Endlage_oben\" THEN\n\t    \"Tor\".auf := FALSE;\n\tEND_IF;\n\tIF \"Taster_Zu\" THEN\n\t    \"Tor\".zu := TRUE;\n\tEND_IF;\n\tIF \"Endlage_unten\" THEN\n\t    \"Tor\".zu := FALSE;\n\t    \"Tor\".zyklen := \"Tor\".zyklen + 1;\n\tEND_IF;\n\t// Lichtschranke unterbrochen: Tor wieder öffnen\n\tIF NOT \"Lichtschranke\" AND \"Tor\".zu THEN\n\t    \"Tor\".zu := FALSE;\n\t    \"Tor\".auf := TRUE;\n\tEND_IF;\n\t\"Motor_auf\" := \"Tor\".auf;\n\t\"Motor_zu\" := \"Tor\".zu;\n\t\"Warnleuchte\" := \"Tor\".auf;\n\t\"Warnleuchte\" := \"Tor\".zu;\nEND_ORGANIZATION_BLOCK\n"
+    }
+  },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Taster_Auf",
+      "name": {
+        "de": "Taster Auf (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S2",
+      "tag": "Taster_Zu",
+      "name": {
+        "de": "Taster Zu (S2)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "B1",
+      "tag": "Endlage_oben",
+      "name": {
+        "de": "Endlage oben (B1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor"
+    },
+    {
+      "id": "B2",
+      "tag": "Endlage_unten",
+      "name": {
+        "de": "Endlage unten (B2)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor",
+      "bounce": {
+        "minToggles": 6,
+        "maxToggles": 10,
+        "gapMs": [
+          2,
+          5
+        ]
+      }
+    },
+    {
+      "id": "B3",
+      "tag": "Lichtschranke",
+      "name": {
+        "de": "Lichtschranke (B3)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor",
+      "nc": true
+    },
+    {
+      "id": "M1",
+      "tag": "Motor_auf",
+      "name": {
+        "de": "Motor Auf (M1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    },
+    {
+      "id": "M2",
+      "tag": "Motor_zu",
+      "name": {
+        "de": "Motor Zu (M2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    },
+    {
+      "id": "H1",
+      "tag": "Warnleuchte",
+      "name": {
+        "de": "Warnleuchte (H1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "auf_zu",
+      "name": {
+        "de": "Auf und wieder zu"
+      },
+      "durationMs": 7000,
+      "seeds": [
+        1
+      ],
+      "stimuli": {
+        "S1": [
+          [
+            200,
+            true
+          ],
+          [
+            400,
+            false
+          ]
+        ],
+        "S2": [
+          [
+            3500,
+            true
+          ],
+          [
+            3700,
+            false
+          ]
+        ],
+        "B2": [
+          [
+            0,
+            true
+          ],
+          [
+            600,
+            false
+          ],
+          [
+            6000,
+            true
+          ]
+        ],
+        "B1": [
+          [
+            2500,
+            true
+          ],
+          [
+            3800,
+            false
+          ]
+        ]
+      },
+      "expect": {
+        "M1": [
+          [
+            200,
+            true
+          ],
+          [
+            2500,
+            false
+          ]
+        ],
+        "M2": [
+          [
+            3500,
+            true
+          ],
+          [
+            6000,
+            false
+          ]
+        ],
+        "H1": [
+          [
+            200,
+            true
+          ],
+          [
+            2500,
+            false
+          ],
+          [
+            3500,
+            true
+          ],
+          [
+            6000,
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "id": "verriegelung",
+      "name": {
+        "de": "Zu drücken beim Auffahren"
+      },
+      "durationMs": 4000,
+      "seeds": [
+        2
+      ],
+      "stimuli": {
+        "S1": [
+          [
+            200,
+            true
+          ],
+          [
+            400,
+            false
+          ]
+        ],
+        "S2": [
+          [
+            1000,
+            true
+          ],
+          [
+            1200,
+            false
+          ]
+        ],
+        "B2": [
+          [
+            0,
+            true
+          ],
+          [
+            600,
+            false
+          ]
+        ],
+        "B1": [
+          [
+            2500,
+            true
+          ]
+        ]
+      },
+      "expect": {
+        "M1": [
+          [
+            200,
+            true
+          ],
+          [
+            2500,
+            false
+          ]
+        ],
+        "M2": [
+          [
+            0,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "Nie beide Motoren"
+          },
+          "signals": [
+            "M1",
+            "M2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lichtschranke",
+      "name": {
+        "de": "Lichtschranke beim Zufahren"
+      },
+      "durationMs": 6000,
+      "seeds": [
+        3
+      ],
+      "stimuli": {
+        "S2": [
+          [
+            1000,
+            true
+          ],
+          [
+            1200,
+            false
+          ]
+        ],
+        "B1": [
+          [
+            0,
+            true
+          ],
+          [
+            1300,
+            false
+          ],
+          [
+            4600,
+            true
+          ]
+        ],
+        "B3": [
+          [
+            2000,
+            true
+          ],
+          [
+            2300,
+            false
+          ]
+        ]
+      },
+      "expect": {
+        "M2": [
+          [
+            1000,
+            true
+          ],
+          [
+            2000,
+            false
+          ]
+        ],
+        "M1": [
+          [
+            2000,
+            true
+          ],
+          [
+            4600,
+            false
+          ]
+        ],
+        "H1": [
+          [
+            1000,
+            true
+          ],
+          [
+            4600,
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "id": "zaehler",
+      "name": {
+        "de": "Zwei Schließvorgänge"
+      },
+      "durationMs": 12000,
+      "seeds": [
+        4,
+        5
+      ],
+      "stimuli": {
+        "S2": [
+          [
+            1000,
+            true
+          ],
+          [
+            1200,
+            false
+          ],
+          [
+            7000,
+            true
+          ],
+          [
+            7200,
+            false
+          ]
+        ],
+        "S1": [
+          [
+            4000,
+            true
+          ],
+          [
+            4200,
+            false
+          ]
+        ],
+        "B1": [
+          [
+            0,
+            true
+          ],
+          [
+            1200,
+            false
+          ],
+          [
+            6000,
+            true
+          ],
+          [
+            7200,
+            false
+          ]
+        ],
+        "B2": [
+          [
+            3000,
+            true
+          ],
+          [
+            4300,
+            false
+          ],
+          [
+            9000,
+            true
+          ]
+        ]
+      },
+      "expect": {
+        "M2": [
+          [
+            1000,
+            true
+          ],
+          [
+            3000,
+            false
+          ],
+          [
+            7000,
+            true
+          ],
+          [
+            9000,
+            false
+          ]
+        ],
+        "M1": [
+          [
+            4000,
+            true
+          ],
+          [
+            6000,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "value",
+          "name": {
+            "de": "Zähler: zwei Schließvorgänge"
+          },
+          "variable": "Tor.zyklen",
+          "value": 2,
+          "at": 11000
+        }
+      ]
+    }
+  ]
+}

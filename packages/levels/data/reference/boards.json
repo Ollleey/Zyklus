@@ -1057,5 +1057,71 @@
         "channel": 0
       }
     ]
+  },
+  "25-rolltor": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do8",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "S2",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "B1",
+        "module": "di1",
+        "channel": 2
+      },
+      {
+        "device": "B2",
+        "module": "di1",
+        "channel": 3
+      },
+      {
+        "device": "B3",
+        "module": "di1",
+        "channel": 4
+      },
+      {
+        "device": "M1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "M2",
+        "module": "do1",
+        "channel": 1
+      },
+      {
+        "device": "H1",
+        "module": "do1",
+        "channel": 2
+      }
+    ],
+    "config": {
+      "di1": {
+        "inputDelay": 12.8
+      }
+    }
   }
 }

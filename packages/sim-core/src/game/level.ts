@@ -8,6 +8,19 @@ export interface Metrics {
   energy: number;
   /** SCL-Anweisungen bzw. FUP-Boxen */
   size: number;
+  /** nur Bestandsanlage: geänderte Zeilen gegenüber dem gelieferten Programm */
+  changes?: number;
+}
+
+/**
+ * Bestandsanlage bzw. Erweiterung: gelieferter Aufbau und Programm (SCL-Quelle je CPU), mit dem
+ * der Auftrag beginnt. Die Variablentabelle entsteht aus der Verdrahtung.
+ */
+export interface GivenSolution {
+  modules: { id: string; type: string; x: number }[];
+  wires: { device: string; module: string; channel: number }[];
+  config?: Record<string, unknown>;
+  sources: Record<string, string>;
 }
 
 export type MetricKey = keyof Metrics;
@@ -181,6 +194,10 @@ export interface Level {
   toleranceMs: number;
   /** Richtwerte (Metriken der Referenzlösung) – Mittelpunkt der Vergleichsverteilungen */
   par?: Metrics;
+  /** Auftragsart: Bestandsanlage (fremdes Programm korrigieren) bzw. Erweiterung */
+  kind?: 'bestand' | 'erweiterung';
+  /** gelieferter Stand, mit dem der Auftrag beginnt */
+  given?: GivenSolution;
   tests: TestCase[];
 }
 

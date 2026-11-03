@@ -74,6 +74,8 @@ export interface Verification {
     /** durchschnittliche Energie je Testlauf */
     energy: number;
     size: number;
+    /** nur Bestandsanlage: geänderte Zeilen */
+    changes?: number;
   };
 }
 
@@ -167,6 +169,8 @@ export function verifySolution(
   programs: Map<string, IrProgram>,
   size: number,
   forces?: RunOptions['forces'],
+  /** Bestandsanlage: geänderte Zeilen gegenüber dem gelieferten Programm */
+  changes?: number,
 ): Verification {
   const forced = Object.values(forces ?? {}).some((l) => l.length > 0);
   const runs: RunResult[] = [];
@@ -207,5 +211,9 @@ export function verifySolution(
     }
   }
   const energy = runs.length ? Math.round(runs.reduce((s, r) => s + r.energy, 0) / runs.length) : 0;
-  return { passed: runs.every((r) => r.passed), runs, metrics: { cost, energy, size } };
+  return {
+    passed: runs.every((r) => r.passed),
+    runs,
+    metrics: { cost, energy, size, ...(level.given ? { changes: changes ?? 0 } : {}) },
+  };
 }

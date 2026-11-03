@@ -13,7 +13,7 @@ import {
   type Wire,
 } from '@zyklus/sim-core';
 import { formatDiagnostic, sourceToProject } from '@zyklus/scl-compiler';
-import { LEVELS, compileSolution, levelById } from '../src';
+import { LEVELS, compileSolution, givenSolution, levelById, lineChanges } from '../src';
 import { FUP_REFERENCES } from './fup-references';
 
 const DATA = join(__dirname, '..', 'data', 'reference');
@@ -72,13 +72,13 @@ function verify(level: Level, solution: Solution) {
       `Lösung übersetzt nicht:\n${[...c.analysis.issues.map((i) => i.message), ...msgs].join('\n')}`,
     );
   }
-  return verifySolution(level, solution, c.programs, c.size);
+  return verifySolution(level, solution, c.programs, c.size, undefined, c.changes);
 }
 
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
     expect(LEVELS.map((l) => l.order)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
     ]);
   });
 
@@ -634,6 +634,45 @@ describe('Fehllösungen M12', () => {
   it('Level 24: ohne Meldung fehlt die Anzeige im Panel', () => {
     const src = refText('24-pumpstation').replace(/\t"Stoermeldung"\(.*\);\r?\n/, '');
     expect(failedTests('24-pumpstation', src)).toEqual(['motorschutz', 'station']);
+  });
+});
+
+describe('Bestandsanlage', () => {
+  const level = levelById('25-rolltor')!;
+
+  it('der gelieferte Stand ist vollständig aufgebaut, scheitert aber an den Tests', () => {
+    const given = givenSolution(level)!;
+    const c = compileSolution(level, given);
+    expect(c.ok).toBe(true);
+    expect(c.changes).toBe(0);
+    // Mehrfachzuweisung meldet der Compiler als Warnung
+    expect(c.cpus.get('cpu1')!.diagnostics.some((d) => /zugewiesen/.test(d.message))).toBe(true);
+    const v = verifySolution(level, given, c.programs, c.size, undefined, c.changes);
+    expect(v.passed).toBe(false);
+    expect([...new Set(v.runs.filter((r) => !r.passed).map((r) => r.testId))]).toEqual([
+      'auf_zu',
+      'verriegelung',
+      'lichtschranke',
+      'zaehler',
+    ]);
+  });
+
+  it('Programm korrigiert, aber ohne Eingangsverzögerung zählt der prellende Schalter mehrfach', () => {
+    const src = readFileSync(join(DATA, '25-rolltor.scl'), 'utf8');
+    const board = { ...BOARDS['25-rolltor']!, config: {} };
+    const s = solutionFor(level, src, board);
+    const v = verify(level, s);
+    expect([...new Set(v.runs.filter((r) => !r.passed).map((r) => r.testId))]).toEqual(['zaehler']);
+  });
+
+  it('Änderungsumfang: hinzugefügte plus entfernte Zeilen, Kommentare zählen nicht', () => {
+    expect(lineChanges(['a', 'b', 'c'], ['a', 'x', 'c'])).toBe(2);
+    expect(lineChanges(['a'], ['a', 'b'])).toBe(1);
+    const given = givenSolution(level)!;
+    const p = given.projects.cpu1!;
+    const main = p.blocks.find((b) => b.name === 'Main') as { source: string };
+    main.source = `// nur ein Kommentar\n${main.source}`;
+    expect(compileSolution(level, given).changes).toBe(0);
   });
 });
 

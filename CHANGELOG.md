@@ -1,5 +1,16 @@
 # Changelog
 
+## M13a – Bestandsanlage (2026-11-03)
+
+- Neue Auftragsart **Bestandsanlage** (`kind: 'bestand'`, `given`): Aufbau und Programm werden
+  geliefert, „Neu beginnen“ stellt sie wieder her
+- Bewertungsgröße **Änderungen**: hinzugefügte plus entfernte Programmzeilen gegenüber dem
+  gelieferten Programm (Leer- und Kommentarzeilen zählen nicht), im Kopf und im Ergebnis
+- **Auftrag 25 – Rolltor Halle 2**: fehlende Verriegelung, Mehrfachzuweisung der Warnleuchte,
+  Zähler ohne Flanke und prellender Endschalter (Eingangsverzögerung)
+- Fehllösungen: gelieferter Stand, Korrektur ohne Eingangsverzögerung
+- 775 Tests
+
 ## M12f – Aufträge 22–24 (2026-11-03)
 
 - **Auftrag 22 – Ofenregelung mit PID_Compact**: Einbrennofen mit Totzeit, Startwerte im

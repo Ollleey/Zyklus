@@ -1,0 +1,47 @@
+DATA_BLOCK "Tor"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      auf : Bool;
+      zu : Bool;
+      zyklen : Int;   // Schließvorgänge für die Wartung
+      unten_alt : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Rolltor Halle 2
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Rolltor Halle 2 – Programm Stand 2019
+	IF "Taster_Auf" AND NOT "Tor".zu THEN
+	    "Tor".auf := TRUE;
+	END_IF;
+	IF "Endlage_oben" THEN
+	    "Tor".auf := FALSE;
+	END_IF;
+	IF "Taster_Zu" AND NOT "Tor".auf THEN
+	    "Tor".zu := TRUE;
+	END_IF;
+	IF "Endlage_unten" THEN
+	    "Tor".zu := FALSE;
+	END_IF;
+	IF "Endlage_unten" AND NOT "Tor".unten_alt THEN
+	    "Tor".zyklen := "Tor".zyklen + 1;
+	END_IF;
+	"Tor".unten_alt := "Endlage_unten";
+	// Lichtschranke unterbrochen: Tor wieder öffnen
+	IF NOT "Lichtschranke" AND "Tor".zu THEN
+	    "Tor".zu := FALSE;
+	    "Tor".auf := TRUE;
+	END_IF;
+	"Motor_auf" := "Tor".auf;
+	"Motor_zu" := "Tor".zu;
+	"Warnleuchte" := "Tor".auf OR "Tor".zu;
+END_ORGANIZATION_BLOCK

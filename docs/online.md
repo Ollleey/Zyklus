@@ -65,3 +65,12 @@ Aufbauänderungen und Testfälle starten wie bisher einen neuen Versuch.
 - **Haltepunkt**: Klick in den linken Rand des SCL-Editors (roter Punkt). **Spielregel:** Die
   Simulation hält nach dem Zyklus an, in dem die Zeile ausgeführt wurde (in TIA mitten im Zyklus);
   die Zeile ist rot hinterlegt. **Start** läuft bis zum nächsten Treffer weiter.
+
+## Bestandsanlagen
+
+Manche Aufträge liefern Aufbau und Programm einer laufenden Anlage mit. Ziel ist, die Fehler zu
+finden und **möglichst wenig zu ändern**: Neben Kosten, Energie und Größe zählt der
+**Änderungsumfang** – hinzugefügte plus entfernte Programmzeilen gegenüber dem gelieferten
+Programm (Leer- und Kommentarzeilen zählen nicht, Einstellungen im Schaltschrank auch nicht).
+„Neu beginnen“ stellt den gelieferten Stand wieder her. Hilfreich: Querverweise, Beobachten,
+Haltepunkte und die Compiler-Warnung bei Mehrfachzuweisungen.

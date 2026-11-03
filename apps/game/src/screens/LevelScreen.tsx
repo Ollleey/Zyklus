@@ -12,7 +12,7 @@ import {
   type Verification,
 } from '@zyklus/sim-core';
 import { projectToSource } from '@zyklus/scl-compiler';
-import { compileSolution } from '@zyklus/levels';
+import { compileSolution, givenSolution } from '@zyklus/levels';
 import { t } from '../i18n';
 import { Cabinet, type CpuStatus } from '../components/Cabinet';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
@@ -97,9 +97,14 @@ interface Props {
 }
 
 export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plant }: Props) {
-  const [solution, setSolution] = useState<Solution>(() => loadSolution(level));
+  // Bestandsanlage/Erweiterung: ohne eigenen Stand beginnt der Auftrag mit dem gelieferten
+  const [fresh] = useState(() => !loadSolution(level).modules.length);
+  const [solution, setSolution] = useState<Solution>(() => {
+    const saved = loadSolution(level);
+    return saved.modules.length ? saved : (givenSolution(level) ?? saved);
+  });
   const [brief, setBrief] = useState<'mail' | 'datasheet' | null>(() =>
-    solution.modules.length || plant ? null : sandbox ? 'datasheet' : 'mail',
+    (solution.modules.length && !fresh) || plant ? null : sandbox ? 'datasheet' : 'mail',
   );
   const [result, setResult] = useState<Verification | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -314,7 +319,14 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
 
   const verify = () => {
     if (!compiled.ok) return;
-    const v = verifySolution(level, solution, compiled.programs, compiled.size, forces);
+    const v = verifySolution(
+      level,
+      solution,
+      compiled.programs,
+      compiled.size,
+      forces,
+      compiled.changes,
+    );
     setResult(v);
     if (v.passed) onProgress(recordSolved(level.id, v.metrics));
   };
@@ -643,6 +655,12 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
               <dt>{t('metrics.size')}</dt>
               <dd>{compiled.size}</dd>
             </div>
+            {compiled.changes !== undefined && (
+              <div title={t('metrics.changes.title')}>
+                <dt>{t('metrics.changes')}</dt>
+                <dd>{compiled.changes}</dd>
+              </div>
+            )}
           </dl>
           <Menu
             label={t('dock.view')}
@@ -757,7 +775,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           onConfirm={() => {
             setConfirmReset(false);
             clearSolution(level.id);
-            setSolution(emptySolution());
+            setSolution(givenSolution(level) ?? emptySolution());
           }}
         />
       )}
