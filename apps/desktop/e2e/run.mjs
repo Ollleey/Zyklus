@@ -133,7 +133,8 @@ try {
   await s.find('.inbox');
   check('Start bis Posteingang', true, `${Date.now() - t0} ms`);
   if (await s.exists('.confirm')) await s.click(await s.byText('.confirm button', 'neu beginnen'));
-  await s.click(await s.find('.mail-item'));
+  // Auftrag 1 (vor ihm steht die Einführung)
+  await s.click(await s.byText('.mail-item', 'Kesselbach'));
   await s.find('.topbar');
   if (await s.exists('.brief .icon-btn')) await s.click(await s.find('.brief .icon-btn'));
   await s.click(await s.byText('.topbar button', 'Prüfen'));

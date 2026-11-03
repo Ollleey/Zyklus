@@ -206,6 +206,14 @@ Was heute fehlt, im Vergleich zur Praxis:
   Aufträgen einsetzen (Kosten für Wiederverwendung sinken).
 - Level 23–26 plus Kampagnenabschluss; Onboarding-Auftrag 0 mit geführten Schritten; Englisch.
 
+### M14 – Nachträge (erledigt, siehe CHANGELOG M14a–M14e)
+
+- Teilprozessabbilder (TPA) für Alarm-OBs, GRAPH-light, PUT/GET mit Merkeradressen der Partner-CPU.
+- Englisch vollständig: Aufträge, Meldungen, Handbuch, Oberfläche.
+- Lücken: Quittieren von Meldungen, Kommunikations-Timeout, Panel-Adressen, Bibliothek
+  aktualisieren, Änderungszählung bei Sprachwechsel, Selbstoptimierung an echter Strecke geprüft.
+- SCL-Editor (Monaco) wird erst beim ersten Öffnen geladen.
+
 ### Querschnitt (laufend)
 
 - Jede neue Anweisung mit Unit-Tests und Eintrag in Handbuch und `docs/`.

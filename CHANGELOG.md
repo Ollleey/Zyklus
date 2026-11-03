@@ -1,5 +1,14 @@
 # Changelog
 
+## M14f – Ladezeit und Desktop-Prüfung (2026-11-03)
+
+- SCL-Editor (Monaco, ca. 4 MB) wird erst beim ersten Öffnen geladen; Start bis Posteingang in
+  der Desktop-App 0,6 s
+- Desktop neu gebaut (NSIS, MSI, portable) und E2E bestanden; der E2E-Test wählt Auftrag 1
+  ausdrücklich (vor ihm steht jetzt die Einführung)
+- PLAN.md: Abschnitt M14 (Nachträge)
+- 808 Tests
+
 ## M14e – Lücken geschlossen (2026-11-03)
 
 - **Program_Alarm quittieren**: kommende Meldungen sind unquittiert (blinken im Panel), Knopf
