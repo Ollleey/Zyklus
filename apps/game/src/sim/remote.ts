@@ -174,6 +174,10 @@ export class RemoteRun implements RunView {
     this.command({ type: 'powerCycle', cpu: cpuId });
   }
 
+  load(programs: Map<string, IrProgram>, opts: { keepValues: boolean; restart: boolean }): void {
+    this.command({ type: 'load', programs: [...programs], ...opts });
+  }
+
   traceVariable(
     key: string,
     spec: { cpu: string; target: { address: string } | { slot: string } } | undefined,

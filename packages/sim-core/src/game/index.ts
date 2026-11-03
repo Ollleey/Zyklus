@@ -9,3 +9,4 @@ export * from './verify';
 export * from './histogram';
 export * from './solution-file';
 export * from './migrate';
+export * from './load';

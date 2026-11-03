@@ -1,4 +1,4 @@
-import type { DataType, Edge, InstanceField, StopInfo, Value } from '@zyklus/sim-core';
+import type { DataType, Edge, InstanceField, IrProgram, StopInfo, Value } from '@zyklus/sim-core';
 import type { PlantView } from '@zyklus/plant-sim';
 
 /** Was die Oberfläche von einer CPU im Lauf liest */
@@ -41,6 +41,8 @@ export interface RunView {
     key: string,
     spec: { cpu: string; target: { address: string } | { slot: string } } | undefined,
   ): void;
+  /** geänderte Programme laden (in RUN bzw. mit STOP) */
+  load(programs: Map<string, IrProgram>, opts: { keepValues: boolean; restart: boolean }): void;
   /** Steuern: Wert einmalig schreiben */
   modify(cpuId: string, target: { address: string } | { slot: string }, value: Value): void;
 }

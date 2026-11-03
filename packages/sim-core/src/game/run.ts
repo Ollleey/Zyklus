@@ -202,6 +202,22 @@ export class LevelRun {
     c?.powerOn(this.sim.time);
   }
 
+  /**
+   * Geänderte Programme laden, ohne den Versuch neu zu starten. `restart`: Laden mit STOP (danach
+   * Anlauf), sonst Laden in RUN; `keepValues`: Istwerte gleichnamiger Variablen behalten.
+   */
+  load(programs: Map<string, IrProgram>, opts: { keepValues: boolean; restart: boolean }): void {
+    for (const [id, old] of [...this.cpus]) {
+      const p = programs.get(id);
+      if (!p || p === old.program) continue;
+      const next = new Cpu(old.config, p);
+      next.adoptFrom(old, opts.keepValues, opts.restart);
+      this.cpus.set(id, next);
+      const i = this.sim.cpus.indexOf(old);
+      if (i >= 0) this.sim.cpus[i] = next;
+    }
+  }
+
   /** aufgezeichnete Programmvariablen (Trace): Spur → CPU und Ziel */
   private readonly traceVars = new Map<
     string,

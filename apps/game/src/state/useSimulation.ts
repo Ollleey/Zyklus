@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LevelRun, type Level, type Solution } from '@zyklus/sim-core';
+import {
+  LevelRun,
+  loadCompatible,
+  type IrProgram,
+  type Level,
+  type Solution,
+} from '@zyklus/sim-core';
 import type { SolutionCompileResult } from '@zyklus/levels';
 import { RemoteRun, type Channel } from '../sim/remote';
 import type { RunView } from '../sim/types';
@@ -39,7 +45,16 @@ export interface SimControls {
   ensureRun: () => RunView | null;
   /** Bild neu zeichnen (nach Eingriffen ohne laufende Simulation) */
   redraw: () => void;
+  /**
+   * Programm geändert, der Versuch läuft noch mit dem geladenen Stand (nur Handbetrieb):
+   * `loadable` mit Angabe, ob Laden in RUN geht; `broken`: Änderung übersetzt nicht
+   */
+  pending: { loadable: true; inRun: boolean; reason?: string } | { loadable: false } | null;
+  /** geänderte Programme laden */
+  load: (opts: { keepValues: boolean; restart: boolean }) => void;
 }
+
+const programsKey = (m: Map<string, IrProgram>) => JSON.stringify([...m]);
 
 /**
  * Steuert einen schrittweisen Simulationslauf im Browser (Echtzeit × Faktor). Mit `worker` rechnet
@@ -93,15 +108,56 @@ export function useSimulation(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compiled, level, solution, mode, testIdx, seed]);
 
-  // Änderungen an Aufbau, Programm oder Testauswahl beenden den laufenden Versuch
+  // Stand des laufenden Versuchs: geladene Programme, Aufbau, Testauswahl
+  const loadedRef = useRef<{ programs: Map<string, IrProgram>; hw: string; ctx: string } | null>(
+    null,
+  );
+  const [pending, setPending] = useState<SimControls['pending']>(null);
+  const pendingPrograms = useRef<Map<string, IrProgram> | null>(null);
+  const hw = JSON.stringify([solution.modules, solution.wires]);
+  const ctx = `${mode}|${testIdx}|${seed}`;
+
+  // Änderungen an Aufbau oder Testauswahl beenden den laufenden Versuch; im Handbetrieb läuft
+  // nach einer Programmänderung der geladene Stand weiter, bis „Laden“ gewählt wird (wie in TIA)
   useEffect(() => {
+    const loaded = loadedRef.current;
+    if (runRef.current && mode === 'manual' && loaded && loaded.hw === hw && loaded.ctx === ctx) {
+      if (!compiled.ok) {
+        setPending({ loadable: false });
+        return;
+      }
+      if (programsKey(compiled.programs) === programsKey(loaded.programs)) {
+        setPending(null);
+        return;
+      }
+      let inRun = true;
+      let reason: string | undefined;
+      for (const [id, p] of compiled.programs) {
+        const before = loaded.programs.get(id);
+        const r = before ? loadCompatible(before, p) : { ok: false as const, reason: 'neue CPU' };
+        if (!r.ok) {
+          inRun = false;
+          reason = r.reason;
+        }
+      }
+      pendingPrograms.current = compiled.programs;
+      setPending({ loadable: true, inRun, reason });
+      return;
+    }
     runRef.current = null;
+    loadedRef.current = null;
+    setPending(null);
     setRunning(false);
     setFrame((f) => f + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [create]);
 
   const ensure = () => {
-    if (!runRef.current || (runRef.current.done && mode === 'test')) runRef.current = create();
+    if (!runRef.current || (runRef.current.done && mode === 'test')) {
+      runRef.current = create();
+      loadedRef.current = runRef.current ? { programs: compiled.programs, hw, ctx } : null;
+      setPending(null);
+    }
     return runRef.current;
   };
 
@@ -179,6 +235,9 @@ export function useSimulation(
     reset: () => {
       setRunning(false);
       runRef.current = null;
+      loadedRef.current = null;
+      pendingPrograms.current = null;
+      setPending(null);
       setFrame((f) => f + 1);
     },
     setSpeed,
@@ -189,5 +248,16 @@ export function useSimulation(
     },
     ensureRun: ensure,
     redraw: () => setFrame((f) => f + 1),
+    pending,
+    load: (opts) => {
+      const run = runRef.current;
+      const programs = pendingPrograms.current;
+      if (!run || !programs || !loadedRef.current) return;
+      run.load(programs, opts);
+      loadedRef.current = { ...loadedRef.current, programs };
+      pendingPrograms.current = null;
+      setPending(null);
+      setFrame((f) => f + 1);
+    },
   };
 }

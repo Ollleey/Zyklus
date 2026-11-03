@@ -321,6 +321,61 @@ export class Cpu {
     return this.powered;
   }
 
+  /**
+   * Laden: Zustand einer CPU mit dem bisherigen Programm übernehmen (Peripherie, Merker,
+   * Betriebsart, Forceaufträge, Kennzahlen). `keepValues`: Variablen und Instanzen mit gleichem
+   * Namen und Typ behalten ihren Istwert, sonst gelten die Startwerte. `restart`: danach läuft der
+   * Anlauf wie nach STOP → RUN (Laden mit STOP); sonst geht es im nächsten Zyklus weiter
+   * (Laden in RUN).
+   */
+  adoptFrom(old: Cpu, keepValues: boolean, restart: boolean): void {
+    for (const [a, b] of [
+      [this.inputs, old.inputs],
+      [this.outputs, old.outputs],
+      [this.pae, old.pae],
+      [this.paa, old.paa],
+      [this.m, old.m],
+    ] as const) {
+      a.bytes.set(b.bytes.subarray(0, Math.min(a.size, b.size)));
+    }
+    if (keepValues) {
+      const byName = new Map(
+        old.program.slots.map((s, i) => [`${s.name.toLowerCase()}|${s.t}`, i]),
+      );
+      this.program.slots.forEach((s, i) => {
+        if (s.temp) return;
+        const j = byName.get(`${s.name.toLowerCase()}|${s.t}`);
+        if (j !== undefined) this.slots[i] = old.slots[j]!;
+      });
+      const inst = new Map(
+        old.program.instances.map((d, i) => [`${d.name.toLowerCase()}|${d.kind}`, i]),
+      );
+      this.program.instances.forEach((d, i) => {
+        const j = inst.get(`${d.name.toLowerCase()}|${d.kind}`);
+        if (j !== undefined) this.instances[i] = { ...old.instances[j]! };
+      });
+    }
+    for (const [k, f] of old.forces) this.forces.set(k, f);
+    Object.assign(this.metrics, old.metrics);
+    this.powered = old.powered;
+    this.switchPos = old.switchPos;
+    this.mode = old.mode;
+    this.stopInfo = old.stopInfo;
+    for (const [k, v] of old.lastInputs) this.lastInputs.set(k, v);
+    if (restart) {
+      // Laden mit STOP: Prozessabbilder neu, danach Anlauf
+      this.pae.clear();
+      this.paa.clear();
+      this.started = false;
+      if (this.powered && this.switchPos === 'RUN') {
+        this.mode = 'RUN';
+        this.stopInfo = undefined;
+      }
+    } else {
+      this.started = old.started;
+    }
+  }
+
   /** Mittlere Auslastung des Befehlsbudgets je Zyklus (0…1) */
   get load(): number {
     if (!this.metrics.cycles) return 0;

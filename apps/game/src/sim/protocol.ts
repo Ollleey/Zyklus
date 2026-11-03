@@ -45,6 +45,12 @@ export type Command =
   | { type: 'powerCycle'; cpu: string }
   | { type: 'cpuForce'; cpu: string; address: string; value: Value | undefined }
   | {
+      type: 'load';
+      programs: [string, IrProgram][];
+      keepValues: boolean;
+      restart: boolean;
+    }
+  | {
       type: 'traceVar';
       key: string;
       spec?: { cpu: string; target: { address: string } | { slot: string } };

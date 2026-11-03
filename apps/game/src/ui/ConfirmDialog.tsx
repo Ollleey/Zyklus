@@ -8,10 +8,20 @@ interface Props {
   danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** dritte Wahl zwischen Abbrechen und Bestätigen */
+  secondary?: { label: string; onSelect: () => void };
 }
 
 /** Bestätigung im Stil des Spiels statt Browser-`confirm`. Esc bricht ab, Fokus startet auf „Abbrechen“. */
-export function ConfirmDialog({ title, text, confirmLabel, danger, onConfirm, onCancel }: Props) {
+export function ConfirmDialog({
+  title,
+  text,
+  confirmLabel,
+  danger,
+  onConfirm,
+  onCancel,
+  secondary,
+}: Props) {
   const cancel = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     cancel.current?.focus();
@@ -32,6 +42,11 @@ export function ConfirmDialog({ title, text, confirmLabel, danger, onConfirm, on
           <button ref={cancel} className="btn" onClick={onCancel}>
             {t('dialog.cancel')}
           </button>
+          {secondary && (
+            <button className="btn" onClick={secondary.onSelect}>
+              {secondary.label}
+            </button>
+          )}
           <button
             className={`btn ${danger ? 'btn-danger-solid' : 'btn-primary'}`}
             onClick={onConfirm}

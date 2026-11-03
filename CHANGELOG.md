@@ -1,5 +1,18 @@
 # Changelog
 
+## M9e – Übersetzen und Laden getrennt (2026-11-03)
+
+- Im **Handbetrieb und Sandkasten** startet eine Programmänderung den Versuch nicht mehr neu: die
+  CPU arbeitet mit dem geladenen Stand weiter, die Simulationsleiste zeigt „Programm geändert“
+  - **Laden (in RUN)**, wenn sich nur Code geändert hat: Istwerte, Zeiten, Zähler bleiben,
+    kein Anlauf
+  - **Laden (STOP nötig)**, wenn sich Variablen oder Instanzen geändert haben: Wahl
+    **Istwerte behalten** (gleicher Name und Typ) oder **zurücksetzen**, danach Anlauf (OB100)
+  - übersetzt die Änderung nicht, läuft der alte Stand weiter („Laden“ erst nach Korrektur)
+- Aufbauänderungen und Testfälle verhalten sich wie bisher (neuer Versuch)
+- Kern: `loadCompatible`, `Cpu.adoptFrom`, `LevelRun.load` (auch im Web Worker)
+- 706 Tests
+
 ## M9d – Querverweise, Aufrufstruktur, Zuordnungsliste (2026-11-03)
 
 - Neuer Reiter **„Querverweise“** im Programmbereich:

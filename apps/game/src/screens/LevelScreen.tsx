@@ -105,6 +105,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
   const [confirmReset, setConfirmReset] = useState(false);
   const [pendingImport, setPendingImport] = useState<Solution | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmLoad, setConfirmLoad] = useState(false);
 
   useEffect(() => saveSolution(level.id, solution), [level.id, solution]);
   const [online, setOnline] = useState<OnlineState>(() => loadOnline(level.id));
@@ -368,7 +369,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           compiled={compiled.cpus}
           onChange={setSolution}
           watch={run ? watch : undefined}
-          probes={run ? (cpu) => run.cpus.get(cpu)?.probes : undefined}
+          probes={run && !sim.pending ? (cpu) => run.cpus.get(cpu)?.probes : undefined}
           online={{
             state: online,
             onChange: (cpu, tb) => setOnline({ ...online, [cpu]: tb }),
@@ -423,11 +424,11 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                   ❚❚ {t('sim.pause')}
                 </button>
               ) : (
-                <button className="btn" onClick={sim.play} disabled={!sim.ready}>
+                <button className="btn" onClick={sim.play} disabled={!sim.ready && !run}>
                   ▶ {t('sim.play')}
                 </button>
               )}
-              <button className="btn" onClick={sim.step} disabled={!sim.ready}>
+              <button className="btn" onClick={sim.step} disabled={!sim.ready && !run}>
                 ▷| {t('sim.step')}
               </button>
               {[1, 10, 100].map((s) => (
@@ -447,7 +448,25 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
               {t('sim.time')} <b>{((run?.time ?? 0) / 1000).toFixed(3)} s</b>
               {test && <> / {(test.durationMs / 1000).toFixed(1)} s</>}
             </span>
-            {!sim.ready && <span className="sim-warn">{t('sim.notReady')}</span>}
+            {!sim.ready && !sim.pending && <span className="sim-warn">{t('sim.notReady')}</span>}
+            {sim.pending &&
+              (sim.pending.loadable ? (
+                <span className="sim-pending" title={sim.pending.reason ?? ''}>
+                  {t('sim.changed')}{' '}
+                  <button
+                    className="btn btn-small btn-primary"
+                    onClick={() =>
+                      sim.pending?.loadable && sim.pending.inRun
+                        ? sim.load({ keepValues: true, restart: false })
+                        : setConfirmLoad(true)
+                    }
+                  >
+                    ⇩ {sim.pending.inRun ? t('sim.loadRun') : t('sim.loadStop')}
+                  </button>
+                </span>
+              ) : (
+                <span className="sim-warn">{t('sim.changedBroken')}</span>
+              ))}
             <BoolFormatSwitch />
             {stopped && (
               <span className="sim-stop">
@@ -688,6 +707,25 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             setConfirmReset(false);
             clearSolution(level.id);
             setSolution(emptySolution());
+          }}
+        />
+      )}
+      {confirmLoad && sim.pending?.loadable && (
+        <ConfirmDialog
+          title={t('sim.loadStop.title')}
+          text={`${sim.pending.reason ?? ''}. ${t('sim.loadStop.text')}`}
+          confirmLabel={t('sim.loadStop.reset')}
+          secondary={{
+            label: t('sim.loadStop.keep'),
+            onSelect: () => {
+              setConfirmLoad(false);
+              sim.load({ keepValues: true, restart: true });
+            },
+          }}
+          onCancel={() => setConfirmLoad(false)}
+          onConfirm={() => {
+            setConfirmLoad(false);
+            sim.load({ keepValues: false, restart: true });
           }}
         />
       )}

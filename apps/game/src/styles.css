@@ -3669,3 +3669,11 @@ text.fup-live-num {
 .assign-table td.assign-tag {
   color: var(--muted);
 }
+
+.sim-pending {
+  color: var(--amber);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
