@@ -1,5 +1,15 @@
 # Changelog
 
+## M9b – Beobachten im SCL- und FUP-Editor (2026-11-03)
+
+- SCL: Bedingungen von `IF`/`ELSIF`/`WHILE`/`UNTIL` werden wie in TIA eingefärbt – erfüllt grün,
+  nicht erfüllt blau (Zeilenhintergrund und Randmarke); Werte der Operanden am Zeilenende wie bisher
+- FUP: Werte an den Operanden der Ein- und Ausgänge; Bool-Pins grün (1) bzw. blau gestrichelt (0)
+- IR: Befehl `probe` (Messpunkt je Anweisung und Bedingung, `IrProgram.probes`). Messpunkte
+  kosten nichts: kein Befehl, keine Energie, kein Zyklusbudget – alle Richtwerte bleiben gleich.
+  Compiler-Option `probes`, in Aufträgen eingeschaltet; Grundlage für Haltepunkte
+- 695 Tests
+
 ## M9a – Beobachtungs- und Forcetabelle (2026-11-03)
 
 - Neuer Reiter **„Beobachten & Forcen“** im Programmbereich, je CPU, gespeichert je Auftrag

@@ -12,9 +12,11 @@ interface Props {
   jump?: { line: number; col: number; nonce: number };
   /** Beobachten: Werte zu einer Codezeile (während der Simulation) */
   live?: (line: string) => string | undefined;
+  /** Beobachten: Ergebnis der Bedingung je Zeile (TRUE grün, FALSE blau) */
+  conditions?: Map<number, boolean>;
 }
 
-export function SclEditor({ value, onChange, diagnostics, jump, live }: Props) {
+export function SclEditor({ value, onChange, diagnostics, jump, live, conditions }: Props) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const liveRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const shown = useRef('');
@@ -53,8 +55,19 @@ export function SclEditor({ value, onChange, diagnostics, jump, live }: Props) {
         });
       }
     }
+    for (const [n, v] of conditions ?? []) {
+      if (n < 1 || n > model.getLineCount()) continue;
+      decos.push({
+        range: new monaco.Range(n, 1, n, 1),
+        options: {
+          isWholeLine: true,
+          className: v ? 'live-cond-true' : 'live-cond-false',
+          linesDecorationsClassName: v ? 'live-mark-true' : 'live-mark-false',
+        },
+      });
+    }
     const key = decos
-      .map((d) => `${d.range.startLineNumber}:${d.options.after?.content}`)
+      .map((d) => `${d.range.startLineNumber}:${d.options.after?.content ?? d.options.className}`)
       .join('|');
     if (key === shown.current) return;
     shown.current = key;

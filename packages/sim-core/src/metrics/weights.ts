@@ -52,5 +52,7 @@ export function energyOf(ins: Instr): number {
       return ENERGY.integer;
     case 'clock':
       return ENERGY.stateful;
+    case 'probe':
+      return 0;
   }
 }

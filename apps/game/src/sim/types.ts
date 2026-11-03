@@ -8,6 +8,8 @@ export interface CpuView {
   readonly load: number;
   /** aktive Forceaufträge (MAINT-LED) */
   readonly forceCount: number;
+  /** Messpunkte des Programms (Bedingungen, Durchläufe) */
+  readonly probes: readonly Value[];
   read(address: string, t?: DataType): Value;
   readImage(address: string, t?: DataType): Value;
   readSlot(name: string): Value;

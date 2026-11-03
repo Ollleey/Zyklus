@@ -81,11 +81,13 @@ interface Props {
   diagnostics: ProjectDiagnostic[];
   onChange: (p: PlcProject) => void;
   focus?: { network?: number; box?: string; nonce: number };
+  /** Beobachten: Wert eines Operanden (während der Simulation) */
+  live?: (operand: string) => boolean | number | string | undefined;
 }
 
 type Selection = { network: number; box?: string; wire?: number } | null;
 
-export function FupEditor({ project, block, diagnostics, onChange, focus }: Props) {
+export function FupEditor({ project, block, diagnostics, onChange, focus, live }: Props) {
   const body: FupBody = isFupBody(block.fup) ? block.fup : { networks: [] };
   const [selection, setSelection] = useState<Selection>(null);
   const [openCats, setOpenCats] = useState<Set<string>>(new Set(['Bitverknüpfungen', 'Zeiten']));
@@ -278,6 +280,7 @@ export function FupEditor({ project, block, diagnostics, onChange, focus }: Prop
               onSelect={setSelection}
               onChange={(next) => setNetwork(i, next)}
               onDropBox={(type, x, y) => addBox(i, type, x, y)}
+              live={live}
             />
           </div>
         ))}
@@ -306,6 +309,18 @@ interface CanvasProps {
   onSelect: (s: Selection) => void;
   onChange: (nw: FupNetwork) => void;
   onDropBox: (type: string, x: number, y: number) => void;
+  live?: Props['live'];
+}
+
+/** Wert am Pin: Text und Klasse (Bool grün/blau wie der Signalfluss in TIA) */
+function liveOf(live: Props['live'], operand: string | undefined) {
+  if (!live || !operand?.trim()) return undefined;
+  const v = live(operand.trim());
+  if (v === undefined) return undefined;
+  if (typeof v === 'boolean')
+    return { text: v ? '1' : '0', cls: v ? 'fup-live-on' : 'fup-live-off' };
+  const text = typeof v === 'number' ? (Number.isInteger(v) ? String(v) : v.toFixed(2)) : `'${v}'`;
+  return { text, cls: 'fup-live-num' };
 }
 
 type Drag =
@@ -320,6 +335,7 @@ function NetworkCanvas({
   onSelect,
   onChange,
   onDropBox,
+  live,
 }: CanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -554,6 +570,7 @@ function NetworkCanvas({
                   hover={hoverIn?.box === b.id && hoverIn.pin === p.name && drag?.kind === 'wire'}
                   onNegate={() => p.kind === 'bool' && toggleNeg(p.name)}
                   onOperand={(v) => set((x) => ({ ...x, inputs: { ...x.inputs, [p.name]: v } }))}
+                  value={liveOf(live, b.inputs[p.name])}
                 />
               ))}
 
@@ -568,9 +585,21 @@ function NetworkCanvas({
                   spec.kind === 'compare' ||
                   p.name === 'ENO'
                 );
+                const lv = liveOf(live, b.outputs[p.name]);
                 return (
                   <g key={p.name}>
-                    <line x1={x} y1={y} x2={x + STUB} y2={y} className="fup-pin" />
+                    <line
+                      x1={x}
+                      y1={y}
+                      x2={x + STUB}
+                      y2={y}
+                      className={`fup-pin ${lv?.cls ?? ''}`}
+                    />
+                    {lv && (
+                      <text x={x + STUB + 6} y={y - 12} className={`fup-live ${lv.cls}`}>
+                        {lv.text}
+                      </text>
+                    )}
                     {neg && <circle cx={x + 4} cy={y} r={4} className="fup-neg" />}
                     {!p.unlabeled && (
                       <text
@@ -677,9 +706,11 @@ interface InputPinProps {
   hover: boolean;
   onNegate: () => void;
   onOperand: (v: string) => void;
+  /** Beobachten: Wert des Operanden am Eingang */
+  value?: { text: string; cls: string };
 }
 
-function InputPin({ box, pin, y, wired, error, hover, onNegate, onOperand }: InputPinProps) {
+function InputPin({ box, pin, y, wired, error, hover, onNegate, onOperand, value }: InputPinProps) {
   const x = box.x;
   const neg = box.negated.includes(pin.name);
   return (
@@ -689,8 +720,13 @@ function InputPin({ box, pin, y, wired, error, hover, onNegate, onOperand }: Inp
         y1={y}
         x2={x}
         y2={y}
-        className={`fup-pin ${hover ? 'fup-pin-hover' : ''}`}
+        className={`fup-pin ${hover ? 'fup-pin-hover' : ''} ${value?.cls ?? ''}`}
       />
+      {value && (
+        <text x={x - STUB - 4} y={y - 12} textAnchor="end" className={`fup-live ${value.cls}`}>
+          {value.text}
+        </text>
+      )}
       {neg && <circle cx={x - 4} cy={y} r={4} className="fup-neg" />}
       {!pin.unlabeled && (
         <text x={x + 4} y={y + 4} className="fup-pin-label" pointerEvents="none">

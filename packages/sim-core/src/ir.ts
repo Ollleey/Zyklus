@@ -89,6 +89,11 @@ export type Instr =
    * HOUR, MINUTE, SECOND, NANOSECOND
    */
   | { op: 'clock'; dst: Operand[] }
+  /**
+   * Messpunkt i: mit `src` Wert merken, sonst Zähler erhöhen. Kostet nichts (kein Befehl, keine
+   * Energie, kein Zykluszeitbudget) und ändert keinen Programmzustand.
+   */
+  | { op: 'probe'; i: number; src?: Operand }
   | { op: 'set'; dst: Operand; cond: Operand }
   | { op: 'reset'; dst: Operand; cond: Operand }
   /** Speicherbox mit Merker `q`. SR: Rücksetzen dominant, RS: Setzen dominant. */
@@ -161,4 +166,16 @@ export interface IrProgram {
   /** Ende von OB1 (Standard: code.length) */
   mainEnd?: number;
   tasks?: IrTask[];
+  /** Messpunkte für Beobachten und Haltepunkte (Befehl `probe`) */
+  probes?: ProbeDecl[];
+}
+
+/**
+ * Messpunkt im Quelltext: `cond` merkt sich den Wert einer Bedingung, `line` zählt, wie oft die
+ * Anweisung ausgeführt wurde.
+ */
+export interface ProbeDecl {
+  block: string;
+  line: number;
+  kind: 'cond' | 'line';
 }

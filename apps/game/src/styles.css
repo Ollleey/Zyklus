@@ -3502,3 +3502,41 @@ code {
   background: var(--amber-dim);
   color: #111;
 }
+
+/* Beobachten: Bedingungen wie in TIA – erfüllt grün, nicht erfüllt blau */
+.live-cond-true {
+  background: rgba(80, 200, 120, 0.12);
+}
+.live-cond-false {
+  background: rgba(90, 140, 230, 0.12);
+}
+.live-mark-true {
+  border-left: 3px solid #50c878;
+}
+.live-mark-false {
+  border-left: 3px solid #5a8ce6;
+}
+
+/* Beobachten im FUP: Werte an den Operanden, Bool-Pins farbig */
+.fup-live {
+  font-family: var(--mono);
+  font-size: 10px;
+  pointer-events: none;
+}
+.fup-pin.fup-live-on {
+  stroke: #50c878;
+  stroke-width: 2.5;
+}
+.fup-pin.fup-live-off {
+  stroke: #5a8ce6;
+  stroke-dasharray: 3 2;
+}
+text.fup-live-on {
+  fill: #50c878;
+}
+text.fup-live-off {
+  fill: #5a8ce6;
+}
+text.fup-live-num {
+  fill: var(--amber);
+}

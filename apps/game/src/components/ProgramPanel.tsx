@@ -5,6 +5,7 @@ import {
   SECTIONS_BY_KIND,
   moduleType,
   type Block,
+  type ProbeDecl,
   type CodeBlock,
   type IfaceSection,
   type ObEvent,
@@ -25,7 +26,7 @@ import { TagTable } from './TagTable';
 import { ELEMENTARY_TYPES, VarTable } from './VarTable';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { OnlinePanel, type OnlineAccess } from './OnlinePanel';
-import { EMPTY_TABLES, type OnlineState, type OnlineTables } from '../state/online';
+import { EMPTY_TABLES, resolveOperand, type OnlineState, type OnlineTables } from '../state/online';
 
 type Tab = 'main' | 'tags' | 'dbs' | 'online';
 
@@ -41,6 +42,8 @@ interface Props {
   onChange: (s: Solution) => void;
   /** Beobachten: nur während einer Simulation gesetzt */
   watch?: WatchReader;
+  /** Beobachten: Werte der Messpunkte einer CPU (während einer Simulation) */
+  probes?: (cpu: string) => readonly (boolean | number | string)[] | undefined;
   /** Beobachtungs- und Forcetabellen je CPU; `access` nur während einer Simulation */
   online?: {
     state: OnlineState;
@@ -50,6 +53,22 @@ interface Props {
 }
 
 const REF_RE = /"([^"]+)"(?:\.([A-Za-z_][A-Za-z0-9_]*))?|#([A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*)/g;
+
+/** Bedingungen eines Bausteins aus den Messpunkten: Zeile → TRUE/FALSE */
+function conditionsOf(
+  decls: ProbeDecl[] | undefined,
+  values: readonly (boolean | number | string)[] | undefined,
+  block: string,
+): Map<number, boolean> | undefined {
+  if (!decls || !values) return undefined;
+  const m = new Map<number, boolean>();
+  decls.forEach((d, i) => {
+    if (d.kind === 'cond' && d.block === block && typeof values[i] === 'boolean') {
+      m.set(d.line, values[i] as boolean);
+    }
+  });
+  return m;
+}
 
 const isCode = (b: Block): b is CodeBlock => b.kind === 'OB' || b.kind === 'FB' || b.kind === 'FC';
 
@@ -88,7 +107,7 @@ function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
   return { kind, name, number, lang: 'SCL', iface, source: '', ...(event ? { event } : {}) };
 }
 
-export function ProgramPanel({ solution, compiled, onChange, watch, online }: Props) {
+export function ProgramPanel({ solution, compiled, onChange, watch, probes, online }: Props) {
   const boolFormat = useBoolFormat();
   const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
   const [cpuId, setCpuId] = useState<string | undefined>(cpus[0]?.id);
@@ -422,6 +441,21 @@ export function ProgramPanel({ solution, compiled, onChange, watch, online }: Pr
               diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
               onChange={(p) => change(() => p)}
               focus={fupFocus}
+              live={
+                watch &&
+                ((text) => {
+                  if (text.startsWith('#')) {
+                    return block.kind === 'OB'
+                      ? watch(cpuId, {
+                          local: text.slice(1),
+                          block: block.name === MAIN_OB ? undefined : block.name,
+                        })
+                      : undefined;
+                  }
+                  const target = resolveOperand(project, text);
+                  return 'error' in target ? undefined : online?.access?.(cpuId)?.read(target);
+                })
+              }
             />
           ) : (
             <SclEditor
@@ -459,6 +493,7 @@ export function ProgramPanel({ solution, compiled, onChange, watch, online }: Pr
                   return parts.length ? parts.join('   ') : undefined;
                 })
               }
+              conditions={conditionsOf(result?.program?.probes, probes?.(cpuId), block.name)}
               key={block.name}
               value={block.source}
               onChange={(source) => changeBlock((b) => ({ ...b, source }))}

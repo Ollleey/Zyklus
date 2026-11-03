@@ -188,6 +188,7 @@ class RemoteCpu implements CpuView {
   stopInfo?: StopInfo;
   load = 0;
   forceCount = 0;
+  probes: Value[] = [];
 
   constructor(
     private readonly id: string,
@@ -199,6 +200,7 @@ class RemoteCpu implements CpuView {
     this.stopInfo = c.stopInfo;
     this.load = c.load;
     this.forceCount = c.forceCount;
+    this.probes = c.probes;
   }
 
   read(address: string, t?: DataType): Value {

@@ -138,6 +138,7 @@ export class SimHost {
         stopInfo: c.stopInfo,
         load: c.load,
         forceCount: c.forceCount,
+        probes: [...c.probes],
       })),
       forced: run.forcedIds.map((id) => [id, run.forced(id)!]),
       values,

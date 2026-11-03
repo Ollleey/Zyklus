@@ -84,7 +84,7 @@ export function compileSolution(level: Level, solution: Solution): SolutionCompi
   for (const m of solution.modules) {
     const t = moduleType(m.type);
     if (t.kind !== 'cpu') continue;
-    const r = compilePlcProject(solution.projects[m.id] ?? emptyProject());
+    const r = compilePlcProject(solution.projects[m.id] ?? emptyProject(), { probes: true });
     const fup = r.lang === 'FUP';
     const limit = fup ? t.cpu!.maxNetworks : t.cpu!.maxStatements;
     const used = fup ? r.networks : r.size;

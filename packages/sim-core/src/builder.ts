@@ -6,6 +6,7 @@ import type {
   Instr,
   IrProgram,
   Operand,
+  ProbeDecl,
   SlotDecl,
 } from './ir';
 import { defaultValue, normalize, type DataType, type Value } from './types';
@@ -40,6 +41,8 @@ export class ProgramBuilder {
   private readonly slots: SlotDecl[] = [];
   private readonly instances: InstanceDecl[] = [];
   private readonly code: Instr[] = [];
+  private readonly probes: ProbeDecl[] = [];
+  private readonly probeIndex = new Map<string, number>();
 
   /** `len`: Höchstlänge bei STRING */
   slot(name: string, t: DataType, init?: Value, retain = false, len?: number): Operand {
@@ -70,6 +73,17 @@ export class ProgramBuilder {
     return { i, field: (f) => ({ k: 'inst', i, f }) };
   }
 
+  /** Messpunkt anlegen bzw. wiederverwenden (gleicher Baustein, Zeile und Art) */
+  probe(decl: ProbeDecl): number {
+    const key = `${decl.block}|${decl.line}|${decl.kind}`;
+    let i = this.probeIndex.get(key);
+    if (i === undefined) {
+      i = this.probes.push({ ...decl }) - 1;
+      this.probeIndex.set(key, i);
+    }
+    return i;
+  }
+
   /** Hängt einen Befehl an und gibt das Befehlsobjekt zurück (z. B. zum späteren Patchen von Sprungzielen). */
   emit<T extends Instr>(instr: T): T {
     this.code.push(instr);
@@ -91,6 +105,7 @@ export class ProgramBuilder {
       slots: this.slots.map((s) => ({ ...s })),
       instances: this.instances.map((s) => ({ ...s })),
       code: this.code.map((s) => ({ ...s })),
+      ...(this.probes.length ? { probes: this.probes.map((p) => ({ ...p })) } : {}),
     };
   }
 }

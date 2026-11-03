@@ -31,6 +31,8 @@ export interface ExecContext {
   /** Codebereich [start, end); Standard ist OB1 */
   start?: number;
   end?: number;
+  /** Werte der Messpunkte (`IrProgram.probes`) */
+  probes?: Value[];
 }
 
 export type ExecResult =
@@ -97,6 +99,14 @@ export function execute(ctx: ExecContext): ExecResult {
     while (pc < end) {
       if (ops >= ctx.budget) return { ok: false, ops, energy, reason: 'CYCLE_OVERRUN' };
       const ins = code[pc]!;
+      if (ins.op === 'probe') {
+        // Messpunkt: außerhalb von Befehlszähler und Energie
+        pc++;
+        if (ctx.probes) {
+          ctx.probes[ins.i] = ins.src ? read(ins.src) : ((ctx.probes[ins.i] as number) ?? 0) + 1;
+        }
+        continue;
+      }
       ops++;
       energy += ctx.energy[pc]!;
       pc++;

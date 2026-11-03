@@ -367,6 +367,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           compiled={compiled.cpus}
           onChange={setSolution}
           watch={run ? watch : undefined}
+          probes={run ? (cpu) => run.cpus.get(cpu)?.probes : undefined}
           online={{
             state: online,
             onChange: (cpu, tb) => setOnline({ ...online, [cpu]: tb }),

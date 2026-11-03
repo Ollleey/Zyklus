@@ -85,6 +85,7 @@ export interface CpuSnapshot {
   stopInfo?: StopInfo;
   load: number;
   forceCount: number;
+  probes: Value[];
 }
 
 /** Stand des Laufs nach einem Rechenblock */

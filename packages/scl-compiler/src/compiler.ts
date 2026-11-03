@@ -87,6 +87,8 @@ export interface ProjectDiagnostic extends Diagnostic {
 export interface CompileOptions {
   /** Größe der Speicherbereiche (Standard wie Cpu: 128/128/256 Byte) */
   areaSizes?: Record<Area, number>;
+  /** Messpunkte für Beobachten und Haltepunkte erzeugen (kosten zur Laufzeit nichts) */
+  probes?: boolean;
 }
 
 export interface CompileResult {
@@ -1825,6 +1827,7 @@ class CodeGen {
 
   private stmts(list: Stmt[]): void {
     for (const s of list) {
+      if (s.k !== 'region') this.probe('line', s.span);
       const mark = new Map(this.tempUse);
       this.guard(() => this.stmt(s));
       this.tempUse = mark;
@@ -1847,6 +1850,7 @@ class CodeGen {
         const loop: Loop = { exits: [], continues: [] };
         const top = this.b.pc;
         const cond = this.genAs(s.cond, 'BOOL');
+        this.probe('cond', s.cond.span, cond);
         const jz = this.b.emit({ op: 'jz', cond, to: -1 });
         this.loopBody(loop, s.body);
         this.b.emit({ op: 'jmp', to: top });
@@ -1860,6 +1864,7 @@ class CodeGen {
         this.loopBody(loop, s.body);
         const cont = this.b.pc;
         const cond = this.genAs(s.cond, 'BOOL');
+        this.probe('cond', s.cond.span, cond);
         this.b.emit({ op: 'jz', cond, to: top });
         this.closeLoop(loop, cont, this.b.pc);
         return;
@@ -1894,6 +1899,14 @@ class CodeGen {
         );
       }
     }
+  }
+
+  /** Messpunkt im Quelltext des aktuellen Bausteins (nur SCL, nicht aus FUP erzeugt) */
+  private probe(kind: 'line' | 'cond', span: Span, src?: Operand): void {
+    const block = this.where.block;
+    if (!this.opts.probes || this.intrinsics || !block || this.where.part !== 'code') return;
+    const i = this.b.probe({ block, line: span.start.line, kind });
+    this.b.emit(src ? { op: 'probe', i, src } : { op: 'probe', i });
   }
 
   private loopBody(loop: Loop, body: Stmt[]): void {
@@ -2187,6 +2200,7 @@ class CodeGen {
     s.branches.forEach((br, n) => {
       const mark = new Map(this.tempUse);
       const cond = this.genAs(br.cond, 'BOOL');
+      this.probe('cond', br.cond.span, cond);
       this.tempUse = mark;
       const jz = this.b.emit({ op: 'jz', cond, to: -1 });
       this.stmts(br.body);

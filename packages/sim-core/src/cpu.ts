@@ -53,6 +53,8 @@ export class Cpu {
   readonly m: ByteArea;
   readonly slots: Value[];
   readonly instances: InstanceState[];
+  /** Messpunkte: letzter Wert einer Bedingung bzw. Anzahl Durchläufe einer Anweisung */
+  readonly probes: Value[];
   mode: CpuMode = 'RUN';
   stopInfo?: StopInfo;
   readonly metrics: CpuMetrics = { cycles: 0, ops: 0, energy: 0, maxOpsInCycle: 0, interrupts: 0 };
@@ -88,6 +90,7 @@ export class Cpu {
     this.paa = new ByteArea('PAA', ioBytes);
     this.m = new ByteArea('Merker', mBytes);
     this.slots = program.slots.map((s) => s.init);
+    this.probes = (program.probes ?? []).map((p) => (p.kind === 'line' ? 0 : false));
     this.instances = program.instances.map((d) => createInstance(d.kind));
     this.energy = precomputeEnergy(program);
     this.tempSlots = program.slots.flatMap((s, i) => (s.temp ? [i] : []));
@@ -240,6 +243,7 @@ export class Cpu {
       budget: this.config.maxOpsPerCycle,
       start,
       end,
+      probes: this.probes,
     });
     this.metrics.ops += res.ops;
     this.metrics.energy += res.energy;
