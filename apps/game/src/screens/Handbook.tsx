@@ -6,6 +6,7 @@ import scl from '../../../../docs/scl.md?raw';
 import fup from '../../../../docs/fup.md?raw';
 import online from '../../../../docs/online.md?raw';
 import geraete from '../../../../docs/geraete.md?raw';
+import technologie from '../../../../docs/technologie.md?raw';
 import { t } from '../i18n';
 import { Markdown } from '../ui/Markdown';
 
@@ -54,6 +55,7 @@ const PAGES = [
   { id: 'boxes', title: 'FUP-Boxen' },
   { id: 'online', title: 'Online-Funktionen' },
   { id: 'geraete', title: 'Geräte und Fehler' },
+  { id: 'technologie', title: 'Technologie' },
 ] as const;
 
 type PageId = (typeof PAGES)[number]['id'];
@@ -90,6 +92,7 @@ export function Handbook({ onBack }: { onBack: () => void }) {
           {page === 'boxes' && <Boxes />}
           {page === 'online' && <Markdown text={online} joinLines />}
           {page === 'geraete' && <Markdown text={geraete} joinLines />}
+          {page === 'technologie' && <Markdown text={technologie} joinLines />}
           <footer className="paper-foot">
             {t('handbook.title')}, Seite {PAGES.findIndex((p) => p.id === page) + 1}:{' '}
             {PAGES.find((p) => p.id === page)!.title}

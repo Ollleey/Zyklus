@@ -14,7 +14,7 @@ import {
   type LadNetwork,
   type LadNode,
 } from '@zyklus/fup-model';
-import { newInstanceName, nextDbNumber } from './FupEditor';
+import { libraryFor, newInstanceName, nextDbNumber } from './FupEditor';
 
 interface Props {
   project: PlcProject;
@@ -456,6 +456,15 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
               {boxSpec(b).label}
             </option>
           ))}
+          {libraryFor(project).length > 0 && (
+            <optgroup label="Technologie">
+              {libraryFor(project).map((b) => (
+                <option key={b.name} value={callType(b.name)}>
+                  {b.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
           {ownBlocks.length > 0 && (
             <optgroup label="Eigene Bausteine">
               {ownBlocks.map((b) => (

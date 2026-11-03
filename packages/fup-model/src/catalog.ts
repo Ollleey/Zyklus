@@ -1,4 +1,5 @@
 import type { PlcProject, VarDecl } from '@zyklus/sim-core';
+import { LIBRARY } from '@zyklus/scl-compiler';
 
 /**
  * Boxkatalog wie im TIA-FUP-Editor. Bool-Pins lassen sich verbinden und negieren,
@@ -357,7 +358,9 @@ export const callType = (name: string) => `${CALL_PREFIX}${name}`;
  */
 export function setCallSignatures(project: PlcProject): void {
   CALLS.clear();
-  for (const b of project.blocks) {
+  const own = new Set(project.blocks.map((b) => b.name.toLowerCase()));
+  const lib = LIBRARY.filter((b) => !own.has(b.name.toLowerCase()));
+  for (const b of [...project.blocks, ...lib]) {
     if (b.kind !== 'FB' && b.kind !== 'FC') continue;
     const pin = (v: VarDecl): PinSpec => ({
       name: v.name,

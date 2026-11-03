@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { Block, CodeBlock, PlcProject } from '@zyklus/sim-core';
-import type { ProjectDiagnostic } from '@zyklus/scl-compiler';
+import { LIBRARY, type ProjectDiagnostic } from '@zyklus/scl-compiler';
 import {
   BOX_SPECS,
   CATEGORIES,
@@ -47,6 +47,12 @@ function pinPos(b: FupBox, pin: string, side: 'in' | 'out'): { x: number; y: num
   );
   const y = b.y + HEAD + i * PITCH + PITCH / 2;
   return side === 'in' ? { x: b.x - STUB, y } : { x: b.x + boxWidth(b.type) + STUB, y };
+}
+
+/** Bibliotheksbausteine (Technologie), soweit das Projekt keinen gleichnamigen Baustein hat */
+export function libraryFor(project: PlcProject): CodeBlock[] {
+  const own = new Set(project.blocks.map((b) => b.name.toLowerCase()));
+  return LIBRARY.filter((b) => !own.has(b.name.toLowerCase()));
 }
 
 /** Name eines neuen Instanz-DBs wie in TIA („IEC_Timer_0_DB“, „R_TRIG_DB“). */
@@ -99,6 +105,10 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
   const ownBlocks = project.blocks.filter(
     (b): b is CodeBlock => (b.kind === 'FB' || b.kind === 'FC') && b.name !== block.name,
   );
+  const CALL_GROUPS: [string, string, CodeBlock[]][] = [
+    ['Technologie', 'Technologie', libraryFor(project)],
+    ['Bausteine', 'Eigene Bausteine', ownBlocks],
+  ];
   const [selection, setSelection] = useState<Selection>(null);
   const [openCats, setOpenCats] = useState<Set<string>>(new Set(['Bitverknüpfungen', 'Zeiten']));
   const netRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -238,43 +248,47 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
             </div>
           );
         })}
-        {ownBlocks.length > 0 && (
-          <div>
-            <button
-              className="fup-cat"
-              onClick={() => {
-                const next = new Set(openCats);
-                if (next.has('Bausteine')) next.delete('Bausteine');
-                else next.add('Bausteine');
-                setOpenCats(next);
-              }}
-            >
-              {openCats.has('Bausteine') ? '▾' : '▸'} Eigene Bausteine
-            </button>
-            {openCats.has('Bausteine') &&
-              ownBlocks.map((b) => (
-                <div
-                  key={b.name}
-                  className="fup-item"
-                  draggable
-                  title={`${b.kind} „${b.name}“${b.kind === 'FB' ? ' – legt einen Instanz-DB an' : ''}
-Ziehen ins Netzwerk oder klicken zum Einfügen`}
-                  onDragStart={(e) =>
-                    e.dataTransfer.setData('application/x-fup-box', callType(b.name))
-                  }
+        {CALL_GROUPS.map(
+          ([cat, label, list]) =>
+            list.length > 0 && (
+              <div key={cat}>
+                <button
+                  className="fup-cat"
                   onClick={() => {
-                    const target = selection?.network ?? lastNetwork;
-                    const nw = body.networks[target];
-                    if (!nw) return;
-                    const y = nw.boxes.reduce((m, x) => Math.max(m, x.y + boxHeight(x)), 0) + 40;
-                    addBox(target, callType(b.name), STUB + OPW + 20, y);
+                    const next = new Set(openCats);
+                    if (next.has(cat)) next.delete(cat);
+                    else next.add(cat);
+                    setOpenCats(next);
                   }}
                 >
-                  <span className="fup-item-label">{b.name}</span>
-                  <span className="fup-item-type">{b.kind}</span>
-                </div>
-              ))}
-          </div>
+                  {openCats.has(cat) ? '▾' : '▸'} {label}
+                </button>
+                {openCats.has(cat) &&
+                  list.map((b) => (
+                    <div
+                      key={b.name}
+                      className="fup-item"
+                      draggable
+                      title={`${b.kind} „${b.name}“${b.kind === 'FB' ? ' – legt einen Instanz-DB an' : ''}
+Ziehen ins Netzwerk oder klicken zum Einfügen`}
+                      onDragStart={(e) =>
+                        e.dataTransfer.setData('application/x-fup-box', callType(b.name))
+                      }
+                      onClick={() => {
+                        const target = selection?.network ?? lastNetwork;
+                        const nw = body.networks[target];
+                        if (!nw) return;
+                        const y =
+                          nw.boxes.reduce((m, x) => Math.max(m, x.y + boxHeight(x)), 0) + 40;
+                        addBox(target, callType(b.name), STUB + OPW + 20, y);
+                      }}
+                    >
+                      <span className="fup-item-label">{b.name}</span>
+                      <span className="fup-item-type">{b.kind}</span>
+                    </div>
+                  ))}
+              </div>
+            ),
         )}
       </aside>
 

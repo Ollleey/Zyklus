@@ -33,7 +33,7 @@ import {
 import { LadEditor } from './LadEditor';
 import { showNotice } from '../state/commands';
 import { DbPanel, INSTANCE_TYPES, udtNames } from './DbPanel';
-import { FupEditor } from './FupEditor';
+import { FupEditor, libraryFor } from './FupEditor';
 import { SclEditor } from './SclEditor';
 import { TagTable } from './TagTable';
 import { ELEMENTARY_TYPES, VarTable } from './VarTable';
@@ -249,6 +249,7 @@ export function ProgramPanel({
       : undefined;
 
   const userFbs = codeBlocks.filter((b) => b.kind === 'FB').map((b) => `"${b.name}"`);
+  const libFbs = libraryFor(project).map((b) => `"${b.name}"`);
   const isCodeName = (name?: string) => !!name && codeBlocks.some((b) => b.name === name);
   const change = (f: (p: PlcProject) => PlcProject) => onChange(updateProject(solution, cpuId, f));
   const changeBlock = (f: (b: CodeBlock) => CodeBlock) =>
@@ -521,6 +522,7 @@ export function ProgramPanel({
                               ...udtNames(project),
                               ...INSTANCE_TYPES,
                               ...userFbs,
+                              ...libFbs,
                             ]
                           : [...ELEMENTARY_TYPES, ...udtNames(project)]
                       }

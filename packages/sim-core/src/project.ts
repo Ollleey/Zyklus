@@ -123,6 +123,11 @@ export interface InstanceDb {
   name: string;
   number: number;
   of: string;
+  /**
+   * Startwerte einzelner Elemente eines eigenen FB (Element → Literal), z. B. die
+   * Konfiguration eines Technologieobjekts: `{ Gain: '2.5', Ti: '30.0' }`
+   */
+  start?: Record<string, string>;
 }
 
 export type Block = CodeBlock | GlobalDb | InstanceDb;

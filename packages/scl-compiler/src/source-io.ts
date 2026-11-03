@@ -145,6 +145,7 @@ export function projectToSource(project: PlcProject): string {
         b.of,
         '',
         'BEGIN',
+        ...Object.entries(b.start ?? {}).map(([k, v]) => `   ${k} := ${v};`),
         '',
         'END_DATA_BLOCK',
         '',
@@ -228,7 +229,21 @@ export function sourceToProject(
         }));
     if (b.kind === 'DB') {
       const number = numbers.DB++;
-      if (b.instanceOf) return [{ kind: 'IDB', name: b.name, number, of: b.instanceOf }];
+      if (b.instanceOf) {
+        // Startwerte im Anweisungsteil: Element := Wert;
+        const start: Record<string, string> = {};
+        for (const m of b.bodyText.matchAll(/^\s*([A-Za-z_]\w*)\s*:=\s*([^;]+?)\s*;/gm))
+          start[m[1]!] = m[2]!;
+        return [
+          {
+            kind: 'IDB',
+            name: b.name,
+            number,
+            of: b.instanceOf,
+            ...(Object.keys(start).length ? { start } : {}),
+          },
+        ];
+      }
       return [{ kind: 'DB', name: b.name, number, vars: vars('Static') }];
     }
     const event =

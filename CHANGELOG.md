@@ -1,5 +1,18 @@
 # Changelog
 
+## M12a – Technologie-Bibliothek, PID_Compact (2026-11-03)
+
+- **Technologie-Bibliothek**: fertige, geschützte FBs, die der Compiler dazunimmt, sobald ein
+  Projekt sie verwendet (Instanz-DB oder Multiinstanz); in FUP/KOP unter „Technologie“, zählen
+  nicht zur Programmgröße
+- **PID_Compact**: PID-Regler mit Hand-/Automatikbetrieb, Stellwertgrenzen ohne Aufziehen des
+  I-Anteils, Output_PWM für Schaltausgänge, D-Anteil auf den Istwert und **Selbstoptimierung**
+  per Schwingversuch (Gain = 0,35 · Ku, Ti = 1,2 · Tu)
+- **Startwerte im Instanz-DB** (`start`): Konfigurationstabelle im Reiter Datenbausteine für
+  Technologiebausteine und eigene FBs; geprüft vom Compiler, in der SCL-Quelle im `BEGIN`-Teil
+- Handbuchseite „Technologie“
+- 747 Tests
+
 ## M11c – Eigene Bausteine als Box, Kommentare, Bausteinschutz (2026-11-03)
 
 - **Eigene FB/FC als Boxen** in FUP (Palette „Eigene Bausteine“) und KOP (Box-Auswahl): Pins

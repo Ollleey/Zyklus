@@ -29,3 +29,4 @@ export { projectToSource, sourceToProject } from './source-io';
 export { instanceType, FB_INPUTS, FB_OUTPUTS } from './systemblocks';
 export { ELEMENTARY, TIA_NAMES, implicitOk } from './typerules';
 export * from './monaco';
+export { LIBRARY, libraryBlock, usedLibrary, withLibrary } from './library';

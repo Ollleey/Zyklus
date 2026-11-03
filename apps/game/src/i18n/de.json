@@ -375,5 +375,9 @@
   "savegame.offerYes": "Datei wählen …",
   "savegame.offerNo": "Nein, neu beginnen",
   "block.comment": "Bausteinkommentar",
-  "block.protected": "Geschützter Baustein: Der Code ist nicht einsehbar und lässt sich nicht ändern. Verwenden kannst du ihn über seine Schnittstelle."
+  "block.protected": "Geschützter Baustein: Der Code ist nicht einsehbar und lässt sich nicht ändern. Verwenden kannst du ihn über seine Schnittstelle.",
+  "db.library": "Technologie",
+  "db.config": "Konfiguration (Startwerte)",
+  "db.default": "Vorgabe",
+  "db.startValue": "Startwert"
 }

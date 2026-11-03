@@ -51,6 +51,7 @@ import {
 } from './datatypes';
 import { SclError, type Diagnostic, type Span } from './diagnostics';
 import { parseBody, parseExpression, parseSource, parseTypeText } from './parser';
+import { LIBRARY, libraryBlock, withLibrary } from './library';
 import {
   FB_INPUTS,
   FB_OUTPUTS,
@@ -156,6 +157,10 @@ interface Unit {
   number?: number;
   /** FC: Rückgabetyp (Text), undefined = Void */
   returnType?: string;
+  /** IDB eines eigenen FB: Startwerte einzelner Elemente */
+  start?: Record<string, string>;
+  /** Baustein aus dem Projektmodell (für Bibliotheksbausteine) */
+  source?: Block;
 }
 
 /** Rückgabetyp ohne „Void“ */
@@ -168,7 +173,8 @@ function returnTypeOf(t: string | undefined): string | undefined {
 // ---------------------------------------------------------------------------------------------
 
 /** Übersetzt das Projekt einer CPU (Variablentabelle + Bausteine) in ein IR-Programm. */
-export function compileProject(project: PlcProject, opts: CompileOptions = {}): CompileResult {
+export function compileProject(source: PlcProject, opts: CompileOptions = {}): CompileResult {
+  const project = withLibrary(source);
   return compileUnits(
     [...(project.types ?? []).map(unitFromType), ...project.blocks.map(unitFromBlock)],
     project.tags,
@@ -199,7 +205,16 @@ export function compileSource(
     origin: 'source',
     errors: [],
   }));
-  return compileUnits(units, opts.tags ?? [], opts);
+  // Technologie-Bibliothek: verwendete, nicht selbst definierte Bausteine dazunehmen
+  const own = new Set(units.map((u) => u.name.toLowerCase()));
+  const lib = new Map<string, Unit>();
+  for (const b of parsed.blocks) {
+    for (const t of [b.instanceOf ?? '', ...b.decls.map((d) => d.typeName)]) {
+      const l = libraryBlock(t);
+      if (l && !own.has(l.name.toLowerCase())) lib.set(l.name, unitFromBlock(l));
+    }
+  }
+  return compileUnits([...units, ...lib.values()], opts.tags ?? [], opts);
 }
 
 /**
@@ -309,6 +324,7 @@ function unitFromBlock(b: Block): Unit {
       body: [],
       origin: 'project',
       errors,
+      ...(b.start ? { start: b.start } : {}),
     };
   }
   const ifaceDecls = Object.entries(b.iface).flatMap(([section, rows]) =>
@@ -339,6 +355,7 @@ function unitFromBlock(b: Block): Unit {
     event: b.kind === 'OB' ? b.event : undefined,
     number: b.number,
     returnType: b.kind === 'FC' ? returnTypeOf(b.returnType) : undefined,
+    source: b,
   };
 }
 
@@ -507,6 +524,8 @@ const MAX_SLOTS = 4096;
 interface UserInst {
   fb: Unit;
   display: string;
+  /** Startwerte aus dem Instanz-DB (Element klein geschrieben → Literal) */
+  start?: Record<string, string>;
   /** Eingänge, Ausgänge, statische Daten – einmal je Instanz angelegt */
   vars?: Map<string, Sym>;
 }
@@ -694,7 +713,7 @@ class CodeGen {
       if (task) tasks.push({ ...task, start, end: this.b.pc });
     }
     for (const u of this.units.values()) {
-      if (!this.called.has(u.name.toLowerCase())) {
+      if (!this.called.has(u.name.toLowerCase()) && !LIBRARY.some((l) => l === u.source)) {
         this.push('warning', `Baustein „${u.name}“ wird nirgends aufgerufen`, NO_SPAN, {
           block: u.name,
           part: 'project',
@@ -872,7 +891,22 @@ class CodeGen {
         this.fail(`„${user.name}“ ist eine Funktion (FC) und hat keinen Instanz-DB`, NO_SPAN);
       }
       if (user) {
-        this.uinsts.set(u.name.toLowerCase(), { fb: user, display: u.name });
+        const start = u.start
+          ? Object.fromEntries(Object.entries(u.start).map(([k, v]) => [k.toLowerCase(), v]))
+          : undefined;
+        if (start) {
+          for (const k of Object.keys(start)) {
+            if (!user.decls.some((d) => d.name.toLowerCase() === k && d.section !== 'Temp'))
+              this.fail(`Instanz-DB „${u.name}“: ${user.name} hat kein Element ${k}`, NO_SPAN);
+            const r = parseExpression(start[k]!);
+            if (!r.expr || r.diagnostics.length)
+              this.fail(
+                `Instanz-DB „${u.name}“: Startwert von ${k} („${start[k]}“) ist ungültig`,
+                NO_SPAN,
+              );
+          }
+        }
+        this.uinsts.set(u.name.toLowerCase(), { fb: user, display: u.name, start });
         return;
       }
       const it = instanceType(u.instanceOf ?? '');
@@ -1527,7 +1561,14 @@ class CodeGen {
     const vars = new Map<string, Sym>();
     ui.vars = vars;
     const order: IfaceSection[] = ['Constant', 'Input', 'Output', 'Static'];
-    const decls = order.flatMap((s) => ui.fb.decls.filter((d) => d.section === s));
+    const decls = order
+      .flatMap((s) => ui.fb.decls.filter((d) => d.section === s))
+      .map((d) => {
+        const text = ui.start?.[d.name.toLowerCase()];
+        if (text === undefined || d.section === 'Constant') return d;
+        const r = parseExpression(text);
+        return r.expr && !r.diagnostics.length ? { ...d, init: r.expr } : d;
+      });
     this.declareAll(ui.fb, decls, vars, (d) => `${ui.display}.${d.name}`, false);
     return vars;
   }
