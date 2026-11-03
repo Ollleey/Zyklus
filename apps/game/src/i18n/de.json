@@ -387,5 +387,9 @@
   "cabinet.pulse.off": "Standardausgang",
   "cabinet.pulse.pwm": "PWM",
   "cabinet.pulse.pto": "PTO (Impulsfolge)",
-  "cabinet.pulse.period": "Periodendauer"
+  "cabinet.pulse.period": "Periodendauer",
+  "cabinet.controller": "Zugeordnete CPU",
+  "cabinet.controllerHint": "Die Baugruppen dieser Station gehören zu dieser CPU; ihre Adressen schließen an deren Baugruppen an.",
+  "cabinet.updateTime": "Aktualisierungszeit",
+  "cabinet.updateHint": "So oft werden Eingänge und Ausgänge der Station mit der CPU ausgetauscht – zusätzliche Verzögerung gegenüber zentraler Peripherie."
 }

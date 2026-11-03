@@ -1,5 +1,19 @@
 # Changelog
 
+## M12c – Dezentrale Peripherie (2026-11-03)
+
+- Neues **Interfacemodul IM PN**: Baugruppen rechts davon bilden eine dezentrale Station, die über
+  PROFINET zu einer wählbaren CPU gehört (auch hinter einer Trennwand); Adressen schließen an die
+  zentralen Baugruppen an
+- **Aktualisierungszeit** 1…16 ms (Standard 4): Eingänge und Ausgänge der Station werden nur in
+  diesem Takt übertragen
+- **Stationsausfall** im Testfall (`moduleFaults` mit `kind: 'station'`) bzw. Interfacemodul
+  ziehen im Sandkasten: alle Baugruppen der Station ohne Funktion, ein Baugruppenträgerausfall
+  (OB86, kommend/gehend) je Station
+- Schaltschrank: Interfacemodul mit eigener Farbe, Inspektor für zugeordnete CPU und
+  Aktualisierungszeit; Handbuch „Geräte und Fehler“ ergänzt
+- 753 Tests
+
 ## M12b – Schneller Zähler, PWM/PTO, Positionierachse (2026-11-03)
 
 - **HSC auf DI 8 HF**: Kanal 0 zählt jede steigende Flanke im 1-ms-Raster, unabhängig von

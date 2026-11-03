@@ -4,6 +4,7 @@ import type { DataType } from '../types';
 import type { Device, Level } from './level';
 import { SOLUTION_VERSION, wallRange } from './migrate';
 import {
+  DEFAULT_UPDATE_TIME,
   MODULE_TYPES,
   RANGE_LABEL,
   channelInfo,
@@ -65,6 +66,10 @@ export interface ModuleConfig {
   pulse?: Record<number, PulseConfig>;
   /** nur DQ 4 HF: Byteadresse des Stellworts von Kanal 0 (%QW, Standard 120) */
   pulseAddress?: number;
+  /** nur Interfacemodul: zugeordnete CPU (Standard: erste CPU auf der Schiene) */
+  controller?: string;
+  /** nur Interfacemodul: Aktualisierungszeit in ms (1…16, Standard 4) */
+  updateTime?: number;
 }
 
 /**
@@ -91,6 +96,12 @@ export function channelRange(
   if (!ranges?.length) return undefined;
   const set = solution.config?.[moduleId]?.ranges?.[ch];
   return set && ranges.includes(set) ? set : ranges[0];
+}
+
+/** Aktualisierungszeit einer dezentralen Station in ms (auf 1…16 begrenzt) */
+export function updateTimeOf(solution: Pick<Solution, 'config'>, im: string): number {
+  const v = solution.config?.[im]?.updateTime ?? DEFAULT_UPDATE_TIME;
+  return Math.max(1, Math.min(16, Math.round(v)));
 }
 
 export function emptySolution(): Solution {
@@ -139,12 +150,16 @@ export interface Binding {
   range?: AnalogRange;
   /** Signalart des Geräts passt nicht zum Messbereich: Kanal liefert Überlauf bzw. kein Signal */
   mismatch?: boolean;
+  /** Baugruppe einer dezentralen Station: Interfacemodul und Aktualisierungszeit in ms */
+  station?: { im: string; updateTime: number };
 }
 
 export interface BoardAnalysis {
   issues: BoardIssue[];
   /** CPU-Modul, zu dem ein E/A-Modul gehört */
   cpuOf: Map<string, string>;
+  /** Baugruppe einer dezentralen Station → Interfacemodul */
+  stationOf: Map<string, string>;
   /** Adresse je Modul-Kanal, Schlüssel `${modul}:${kanal}` */
   channelAddress: Map<string, string>;
   bindings: Map<string, Binding>;
@@ -277,14 +292,39 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       counters[k] += k === 'di' || k === 'do' ? Math.ceil(g.count / 8) : g.count * 2;
     }
   };
+  /** Adresszähler je CPU (dezentrale Stationen vergeben danach weiter) */
+  const countersOf = new Map<string, typeof counters>();
+  /** dezentrale Stationen: Interfacemodul mit seinen Baugruppen (in Steckplatzreihenfolge) */
+  const stations: { im: PlacedModule; modules: PlacedModule[] }[] = [];
+  let station: (typeof stations)[number] | undefined;
+  const stationOf = new Map<string, string>();
+  const firstCpu = sorted.find((m) => types.get(m.id)!.kind === 'cpu')?.id;
+  const leave = () => {
+    if (cpu && !station) countersOf.set(cpu, counters);
+  };
   for (const m of sorted) {
     const t = types.get(m.id)!;
     if (wr && !pastWall && m.x >= wr[1]) {
       // Module rechts der Trennwand gehören nicht zur CPU links davon
+      leave();
       pastWall = true;
       cpu = undefined;
+      station = undefined;
+    }
+    if (t.kind === 'im') {
+      leave();
+      station = { im: m, modules: [] };
+      stations.push(station);
+      cpu = undefined;
+      continue;
+    }
+    if (station && t.kind !== 'cpu') {
+      station.modules.push(m);
+      continue;
     }
     if (t.kind === 'cpu') {
+      leave();
+      station = undefined;
       cpu = m.id;
       counters = { di: 0, do: 0, ai: ANALOG_BASE, ao: ANALOG_BASE };
       // E/A auf der CPU bekommen die ersten Adressen
@@ -312,6 +352,38 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       continue;
     }
     assign(m.id, t);
+  }
+  leave();
+  // dezentrale Stationen: Adressen im Anschluss an die Baugruppen der zugeordneten CPU
+  for (const st of stations) {
+    const want = solution.config?.[st.im.id]?.controller ?? firstCpu;
+    const ctl = want && types.get(want)?.kind === 'cpu' ? want : undefined;
+    if (!ctl) {
+      err({
+        code: 'io-without-cpu',
+        message: `Interfacemodul ${st.im.id}: keine CPU zugeordnet`,
+        module: st.im.id,
+      });
+      continue;
+    }
+    cpu = ctl;
+    counters = countersOf.get(ctl) ?? { di: 0, do: 0, ai: ANALOG_BASE, ao: ANALOG_BASE };
+    cpuOf.set(st.im.id, ctl);
+    for (const m of st.modules) {
+      const t = types.get(m.id)!;
+      if (t.kind === 'cp') {
+        err({
+          code: 'coupler',
+          message: 'Ein Koppelmodul gehört neben die CPU, nicht in eine dezentrale Station',
+          module: m.id,
+        });
+        continue;
+      }
+      cpuOf.set(m.id, ctl);
+      stationOf.set(m.id, st.im.id);
+      assign(m.id, t);
+    }
+    countersOf.set(ctl, counters);
   }
   if (!sorted.some((m) => types.get(m.id)!.kind === 'cpu')) {
     err({ code: 'no-cpu', message: 'Es ist keine CPU gesteckt' });
@@ -431,6 +503,14 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
         delay: t.delay,
         ...(range ? { range } : {}),
         ...(mismatch ? { mismatch } : {}),
+        ...(stationOf.has(mod.id)
+          ? {
+              station: {
+                im: stationOf.get(mod.id)!,
+                updateTime: updateTimeOf(solution, stationOf.get(mod.id)!),
+              },
+            }
+          : {}),
       });
     }
   }
@@ -457,6 +537,7 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
   return {
     issues,
     cpuOf,
+    stationOf,
     channelAddress,
     bindings,
     ductLoad,

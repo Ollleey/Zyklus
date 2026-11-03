@@ -186,12 +186,25 @@ export class LevelRun {
   /** aktive Störungen einer Baugruppe zum Zeitpunkt t */
   moduleFaults(module: string, t = this.sim.time): Set<ModuleFaultKind> {
     const out = new Set(this.manualFaults.get(module) ?? []);
+    const station = this.analysis.stationOf.get(module);
     for (const f of this.opts.test?.moduleFaults ?? []) {
-      if (t >= f.from && t < f.to && this.analysis.bindings.get(f.device)?.module === module) {
+      if (t < f.from || t >= f.to) continue;
+      const b = this.analysis.bindings.get(f.device);
+      if (f.kind === 'station') {
+        // Ausfall der Station: alle Baugruppen hinter demselben Interfacemodul
+        if (station && b?.station?.im === station) out.add('station');
+      } else if (b?.module === module) {
         out.add(f.kind);
       }
     }
+    if (station && this.manualFaults.get(station)?.has('pulled')) out.add('station');
     return out;
+  }
+
+  /** Station ausgefallen (Interfacemodul gezogen bzw. Stationsstörung im Testfall) */
+  private stationDown(im: string, t: number): boolean {
+    const m = [...this.analysis.stationOf].find(([, s]) => s === im)?.[0];
+    return m ? this.moduleFaults(m, t).has('station') : !!this.manualFaults.get(im)?.has('pulled');
   }
 
   /** Baugruppe ohne Funktion (gezogen oder ohne Lastspannung): Eingänge 0, Ausgänge aus */
@@ -201,6 +214,16 @@ export class LevelRun {
 
   /** kommende und gehende Baugruppenstörungen an die CPU melden */
   private reportModuleFaults(t: number): void {
+    // dezentrale Stationen: ein Baugruppenträgerausfall je Station
+    for (const im of new Set(this.analysis.stationOf.values())) {
+      const cpu = this.cpus.get(this.analysis.cpuOf.get(im) ?? '');
+      if (!cpu) continue;
+      const key = `${im}|station`;
+      const on = this.stationDown(im, t);
+      if ((this.faultState.get(key) ?? false) === on) continue;
+      this.faultState.set(key, on);
+      cpu.rackEvent(t, key, `Station ${im} ${on ? 'ausgefallen' : 'wieder erreichbar'}`, on);
+    }
     const modules = new Set<string>([
       ...this.manualFaults.keys(),
       ...(this.opts.test?.moduleFaults ?? []).flatMap((f) => {
@@ -214,6 +237,7 @@ export class LevelRun {
       if (!cpu) continue;
       const active = this.moduleFaults(module, t);
       for (const kind of ['pulled', 'noLoad'] as const) {
+        if (this.analysis.stationOf.has(module) && active.has('station')) continue;
         const key = `${module}|${kind}`;
         const on = active.has(kind);
         if ((this.faultState.get(key) ?? false) === on) continue;
@@ -235,7 +259,25 @@ export class LevelRun {
   /** letzter Ausgangswert je Gerät, solange die CPU in RUN war („letzten Wert halten“) */
   private readonly lastRun = new Map<string, Value>();
 
+  /** zuletzt übertragene Ausgangswerte dezentraler Stationen (Aktualisierungszeit) */
+  private readonly stationOut = new Map<string, Value>();
+
+  /** Ausgangswert an der Klemme; dezentrale Stationen übernehmen ihn im Takt der Aktualisierungszeit */
   private commanded(d: Device): Value {
+    const st = this.analysis.bindings.get(d.id)?.station;
+    if (!st) return this.commandedNow(d);
+    const t = this.sim.time;
+    if (t % st.updateTime === 0 || !this.stationOut.has(d.id)) {
+      this.stationOut.set(d.id, this.commandedNow(d));
+    }
+    return this.moduleDead(this.analysis.bindings.get(d.id)!.module, t)
+      ? d.kind === 'AO'
+        ? 0
+        : false
+      : this.stationOut.get(d.id)!;
+  }
+
+  private commandedNow(d: Device): Value {
     const b = this.analysis.bindings.get(d.id);
     if (!b) return d.kind === 'AO' ? 0 : false;
     // Stellglied mit anderer Signalart als der Ausgang: kommt nichts Brauchbares an
@@ -516,7 +558,9 @@ export class LevelRun {
       if (b && this.moduleDead(b.module, t)) v = d.kind === 'AI' ? 0 : false;
       const f = this.forces.get(d.id);
       if (f !== undefined) v = f;
-      if (b) this.cpus.get(b.cpu)!.setInput(b.address, v, b.t);
+      // dezentrale Station: Eingänge erreichen die CPU im Takt der Aktualisierungszeit
+      if (b && (!b.station || t % b.station.updateTime === 0))
+        this.cpus.get(b.cpu)!.setInput(b.address, v, b.t);
       this.push(d.id, t, v);
     }
   }

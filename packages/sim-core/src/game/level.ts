@@ -148,7 +148,8 @@ export interface TestCase {
   moduleFaults?: ModuleFaultSpec[];
 }
 
-export type ModuleFaultKind = 'pulled' | 'noLoad';
+/** Baugruppe gezogen, Lastspannung fehlt, dezentrale Station ausgefallen (Leitung, Spannung) */
+export type ModuleFaultKind = 'pulled' | 'noLoad' | 'station';
 
 export interface ModuleFaultSpec {
   device: string;

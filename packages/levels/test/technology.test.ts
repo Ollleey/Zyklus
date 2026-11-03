@@ -152,3 +152,67 @@ describe('Positionierachse und schnelle Ausgänge', () => {
     expect(rises.length).toBe(100);
   });
 });
+
+describe('Dezentrale Peripherie', () => {
+  const level = {
+    ...levelById('01-foerderband')!,
+    allowedModules: ['cpu-klein', 'di8', 'do8', 'im-pn'],
+  } as Level;
+  const modules: PlacedModule[] = [
+    { id: 'cpu1', type: 'cpu-klein', x: 0 },
+    { id: 'di1', type: 'di8', x: 6 },
+    { id: 'im1', type: 'im-pn', x: 9 },
+    { id: 'do1', type: 'do8', x: 10 },
+  ];
+  const wires: Wire[] = [
+    { device: 'S1', module: 'di1', channel: 0 },
+    { device: 'S2', module: 'di1', channel: 1 },
+    { device: 'M1', module: 'do1', channel: 0 },
+  ];
+
+  it('Baugruppen hinter dem Interfacemodul gehören zur CPU, Adressen laufen weiter', () => {
+    const a = analyzeBoard(level, { version: 2, modules, wires, projects: {} });
+    expect(a.ok).toBe(true);
+    expect(a.cpuOf.get('do1')).toBe('cpu1');
+    expect(a.stationOf.get('do1')).toBe('im1');
+    expect(a.bindings.get('M1')).toMatchObject({
+      address: '%Q0.0',
+      station: { im: 'im1', updateTime: 4 },
+    });
+  });
+
+  it('Aktualisierungszeit verzögert die Ausgänge; Stationsausfall meldet OB86', () => {
+    const src = [
+      'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Bandmotor" := "Start" AND NOT "Stoerung".aus;\nEND_ORGANIZATION_BLOCK',
+      'DATA_BLOCK "Stoerung"\nVAR\naus : Bool;\nEND_VAR\nBEGIN\nEND_DATA_BLOCK',
+      'ORGANIZATION_BLOCK "Ausfall"\n// Ereignis: Baugruppenausfall\nBEGIN\n"Stoerung".aus := #Event_Class = 16#39;\nEND_ORGANIZATION_BLOCK',
+    ].join('\n');
+    const s = build(level, modules, wires, src, { im1: { updateTime: 16 } });
+    const c = compileSolution(level, s);
+    expect(
+      [...c.cpus.values()].flatMap((r) =>
+        r.diagnostics.filter((d) => d.severity === 'error').map((d) => d.message),
+      ),
+    ).toEqual([]);
+    const test = {
+      id: 't',
+      name: { de: 't' },
+      durationMs: 3000,
+      seeds: [1],
+      stimuli: { S1: [[100, true]] as [number, boolean][] },
+      moduleFaults: [{ device: 'M1', kind: 'station' as const, from: 1000, to: 2000 }],
+    };
+    const run = new LevelRun(level, s, c.programs, { test, seed: 1 });
+    run.runTo(3000);
+    const m1 = run.traces.get('M1')!;
+    const on = m1.find(([, v]) => v === true)![0];
+    expect(on % 16).toBe(0);
+    expect(on).toBeGreaterThanOrEqual(100);
+    expect(m1.find(([t, v]) => t >= 1000 && v === false)![0]).toBe(1000);
+    expect(
+      run.cpus.get('cpu1')!.diagnostics.some((e) => /Station im1 ausgefallen/.test(e.text)),
+    ).toBe(true);
+    // nach der Wiederkehr bleibt das Band per Programm aus, bis OB86 gehend kommt
+    expect(m1.at(-1)![1]).toBe(true);
+  });
+});

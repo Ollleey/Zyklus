@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  DEFAULT_UPDATE_TIME,
   HSC_BASE,
+  UPDATE_TIMES,
   MODULE_TYPES,
   PULSE_BASE,
   RANGE_LABEL,
@@ -16,6 +18,7 @@ import {
   type Device,
   type Level,
   type ModuleConfig,
+  type ModuleFaultKind,
   type PulseConfig,
   type Solution,
 } from '@zyklus/sim-core';
@@ -63,7 +66,7 @@ interface Props {
   onCpuSwitch?: (cpu: string, mode: 'RUN' | 'STOP' | 'RESTART') => void;
   /** Störungen von Hand: Baugruppe ziehen, Lastspannung wegnehmen */
   onModuleFault?: (module: string, kind: 'pulled' | 'noLoad', on: boolean) => void;
-  moduleFaults?: (module: string) => Set<'pulled' | 'noLoad'>;
+  moduleFaults?: (module: string) => Set<ModuleFaultKind>;
   /** geforcte Geräte (Markierung „F“) */
   forced?: (deviceId: string) => boolean;
 }
@@ -700,7 +703,7 @@ function ModuleInspector({
   /** CPU im Lauf: Diagnosepuffer */
   status?: CpuStatus;
   /** Störungen von Hand (Sandkasten, während der Simulation) */
-  faults?: { active: Set<'pulled' | 'noLoad'>; toggle: (kind: 'pulled' | 'noLoad') => void };
+  faults?: { active: Set<ModuleFaultKind>; toggle: (kind: 'pulled' | 'noLoad') => void };
 }) {
   const m = solution.modules.find((x) => x.id === moduleId);
   const mt = m ? MODULE_TYPES[m.type] : undefined;
@@ -720,7 +723,9 @@ function ModuleInspector({
   const prefix = (k: string) =>
     k === 'di' ? '%IB' : k === 'do' ? '%QB' : k === 'ai' ? '%IW' : '%QW';
   const isCpu = mt.kind === 'cpu';
-  if (!kinds.length && !isCpu) return null;
+  const isIm = mt.kind === 'im';
+  if (!kinds.length && !isCpu && !isIm) return null;
+  const cpus = solution.modules.filter((x) => MODULE_TYPES[x.type]?.kind === 'cpu');
   return (
     <div className="inspector" role="group" aria-label={t('cabinet.inspector')}>
       <span className="inspector-title">
@@ -806,6 +811,36 @@ function ModuleInspector({
             onChange={(e) => onConfig({ diagnostics: e.target.checked })}
           />
           {t('cabinet.diag')}
+        </label>
+      )}
+      {isIm && (
+        <label className="inspector-field" title={t('cabinet.controllerHint')}>
+          {t('cabinet.controller')}
+          <select
+            value={cfg.controller ?? cpus[0]?.id ?? ''}
+            onChange={(e) => onConfig({ controller: e.target.value || undefined })}
+          >
+            {cpus.map((c) => (
+              <option key={c.id} value={c.id}>
+                {tr(MODULE_TYPES[c.type]!.name)} {c.id}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {isIm && (
+        <label className="inspector-field" title={t('cabinet.updateHint')}>
+          {t('cabinet.updateTime')}
+          <select
+            value={cfg.updateTime ?? DEFAULT_UPDATE_TIME}
+            onChange={(e) => onConfig({ updateTime: Number(e.target.value) })}
+          >
+            {UPDATE_TIMES.map((u) => (
+              <option key={u} value={u}>
+                {u} ms
+              </option>
+            ))}
+          </select>
         </label>
       )}
       {mt.alarms && (

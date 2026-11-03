@@ -469,11 +469,13 @@ export function IoFront({
       ? '#3CC8DC'
       : kind === 'cp'
         ? '#8E63CF'
-        : kind === 'rel'
-          ? '#E07B5F'
-          : kind === 'dio' || kind === 'cpu'
-            ? '#9AA4AE'
-            : '#F4C443';
+        : kind === 'im'
+          ? '#4FB286'
+          : kind === 'rel'
+            ? '#E07B5F'
+            : kind === 'dio' || kind === 'cpu'
+              ? '#9AA4AE'
+              : '#F4C443';
   const rows = t.channels;
   const perCol = stripRows(rows);
   const cols = rows > perCol ? 2 : 1;
@@ -657,6 +659,26 @@ export function IoFront({
           </g>
         );
       })}
+      {kind === 'im' && (
+        <g>
+          <text x={left + w / 2} y={y + 24} className="hw-sub">
+            PN
+          </text>
+          {[0, 1].map((i) => (
+            <g key={i} transform={`translate(${left + w / 2 - 7}, ${y + 34 + i * 18})`}>
+              <rect
+                width={14}
+                height={12}
+                rx={1}
+                fill="#121417"
+                stroke="#4FB286"
+                strokeWidth={0.4}
+              />
+              <rect x={3} y={3} width={8} height={6} fill="#2A2E33" />
+            </g>
+          ))}
+        </g>
+      )}
       {kind === 'cp' && (
         <g>
           <text x={left + w / 2} y={y + 24} className="hw-sub">

@@ -1,7 +1,7 @@
 import { CPU_TYPES, type CpuType } from '../catalog';
 import type { Text } from './text';
 
-export type ModuleKind = 'cpu' | 'di' | 'do' | 'dio' | 'ai' | 'ao' | 'rel' | 'cp';
+export type ModuleKind = 'cpu' | 'di' | 'do' | 'dio' | 'ai' | 'ao' | 'rel' | 'cp' | 'im';
 export type ChannelKind = 'DI' | 'DO' | 'AI' | 'AO';
 
 /** Messbereich eines Analogkanals bzw. Signalart eines Analoggeräts */
@@ -45,6 +45,10 @@ export const COUPLER_BASE = 100;
 export const HSC_BASE = 112;
 /** PWM/PTO: Standardadresse des ersten Stellworts (%QW, je Kanal 2 Byte) */
 export const PULSE_BASE = 120;
+
+/** Dezentrale Station: Standard-Aktualisierungszeit in ms und wählbare Werte */
+export const UPDATE_TIMES = [1, 2, 4, 8, 16] as const;
+export const DEFAULT_UPDATE_TIME = 4;
 
 /** Rasterschritt der Hutschiene in mm */
 export const TE_MM = 15;
@@ -101,6 +105,17 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
     pulse: true,
     description: {
       de: '4 schnelle digitale Ausgänge; je Kanal als Pulsweitenmodulation (PWM) oder Impulsfolge (PTO) einstellbar – das Ausgangssignal erzeugt die Baugruppe selbst, unabhängig vom Zyklus.',
+    },
+  },
+  'im-pn': {
+    id: 'im-pn',
+    name: { de: 'IM PN' },
+    kind: 'im',
+    width: 1,
+    price: 3,
+    channels: 0,
+    description: {
+      de: 'Interfacemodul einer dezentralen Station: die Baugruppen rechts davon (bis zur nächsten CPU bzw. zum nächsten Interfacemodul) gehören über PROFINET zu einer CPU. Eingänge und Ausgänge werden im Takt der Aktualisierungszeit (1…16 ms) übertragen. Fällt die Station aus, meldet die CPU einen Baugruppenträgerausfall (OB86).',
     },
   },
   kop: {
@@ -212,7 +227,7 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
 };
 
 export function channelKind(kind: ModuleKind): ChannelKind | undefined {
-  if (kind === 'cpu' || kind === 'cp' || kind === 'dio') return undefined;
+  if (kind === 'cpu' || kind === 'cp' || kind === 'dio' || kind === 'im') return undefined;
   // Relaisausgänge sind elektrisch Digitalausgänge
   if (kind === 'rel') return 'DO';
   return kind.toUpperCase() as ChannelKind;

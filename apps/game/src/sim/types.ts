@@ -6,6 +6,7 @@ import type {
   IrProgram,
   StopInfo,
   Value,
+  ModuleFaultKind,
 } from '@zyklus/sim-core';
 import type { PlantView } from '@zyklus/plant-sim';
 
@@ -54,7 +55,7 @@ export interface RunView {
   ): void;
   /** Baugruppe ziehen bzw. Lastspannung wegnehmen (Sandkasten) */
   setModuleFault(module: string, kind: 'pulled' | 'noLoad', on: boolean): void;
-  moduleFaults(module: string): Set<'pulled' | 'noLoad'>;
+  moduleFaults(module: string): Set<ModuleFaultKind>;
   /** erreichter Haltepunkt (die Simulation hält an) */
   readonly breakHit: { cpu: string; block: string; line: number; time: number } | null;
   setBreakpoints(cpuId: string, lines: { block: string; line: number }[]): void;

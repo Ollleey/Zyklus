@@ -16,6 +16,22 @@ Baugruppe im Schaltschrank anklicken: die Eigenschaften stehen unter dem Schrank
 
 Beispiel: Taktmerker auf `%MB0` → `%M0.5` blinkt mit 1 Hz.
 
+## Dezentrale Peripherie
+
+Ein **Interfacemodul (IM PN)** macht die Baugruppen rechts davon zu einer dezentralen Station –
+bis zur nächsten CPU, zum nächsten Interfacemodul oder zur Trennwand. Die Station gehört über
+PROFINET zu einer CPU (Eigenschaft „Zugeordnete CPU“, Standard: erste CPU), auch über eine
+Trennwand hinweg und ohne Kabelkanal zur CPU. Ihre Adressen schließen an die zentralen Baugruppen
+der CPU an.
+
+- **Aktualisierungszeit** 1, 2, 4 (Standard), 8 oder 16 ms: so oft tauschen Station und CPU
+  Eingänge und Ausgänge aus. Das ist zusätzliche Verzögerung – schnelle Signale gehören an
+  zentrale Baugruppen (oder an einen HSC in der Station).
+- **Stationsausfall** (Leitung unterbrochen, Station ohne Spannung): alle Baugruppen der Station
+  liefern 0 bzw. schalten ab, die CPU meldet einen Baugruppenträgerausfall – OB86 mit
+  `#Event_Class = 16#39` (kommend) und `16#38` (gehend); ohne OB86 geht die CPU in STOP.
+- Im Sandkasten: Interfacemodul ziehen = Stationsausfall.
+
 ## Fehler-OBs
 
 | OB    | Ereignis          | Ohne OB                 | Mit OB                                                             |

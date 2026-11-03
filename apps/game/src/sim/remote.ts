@@ -9,6 +9,7 @@ import type {
   Solution,
   StopInfo,
   Value,
+  ModuleFaultKind,
 } from '@zyklus/sim-core';
 import {
   World,
@@ -177,7 +178,7 @@ export class RemoteRun implements RunView {
   }
 
   breakHit: { cpu: string; block: string; line: number; time: number } | null = null;
-  private readonly faults = new Map<string, Set<'pulled' | 'noLoad'>>();
+  private readonly faults = new Map<string, Set<ModuleFaultKind>>();
 
   setModuleFault(module: string, kind: 'pulled' | 'noLoad', on: boolean): void {
     const set = this.faults.get(module) ?? new Set();
@@ -187,7 +188,7 @@ export class RemoteRun implements RunView {
     this.command({ type: 'moduleFault', module, kind, on });
   }
 
-  moduleFaults(module: string): Set<'pulled' | 'noLoad'> {
+  moduleFaults(module: string): Set<ModuleFaultKind> {
     return new Set(this.faults.get(module) ?? []);
   }
 
