@@ -1,5 +1,16 @@
 # Changelog
 
+## M11a – KOP-Modell (2026-11-03)
+
+- Sprache **KOP** (Kontaktplan) für Codebausteine: je Netzwerk ein Strompfad aus Schließern,
+  Öffnern, P-/N-Kontakten, Parallelzweigen und Boxen (Zeiten, Zähler, Vergleicher, MOVE …) zu
+  einer oder mehreren Spulen (`=`, `/=`, `S`, `R`, P-/N-Spule)
+- KOP wird in das FUP-Netzwerkmodell umgeformt und darüber nach SCL abgesenkt: gleiche Semantik,
+  Meldungen zeigen auf das KOP-Element; Programmgröße in KOP = Kontakte, Boxen und Spulen
+- Umwandlung FUP → KOP, wenn das Netzwerk ein Baum ist (sonst mit Begründung abgelehnt)
+- Projektmodell: `lang: 'KOP'`, Strompfade in `kop`
+- 732 Tests
+
 ## M10d – Aufträge 20–21, Startinformation, Handbuch (2026-11-03)
 
 - **Startinformation** in OB82 und OB86: `#Event_Class` (16#39 kommend, 16#38 gehend)

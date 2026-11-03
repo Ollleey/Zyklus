@@ -16,7 +16,7 @@ export interface CpuCompileResult {
   program?: IrProgram;
   /** Programmgröße: SCL-Anweisungen bzw. FUP-Boxen */
   size: number;
-  lang: 'SCL' | 'FUP';
+  lang: 'SCL' | 'FUP' | 'KOP';
   /** Grenze der CPU: Anweisungen (SCL) bzw. Netzwerke (FUP) */
   limit: number;
   /** Ausnutzung der Grenze: Anweisungen bzw. Netzwerke */
@@ -88,7 +88,7 @@ export function compileSolution(level: Level, solution: Solution): SolutionCompi
     const t = moduleType(m.type);
     if (t.kind !== 'cpu') continue;
     const r = compilePlcProject(solution.projects[m.id] ?? emptyProject(), { probes: true });
-    const fup = r.lang === 'FUP';
+    const fup = r.lang !== 'SCL';
     const limit = fup ? t.cpu!.maxNetworks : t.cpu!.maxStatements;
     const used = fup ? r.networks : r.size;
     const diagnostics = [...r.diagnostics];

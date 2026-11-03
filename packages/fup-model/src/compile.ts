@@ -8,13 +8,14 @@ import {
   type ProjectDiagnostic,
 } from '@zyklus/scl-compiler';
 import { lowerFupBlock, type LineOrigin } from './lower';
-import { countBoxes, isFupBody } from './model';
+import { countLadElements, isLadBody, ladBodyToFup } from './lad';
+import { countBoxes, isFupBody, type FupBody } from './model';
 
 export interface PlcCompileResult extends CompileResult {
   /** Größe je Codebaustein: SCL-Anweisungen bzw. FUP-Boxen */
   size: number;
   /** Sprache des OB1 */
-  lang: 'SCL' | 'FUP';
+  lang: 'SCL' | 'FUP' | 'KOP';
   /** Anzahl FUP-Netzwerke (0 bei SCL) */
   networks: number;
 }
@@ -31,20 +32,28 @@ export function compilePlcProject(
   const extra: ProjectDiagnostic[] = [];
   let size = 0;
   let networks = 0;
-  let lang: 'SCL' | 'FUP' = 'SCL';
+  let lang: 'SCL' | 'FUP' | 'KOP' = 'SCL';
 
   const blocks = project.blocks.map((b) => {
     if (b.kind !== 'OB' && b.kind !== 'FB' && b.kind !== 'FC') return b;
     const code = b as CodeBlock;
     if (code.name === 'Main') lang = code.lang;
-    if (code.lang !== 'FUP') {
+    if (code.lang === 'SCL') {
       size += countStatements(parseBody(code.source).body);
       return code;
     }
-    const body = isFupBody(code.fup) ? code.fup : { networks: [] };
-    size += countBoxes(body);
+    let body: FupBody;
+    if (code.lang === 'KOP') {
+      // KOP über das FUP-Modell absenken; Größe = Kontakte, Boxen, Spulen
+      const lad = isLadBody(code.kop) ? code.kop : { lad: [] };
+      body = ladBodyToFup(lad);
+      size += countLadElements(lad);
+    } else {
+      body = isFupBody(code.fup) ? code.fup : { networks: [] };
+      size += countBoxes(body);
+    }
     networks += body.networks.length;
-    const lowered = lowerFupBlock(code, project);
+    const lowered = lowerFupBlock({ ...code, fup: body }, project);
     origins.set(code.name, lowered.lines);
     extra.push(...lowered.diagnostics);
     return lowered.block;
