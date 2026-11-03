@@ -1,6 +1,6 @@
 import { parseAddress, sizeOfType, defaultTypeForSize, AddressError, type Area } from './address';
 import { createInstance, type InstanceState } from './instances';
-import { execute, precomputeEnergy } from './interpreter';
+import { execute, precomputeEnergy, type CommPort } from './interpreter';
 import { INSTANCE_FIELDS, type InstanceField, type IrProgram, type IrTask } from './ir';
 import { ByteArea } from './memory';
 import { STRING_DEFAULT_LEN, normalize, type DataType, type Value } from './types';
@@ -63,6 +63,16 @@ export interface CpuMetrics {
 /** geprüfte Adressen (Adresse bzw. Adresse|Typ → zerlegte Adresse und Datentyp) */
 const ACCESS_CACHE = new Map<string, { a: ReturnType<typeof parseAddress>; type: DataType }>();
 
+/** Sendeauftrag einer TSEND_C-Instanz; `delivered`: beim Partner angekommen */
+export interface CommJob {
+  inst: number;
+  id: number;
+  values: Value[];
+  types: DataType[];
+  at: number;
+  delivered: boolean;
+}
+
 export class Cpu {
   readonly inputs: ByteArea;
   readonly outputs: ByteArea;
@@ -81,6 +91,32 @@ export class Cpu {
   private readonly tempSlots: number[];
   /** Diagnosepuffer, neueste Einträge zuerst */
   readonly diagnostics: DiagEntry[] = [];
+  /** Kommunikation: offene Sendeaufträge (TSEND_C), Zeitpunkt des Auftrags */
+  readonly outbox: CommJob[] = [];
+  /** angekommene, noch nicht abgeholte Nachrichten je Verbindungs-ID (TRCV_C) */
+  readonly inbox = new Map<number, { values: Value[]; types: DataType[] }>();
+  /** Verbindungs-IDs mit Partner (setzt die Umgebung) */
+  connections = new Set<number>();
+  private commNow = 0;
+  private readonly comm: CommPort = {
+    send: (inst, id, values, types) => {
+      if (!this.connections.has(id)) return false;
+      this.outbox.push({ inst, id, values, types, at: this.commNow, delivered: false });
+      return true;
+    },
+    sendState: (inst) => {
+      const k = this.outbox.findIndex((j) => j.inst === inst);
+      if (k < 0) return 'done';
+      if (!this.outbox[k]!.delivered) return 'busy';
+      this.outbox.splice(k, 1);
+      return 'done';
+    },
+    receive: (id) => {
+      const m = this.inbox.get(id);
+      if (m) this.inbox.delete(id);
+      return m;
+    },
+  };
   /** anstehende Diagnoseereignisse (Drahtbruch, Lastspannung, Baugruppe) → ERROR-LED */
   private readonly activeDiag = new Set<string>();
   /** Zykluszeitüberschreitung im letzten Zyklus (OB80 toleriert sie einmal) */
@@ -280,6 +316,8 @@ export class Cpu {
     this.pae.clear();
     this.paa.clear();
     this.lastInputs.clear();
+    this.outbox.length = 0;
+    this.inbox.clear();
     this.started = false;
   }
 
@@ -333,6 +371,7 @@ export class Cpu {
   }
 
   private runCode(now: number, start?: number, end?: number): boolean {
+    this.commNow = now;
     for (const i of this.tempSlots) this.slots[i] = this.program.slots[i]!.init;
     const ob121 = this.task('programError');
     const errors: string[] = [];
@@ -349,6 +388,7 @@ export class Cpu {
       end,
       probes: this.probes,
       opTimeMs: this.config.cycleMs / this.config.maxOpsPerCycle,
+      comm: this.comm,
       ...(handled
         ? {
             onError: (id: number, message: string) => {

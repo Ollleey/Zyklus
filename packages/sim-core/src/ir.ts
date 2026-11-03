@@ -21,9 +21,21 @@ export type Operand =
   | { k: 'islot'; base: number; idx: Operand; len: number; stride: number; off: number };
 
 export type InstanceKind =
-  'TP' | 'TON' | 'TOF' | 'TONR' | 'CTU' | 'CTD' | 'CTUD' | 'R_TRIG' | 'F_TRIG';
+  | 'TP'
+  | 'TON'
+  | 'TOF'
+  | 'TONR'
+  | 'CTU'
+  | 'CTD'
+  | 'CTUD'
+  | 'R_TRIG'
+  | 'F_TRIG'
+  /** Kommunikation: Daten senden (TSEND_C) bzw. empfangen (TRCV_C) */
+  | 'TSEND'
+  | 'TRCV';
 
-export type InstanceField = 'Q' | 'ET' | 'CV' | 'QU' | 'QD';
+export type InstanceField =
+  'Q' | 'ET' | 'CV' | 'QU' | 'QD' | 'DONE' | 'BUSY' | 'ERROR' | 'STATUS' | 'NDR';
 
 export const TIMER_KINDS: readonly InstanceKind[] = ['TP', 'TON', 'TOF', 'TONR'];
 export const COUNTER_KINDS: readonly InstanceKind[] = ['CTU', 'CTD', 'CTUD'];
@@ -40,7 +52,21 @@ export const INSTANCE_FIELDS: Record<InstanceKind, Partial<Record<InstanceField,
   CTUD: { QU: 'BOOL', QD: 'BOOL', CV: 'INT' },
   R_TRIG: { Q: 'BOOL' },
   F_TRIG: { Q: 'BOOL' },
+  TSEND: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
+  TRCV: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
 };
+
+/** Statuscodes der Kommunikationsbausteine */
+export const COMM_STATUS = {
+  IDLE: 0x7000,
+  SENDING: 0x7001,
+  WAITING: 0x7002,
+  DONE: 0x0000,
+  /** keine Verbindung zu dieser ID */
+  NO_PARTNER: 0x80a3,
+  /** empfangene Daten passen nicht zur Länge bzw. zu den Datentypen von DATA */
+  LENGTH: 0x80b3,
+} as const;
 
 export type UnaryFn = 'not' | 'neg' | 'abs';
 export type BinaryFn = 'add' | 'sub' | 'mul' | 'div' | 'mod' | 'and' | 'or' | 'xor' | 'shl' | 'shr';
@@ -117,6 +143,19 @@ export type Instr =
       r?: Operand;
       ld?: Operand;
       pv: Operand;
+    }
+  /**
+   * Kommunikation über die Verbindung `id`: senden bei steigender Flanke von `en` (REQ) bzw.
+   * empfangen, solange `en` (EN_R) ansteht. `data`: Elemente von DATA, `types` ihre Datentypen.
+   */
+  | {
+      op: 'comm';
+      i: number;
+      kind: 'send' | 'recv';
+      en: Operand;
+      id: Operand;
+      data: Operand[];
+      types: DataType[];
     }
   | { op: 'jmp'; to: number }
   /** Springe, wenn cond FALSE ist. */

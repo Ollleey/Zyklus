@@ -56,6 +56,11 @@ export class ProgramBuilder {
     return { k: 'slot', i: this.slots.length - 1 };
   }
 
+  /** Datentyp eines angelegten Slots */
+  slotType(i: number): DataType {
+    return this.slots[i]!.t;
+  }
+
   temp(name: string, t: DataType, init?: Value, len?: number): Operand {
     this.slots.push({
       name,

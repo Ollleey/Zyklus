@@ -59,6 +59,9 @@ export const SCL_FB_TYPES = [
   'CTUD',
   'R_TRIG',
   'F_TRIG',
+  'TSEND_C',
+  'TRCV_C',
+  'PID_Compact',
 ];
 
 export const SCL_FUNCTIONS = [

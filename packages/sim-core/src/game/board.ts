@@ -66,6 +66,8 @@ export interface ModuleConfig {
   pulse?: Record<number, PulseConfig>;
   /** nur DQ 4 HF: Byteadresse des Stellworts von Kanal 0 (%QW, Standard 120) */
   pulseAddress?: number;
+  /** nur CPU: Verbindungen für TSEND_C/TRCV_C, ID → Partner-CPU (bei zwei CPUs: ID 1 automatisch) */
+  connections?: Record<number, string>;
   /** nur Interfacemodul: zugeordnete CPU (Standard: erste CPU auf der Schiene) */
   controller?: string;
   /** nur Interfacemodul: Aktualisierungszeit in ms (1…16, Standard 4) */

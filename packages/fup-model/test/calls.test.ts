@@ -207,3 +207,32 @@ describe('Multiinstanz', () => {
     expect(cpu.read('%Q0.1')).toBe(true);
   });
 });
+
+describe('Kommunikation in FUP', () => {
+  it('TSEND_C-Box wird zum Aufruf mit DATA, DONE ist verbindbar', () => {
+    const p = project(
+      [
+        net(
+          [
+            box('TSEND_C', {
+              id: 's',
+              operand: '"Senden"',
+              inputs: { REQ: '"Start"', ID: '1', DATA: '"Wert"' },
+              outputs: { STATUS: '"Wert2"' },
+            }),
+            box('ASSIGN', { id: 'a', operand: '"Lampe"' }),
+          ],
+          [['s', 'DONE', 'a', 'IN']],
+        ),
+      ],
+      [{ kind: 'IDB', name: 'Senden', number: 4, of: 'TSEND_C' }],
+    );
+    const l = lowerFupBlock(p.blocks[0] as CodeBlock, p);
+    expect(l.diagnostics).toEqual([]);
+    expect(l.block.source).toContain('"Senden"(REQ := "Start", ID := 1, DATA := "Wert")');
+    const r = compile((p.blocks[0] as CodeBlock & { fup: { networks: never[] } }).fup.networks, [
+      { kind: 'IDB', name: 'Senden', number: 4, of: 'TSEND_C' },
+    ]);
+    expect(r.ok).toBe(true);
+  });
+});

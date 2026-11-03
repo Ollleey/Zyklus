@@ -1,6 +1,6 @@
 import type { Area } from './address';
 import { evalCounter, evalTimer, evalTrig, type InstanceState } from './instances';
-import { ERR_READ, ERR_WRITE, type Instr, type IrProgram, type Operand } from './ir';
+import { COMM_STATUS, ERR_READ, ERR_WRITE, type Instr, type IrProgram, type Operand } from './ir';
 import type { ByteArea } from './memory';
 import { energyOf } from './metrics/weights';
 import {
@@ -41,6 +41,18 @@ export interface ExecContext {
   onError?: (id: number, message: string) => void;
   /** Rechenzeit je Befehl in ms (für RUNTIME) */
   opTimeMs?: number;
+  /** Kommunikation mit anderen CPUs (TSEND_C/TRCV_C); ohne: keine Verbindung */
+  comm?: CommPort;
+}
+
+/** Sende- und Empfangsfächer einer CPU, bedient von der Umgebung */
+export interface CommPort {
+  /** Auftrag einstellen; false: keine Verbindung mit dieser ID */
+  send(inst: number, id: number, values: Value[], types: DataType[]): boolean;
+  /** Stand eines Sendeauftrags */
+  sendState(inst: number): 'busy' | 'done' | undefined;
+  /** angekommene Nachricht für diese Verbindung abholen */
+  receive(id: number): { values: Value[]; types: DataType[] } | undefined;
 }
 
 export type ExecResult =
@@ -185,6 +197,58 @@ export function execute(ctx: ExecContext): ExecResult {
         case 'trig':
           evalTrig(instances[ins.i]!, bool(ins.clk));
           break;
+        case 'comm': {
+          const s = instances[ins.i]!;
+          const en = bool(ins.en);
+          const id = num(ins.id);
+          if (ins.kind === 'send') {
+            s.DONE = false;
+            if (s.BUSY) {
+              if (ctx.comm?.sendState(ins.i) === 'done') {
+                s.BUSY = false;
+                s.DONE = true;
+                s.STATUS = COMM_STATUS.DONE;
+              }
+            } else if (en && !s.m1) {
+              const values = ins.data.map(read);
+              if (ctx.comm?.send(ins.i, id, values, ins.types)) {
+                s.BUSY = true;
+                s.ERROR = false;
+                s.STATUS = COMM_STATUS.SENDING;
+              } else {
+                s.ERROR = true;
+                s.STATUS = COMM_STATUS.NO_PARTNER;
+              }
+            } else if (!s.ERROR) {
+              s.STATUS = COMM_STATUS.IDLE;
+            }
+            s.m1 = en;
+          } else {
+            s.NDR = false;
+            if (!en) {
+              s.BUSY = false;
+              s.STATUS = COMM_STATUS.IDLE;
+            } else {
+              const msg = ctx.comm?.receive(id);
+              s.BUSY = true;
+              if (!msg) {
+                if (!s.ERROR) s.STATUS = COMM_STATUS.WAITING;
+              } else if (
+                msg.types.length !== ins.types.length ||
+                msg.types.some((t, n) => t !== ins.types[n])
+              ) {
+                s.ERROR = true;
+                s.STATUS = COMM_STATUS.LENGTH;
+              } else {
+                msg.values.forEach((v, n) => write(ins.data[n]!, v));
+                s.NDR = true;
+                s.ERROR = false;
+                s.STATUS = COMM_STATUS.DONE;
+              }
+            }
+          }
+          break;
+        }
         case 'tmr':
           evalTimer(
             instances[ins.i]!,

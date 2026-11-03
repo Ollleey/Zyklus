@@ -391,5 +391,9 @@
   "cabinet.controller": "Zugeordnete CPU",
   "cabinet.controllerHint": "Die Baugruppen dieser Station gehören zu dieser CPU; ihre Adressen schließen an deren Baugruppen an.",
   "cabinet.updateTime": "Aktualisierungszeit",
-  "cabinet.updateHint": "So oft werden Eingänge und Ausgänge der Station mit der CPU ausgetauscht – zusätzliche Verzögerung gegenüber zentraler Peripherie."
+  "cabinet.updateHint": "So oft werden Eingänge und Ausgänge der Station mit der CPU ausgetauscht – zusätzliche Verzögerung gegenüber zentraler Peripherie.",
+  "cabinet.connections": "Verbindungen",
+  "cabinet.connHint": "Verbindungen für TSEND_C/TRCV_C: beide CPUs benutzen dieselbe ID.",
+  "cabinet.connAuto": "automatisch",
+  "cabinet.connAdd": "Verbindung"
 }

@@ -1,5 +1,17 @@
 # Changelog
 
+## M12d – CPU-CPU-Kommunikation mit TSEND_C/TRCV_C (2026-11-03)
+
+- Neue Systembausteine **TSEND_C** und **TRCV_C** (Instanz-DB): Daten über eine Verbindung (ID)
+  zwischen CPUs ohne Koppelmodul; DATA ist eine beliebige Variable (elementar, Feld, Struktur)
+- Laufzeit über mehrere Zyklen: Übertragungszeit 5 ms + 1 ms je 8 Elemente, BUSY bis zur
+  Zustellung, DONE bzw. NDR für einen Aufruf, ein Empfangsfach je Verbindung (Rückstau)
+- STATUS 16#7000/7001/7002/0000, Fehler 16#80A3 (keine Verbindung) und 16#80B3 (DATA passt
+  nicht); Aufträge verfallen beim Neustart
+- Verbindungen: bei zwei CPUs ID 1 automatisch, weitere im Schaltschrank an der CPU
+- FUP/KOP-Boxen unter „Kommunikation“, Instanztypen in der DB-Auswahl, Vorschläge im Editor
+- 756 Tests
+
 ## M12c – Dezentrale Peripherie (2026-11-03)
 
 - Neues **Interfacemodul IM PN**: Baugruppen rechts davon bilden eine dezentrale Station, die über

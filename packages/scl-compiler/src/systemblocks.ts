@@ -1,4 +1,4 @@
-import type { DataType, InstanceKind } from '@zyklus/sim-core';
+import type { DataType, InstanceField, InstanceKind } from '@zyklus/sim-core';
 
 /**
  * Systembausteine (IEC-Zeiten, -Zähler, Flankenauswertung) und ihre Instanztypen wie in TIA.
@@ -27,6 +27,9 @@ const TYPED: Record<string, InstanceKind> = {
   CTU: 'CTU',
   CTD: 'CTD',
   CTUD: 'CTUD',
+  // Kommunikation mit einer anderen CPU
+  TSEND_C: 'TSEND',
+  TRCV_C: 'TRCV',
 };
 
 export function instanceType(typeName: string): InstanceType | undefined {
@@ -85,6 +88,15 @@ export const FB_INPUTS: Record<InstanceKind, [string, DataType, boolean][]> = {
   ],
   R_TRIG: [['CLK', 'BOOL', true]],
   F_TRIG: [['CLK', 'BOOL', true]],
+  // DATA (beliebige Variable) behandelt der Compiler gesondert
+  TSEND: [
+    ['REQ', 'BOOL', true],
+    ['ID', 'INT', true],
+  ],
+  TRCV: [
+    ['EN_R', 'BOOL', true],
+    ['ID', 'INT', true],
+  ],
 };
 
 /** Ausgänge beim Aufruf (Q => …). */
@@ -98,7 +110,12 @@ export const FB_OUTPUTS: Record<InstanceKind, Record<string, DataType>> = {
   CTUD: { QU: 'BOOL', QD: 'BOOL', CV: 'INT' },
   R_TRIG: { Q: 'BOOL' },
   F_TRIG: { Q: 'BOOL' },
+  TSEND: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
+  TRCV: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
 };
+
+/** Anweisungen mit Datenbereich DATA (Kommunikation) */
+export const COMM_KINDS: readonly InstanceKind[] = ['TSEND', 'TRCV'];
 
 /**
  * Lesbare Elemente eines Instanz-DBs → Feld im Instanzzustand.
@@ -107,11 +124,11 @@ export const FB_OUTPUTS: Record<InstanceKind, Record<string, DataType>> = {
 export function instanceMembers(
   t: InstanceType,
   kind: InstanceKind,
-): Record<string, ['Q' | 'ET' | 'CV' | 'QU' | 'QD', DataType]> {
+): Record<string, [InstanceField, DataType]> {
   if (t.generic && t.family === 'counter') {
     return { QU: ['QU', 'BOOL'], QD: ['QD', 'BOOL'], CV: ['CV', 'INT'] };
   }
-  const out: Record<string, ['Q' | 'ET' | 'CV' | 'QU' | 'QD', DataType]> = {};
+  const out: Record<string, [InstanceField, DataType]> = {};
   for (const [name, type] of Object.entries(FB_OUTPUTS[kind])) {
     out[name] = [name as 'Q', type];
   }

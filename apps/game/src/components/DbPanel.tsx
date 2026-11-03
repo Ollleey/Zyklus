@@ -16,6 +16,8 @@ export const INSTANCE_TYPES = [
   'CTUD_INT',
   'R_TRIG',
   'F_TRIG',
+  'TSEND_C',
+  'TRCV_C',
 ];
 
 interface Props {

@@ -53,6 +53,7 @@ import { SclError, type Diagnostic, type Span } from './diagnostics';
 import { parseBody, parseExpression, parseSource, parseTypeText } from './parser';
 import { LIBRARY, libraryBlock, withLibrary } from './library';
 import {
+  COMM_KINDS,
   FB_INPUTS,
   FB_OUTPUTS,
   instanceMembers,
@@ -1131,6 +1132,28 @@ class CodeGen {
     for (let i = 0; i < n; i++) {
       this.b.emit({ op: 'mov', dst: this.leafOp(dst, i), src: this.leafOp(src, i) });
     }
+  }
+
+  /** DATA von TSEND_C/TRCV_C: eine Variable (elementar, Feld oder Struktur) als Elementliste */
+  private commData(e: Expr, write: boolean, name: string): { data: Operand[]; types: DataType[] } {
+    const res = e.k === 'ref' ? this.resolve(e) : undefined;
+    if (res?.k === 'value') {
+      if (write && !res.writable) this.fail(`DATA von ${name} ist nicht beschreibbar`, e.span);
+      if (res.t === 'STRING') this.fail(`DATA von ${name}: String wird nicht übertragen`, e.span);
+      return { data: [res.op], types: [res.t] };
+    }
+    if (res?.k === 'place') {
+      if (write && !res.writable) this.fail(`DATA von ${name} ist nicht beschreibbar`, e.span);
+      const n = sizeOf(res.place.type);
+      const data = Array.from({ length: n }, (_, k) => this.leafOp(res.place, k));
+      const types = Array.from({ length: n }, (_, k) =>
+        this.b.slotType(res.place.base + res.place.off + k),
+      );
+      if (types.includes('STRING'))
+        this.fail(`DATA von ${name}: String wird nicht übertragen`, e.span);
+      return { data, types };
+    }
+    this.fail(`DATA von ${name} muss eine Variable sein (elementar, Feld oder Struktur)`, e.span);
   }
 
   /** Ganzes Feld bzw. ganze Struktur zuweisen: Quelle muss eine Variable gleichen Typs sein. */
@@ -2581,7 +2604,11 @@ class CodeGen {
     for (const a of args) {
       if (given.has(a.name)) this.fail(`Parameter ${a.name} ist doppelt angegeben`, a.span);
       given.set(a.name, a);
-      if (a.e && !params.some(([n]) => n === a.name)) {
+      if (
+        a.e &&
+        !params.some(([n]) => n === a.name) &&
+        !(a.name === 'DATA' && COMM_KINDS.includes(kind))
+      ) {
         this.fail(
           `${kind} hat keinen Eingang ${a.name} (Eingänge: ${params.map(([n]) => n).join(', ')})`,
           a.span,
@@ -2628,6 +2655,23 @@ class CodeGen {
       case 'F_TRIG':
         this.b.emit({ op: 'trig', i, clk: inputs.CLK! });
         break;
+      case 'TSEND':
+      case 'TRCV': {
+        const name = kind === 'TSEND' ? 'TSEND_C' : 'TRCV_C';
+        const a = given.get('DATA');
+        if (!a?.e) this.fail(`Eingang DATA von ${name} fehlt`, span);
+        const { data, types } = this.commData(a.e, kind === 'TRCV', name);
+        this.b.emit({
+          op: 'comm',
+          i,
+          kind: kind === 'TSEND' ? 'send' : 'recv',
+          en: kind === 'TSEND' ? inputs.REQ! : inputs.EN_R!,
+          id: inputs.ID!,
+          data,
+          types,
+        });
+        break;
+      }
     }
 
     for (const a of args) {

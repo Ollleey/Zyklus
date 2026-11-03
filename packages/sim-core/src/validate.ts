@@ -222,6 +222,18 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
         }
         break;
       }
+      case 'comm': {
+        instance(ins.i, [ins.kind === 'send' ? 'TSEND' : 'TRCV']);
+        operand(ins.en, ins.kind === 'send' ? 'REQ' : 'EN_R', 'BOOL');
+        operand(ins.id, 'ID', 'INT');
+        if (ins.data.length !== ins.types.length || !ins.data.length) err('DATA ist leer');
+        ins.data.forEach((d, n) =>
+          ins.kind === 'send'
+            ? operand(d, `DATA[${n}]`, ins.types[n])
+            : target(d, `DATA[${n}]`, ins.types[n]),
+        );
+        break;
+      }
       case 'jmp':
         jump(ins.to);
         break;

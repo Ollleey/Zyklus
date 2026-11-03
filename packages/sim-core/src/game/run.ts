@@ -46,6 +46,11 @@ interface RelayState {
  * - `true.<AI>`: Rohwert ohne Rauschen und Geberfehler
  * - `plant.<größe>`: Zustand des Anlagenmodells
  */
+/** Übertragungszeit einer Nachricht (TSEND_C → TRCV_C) in ms: 5 ms plus 1 ms je 8 Elemente */
+export function commLatency(elements: number): number {
+  return 5 + Math.ceil(elements / 8);
+}
+
 export class LevelRun {
   readonly sim: Simulation;
   readonly cpus = new Map<string, Cpu>();
@@ -109,6 +114,7 @@ export class LevelRun {
       }
       this.traces.set(d.id, []);
     }
+    this.setupConnections();
     this.plant = createPlant(level, opts.test, seed);
     for (const k of Object.keys(this.plant?.state() ?? {})) this.traces.set(`plant.${k}`, []);
     this.durationMs = opts.test?.durationMs ?? Infinity;
@@ -598,7 +604,45 @@ export class LevelRun {
   }
 
   /** Koppelmodule: Sendewörter jeder CPU in die Empfangswörter der Partner-CPU */
+  /** Verbindungen je CPU: ID → Partner-CPU (TSEND_C/TRCV_C) */
+  private readonly partners = new Map<string, Map<number, string>>();
+
+  private setupConnections(): void {
+    const ids = [...this.cpus.keys()];
+    const link = (a: string, id: number, b: string) => {
+      if (!this.cpus.has(a) || !this.cpus.has(b) || a === b) return;
+      if (!this.partners.has(a)) this.partners.set(a, new Map());
+      this.partners.get(a)!.set(id, b);
+    };
+    // Standard: bei genau zwei CPUs verbindet ID 1 die beiden
+    if (ids.length === 2) {
+      link(ids[0]!, 1, ids[1]!);
+      link(ids[1]!, 1, ids[0]!);
+    }
+    for (const a of ids) {
+      for (const [id, b] of Object.entries(this.solution.config?.[a]?.connections ?? {})) {
+        link(a, Number(id), b);
+        link(b, Number(id), a);
+      }
+    }
+    for (const [a, m] of this.partners) this.cpus.get(a)!.connections = new Set(m.keys());
+  }
+
+  /** Nachrichten zustellen: nach der Übertragungszeit ins Empfangsfach des Partners (frei) */
+  private deliver(t: number): void {
+    for (const [a, cpu] of this.cpus) {
+      for (const job of cpu.outbox) {
+        if (job.delivered || t - job.at < commLatency(job.values.length)) continue;
+        const b = this.cpus.get(this.partners.get(a)?.get(job.id) ?? '');
+        if (!b || !b.isPowered || b.inbox.has(job.id)) continue;
+        b.inbox.set(job.id, { values: job.values, types: job.types });
+        job.delivered = true;
+      }
+    }
+  }
+
   private exchange(): void {
+    if (this.partners.size) this.deliver(this.sim.time);
     for (const [a, b] of this.analysis.links) {
       const ca = this.cpus.get(a)!;
       const cb = this.cpus.get(b)!;

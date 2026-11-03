@@ -12,6 +12,12 @@ export interface InstanceState {
   CV: number;
   QU: boolean;
   QD: boolean;
+  /** Kommunikation (TSEND/TRCV) */
+  DONE: boolean;
+  BUSY: boolean;
+  ERROR: boolean;
+  NDR: boolean;
+  STATUS: number;
   /** letzter Wert von IN / CU / CLK (Flankenerkennung) */
   m1: boolean;
   /** letzter Wert von CD */
@@ -30,6 +36,11 @@ export function createInstance(kind: InstanceKind): InstanceState {
     CV: 0,
     QU: false,
     QD: false,
+    DONE: false,
+    BUSY: false,
+    ERROR: false,
+    NDR: false,
+    STATUS: 0x7000,
     m1: false,
     m2: false,
     phase: 0,

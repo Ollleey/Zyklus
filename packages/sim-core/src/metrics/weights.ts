@@ -58,5 +58,7 @@ export function energyOf(ins: Instr): number {
       return ENERGY.move;
     case 'runtime':
       return ENERGY.real;
+    case 'comm':
+      return ENERGY.stateful;
   }
 }

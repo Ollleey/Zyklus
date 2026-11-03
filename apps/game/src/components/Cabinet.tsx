@@ -971,6 +971,56 @@ function ModuleInspector({
             />
           </label>
         ))}
+      {isCpu && cpus.length > 1 && (
+        <span className="inspector-field" title={t('cabinet.connHint')}>
+          {t('cabinet.connections')}:{' '}
+          {cpus.length === 2 && (
+            <span className="muted">
+              ID 1 → {cpus.find((c) => c.id !== m.id)!.id} ({t('cabinet.connAuto')})
+            </span>
+          )}
+          {Object.entries(cfg.connections ?? {}).map(([id, partner]) => (
+            <span key={id}>
+              {' '}
+              ID {id} →{' '}
+              <select
+                value={partner}
+                onChange={(e) =>
+                  onConfig({ connections: { ...cfg.connections, [id]: e.target.value } })
+                }
+              >
+                {cpus
+                  .filter((c) => c.id !== m.id)
+                  .map((c) => (
+                    <option key={c.id}>{c.id}</option>
+                  ))}
+              </select>
+              <button
+                className="icon-btn"
+                onClick={() => {
+                  const next = { ...cfg.connections };
+                  delete next[Number(id)];
+                  onConfig({ connections: Object.keys(next).length ? next : undefined });
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          ))}{' '}
+          <button
+            className="btn btn-small"
+            onClick={() => {
+              const used = new Set(Object.keys(cfg.connections ?? {}).map(Number));
+              let id = 2;
+              while (used.has(id)) id++;
+              const partner = cpus.find((c) => c.id !== m.id)!.id;
+              onConfig({ connections: { ...cfg.connections, [id]: partner } });
+            }}
+          >
+            + {t('cabinet.connAdd')}
+          </button>
+        </span>
+      )}
       {!isCpu && faults && (
         <span className="inspector-faults">
           <button

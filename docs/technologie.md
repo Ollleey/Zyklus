@@ -90,6 +90,37 @@ Baugruppe selbst erzeugt. Das Programm schreibt nur ein **Stellwort** je Kanal (
 
 Bei CPU-STOP sind schnelle Ausgänge aus. Das Prozessabbild-Bit des Kanals hat keine Wirkung.
 
+## Kommunikation zwischen CPUs (TSEND_C / TRCV_C)
+
+CPUs auf derselben Anlage sind über Ethernet verbunden – ohne Koppelmodul. Eine **Verbindung**
+hat eine ID, die beide Seiten benutzen. Bei genau zwei CPUs gibt es ID 1 automatisch; weitere
+Verbindungen legst du im Schaltschrank an der CPU an.
+
+```
+"Senden"(REQ := "Neu", ID := 1, DATA := "Daten".Rezept);        // Instanz-DB vom Typ TSEND_C
+"Empfang"(EN_R := TRUE, ID := 1, DATA := "Daten".Rezept);      // Instanz-DB vom Typ TRCV_C
+```
+
+- **DATA** ist eine Variable: elementar, Feld oder Struktur (UDT); Strings werden nicht
+  übertragen. Sender und Empfänger brauchen dieselbe Anzahl Elemente mit denselben Datentypen.
+- **TSEND_C:** eine steigende Flanke an REQ nimmt den aktuellen Inhalt von DATA mit. BUSY steht,
+  bis die Nachricht angekommen ist (5 ms plus 1 ms je 8 Elemente, länger, wenn der Empfänger die
+  vorige Nachricht noch nicht abgeholt hat), dann ist DONE für einen Aufruf 1.
+- **TRCV_C:** solange EN_R = 1, schreibt der Aufruf eine angekommene Nachricht nach DATA; NDR ist
+  dann für einen Aufruf 1. Je Verbindung wartet höchstens eine Nachricht.
+
+| STATUS  | Bedeutung                                           |
+| ------- | --------------------------------------------------- |
+| 16#7000 | bereit                                              |
+| 16#7001 | Senden läuft (BUSY)                                 |
+| 16#7002 | Empfang bereit, noch keine Nachricht                |
+| 16#0000 | fertig (DONE bzw. NDR)                              |
+| 16#80A3 | keine Verbindung mit dieser ID (ERROR)              |
+| 16#80B3 | Länge bzw. Datentypen von DATA passen nicht (ERROR) |
+
+In FUP und KOP stehen beide Boxen unter „Kommunikation“. Nach einem Neustart der CPU sind
+offene Aufträge verworfen.
+
 ## NORM_X und SCALE_X
 
 Skalierung als Box-Paar (FUP/KOP unter Übertragen, in SCL als Funktion):

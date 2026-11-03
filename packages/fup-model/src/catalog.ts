@@ -34,6 +34,7 @@ export type Category =
   | 'Vergleicher'
   | 'Mathematik'
   | 'Übertragen'
+  | 'Kommunikation'
   | 'Bausteine';
 
 export interface BoxSpec {
@@ -202,6 +203,40 @@ const SPECS: BoxSpec[] = [
     description:
       type === 'R_TRIG' ? 'Steigende Flanke mit Instanz-DB.' : 'Fallende Flanke mit Instanz-DB.',
   })),
+  {
+    type: 'TSEND_C',
+    label: 'TSEND_C',
+    kind: 'instance',
+    category: 'Kommunikation',
+    inputs: [B('REQ'), V('ID'), V('DATA')],
+    outputs: [
+      B('DONE', { optional: true }),
+      B('BUSY', { optional: true }),
+      B('ERROR', { optional: true }),
+      V('STATUS', { optional: true }),
+    ],
+    operandLabel: 'Instanz',
+    instanceType: 'TSEND_C',
+    description:
+      'Daten senden: steigende Flanke an REQ schickt DATA über die Verbindung ID; DONE für einen Aufruf, wenn angekommen.',
+  },
+  {
+    type: 'TRCV_C',
+    label: 'TRCV_C',
+    kind: 'instance',
+    category: 'Kommunikation',
+    inputs: [B('EN_R'), V('ID'), V('DATA')],
+    outputs: [
+      B('NDR', { optional: true }),
+      B('BUSY', { optional: true }),
+      B('ERROR', { optional: true }),
+      V('STATUS', { optional: true }),
+    ],
+    operandLabel: 'Instanz',
+    instanceType: 'TRCV_C',
+    description:
+      'Daten empfangen: solange EN_R = 1, landet eine angekommene Nachricht in DATA; NDR für einen Aufruf.',
+  },
   timer('TP', 'Impuls: Q ist für die Dauer PT 1 nach steigender Flanke an IN.'),
   timer('TON', 'Einschaltverzögerung: Q wird PT nach IN = 1 gesetzt.'),
   timer('TOF', 'Ausschaltverzögerung: Q fällt PT nach IN = 0 ab.'),
@@ -340,6 +375,7 @@ export const CATEGORIES: Category[] = [
   'Vergleicher',
   'Mathematik',
   'Übertragen',
+  'Kommunikation',
 ];
 
 /** Schnittstellen der eigenen FB/FC des aktuellen Projekts (für Boxen CALL:<Name>) */

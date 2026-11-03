@@ -216,3 +216,102 @@ describe('Dezentrale Peripherie', () => {
     expect(m1.at(-1)![1]).toBe(true);
   });
 });
+
+describe('CPU-CPU-Kommunikation (TSEND_C/TRCV_C)', () => {
+  const level = levelById('13-koppel')!;
+  const BOARD = JSON.parse(
+    readFileSync(join(__dirname, '..', 'data', 'reference', 'boards.json'), 'utf8'),
+  )['13-koppel'] as { modules: PlacedModule[]; wires: Wire[] };
+  // ohne Koppelmodule: die CPUs reden über die Verbindung ID 1
+  const modules = BOARD.modules.filter((m) => m.type !== 'kop');
+
+  function solution(cpu1: string, cpu2: string): Solution {
+    const base: Solution = { version: 2, modules, wires: BOARD.wires, projects: {} };
+    const a = analyzeBoard(level, base);
+    const projects = Object.fromEntries(
+      Object.entries({ cpu1, cpu2 }).map(([id, src]) => {
+        const p = sourceToProject(src);
+        if (!p.project) throw new Error(p.diagnostics.map(formatDiagnostic).join('\n'));
+        return [id, syncDeviceTags(level, a, id, p.project)];
+      }),
+    );
+    return { ...base, projects };
+  }
+
+  const DB = (name: string, of: string) =>
+    `DATA_BLOCK "${name}"\nNON_RETAIN\n${of}\nBEGIN\nEND_DATA_BLOCK\n`;
+  const DATA =
+    'DATA_BLOCK "Daten"\nVAR\nwerte : Array[0..2] of Int;\nstatus : Word;\nfertig : Int;\nfehler : Bool;\nEND_VAR\nBEGIN\nEND_DATA_BLOCK\n';
+
+  it('sendet eine Struktur über mehrere Zyklen, DONE/NDR je einen Aufruf', () => {
+    const sender =
+      DB('Senden', 'TSEND_C') +
+      DATA +
+      'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Daten".werte[0] := 11; "Daten".werte[1] := 22; "Daten".werte[2] := 33;\n' +
+      '"Senden"(REQ := "Ein", ID := 1, DATA := "Daten".werte);\n' +
+      'IF "Senden".DONE THEN "Daten".fertig := "Daten".fertig + 1; END_IF;\n' +
+      '"Daten".status := "Senden".STATUS;\nEND_ORGANIZATION_BLOCK';
+    const receiver =
+      DB('Empfang', 'TRCV_C') +
+      DATA +
+      'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Empfang"(EN_R := TRUE, ID := 1, DATA := "Daten".werte);\n' +
+      'IF "Empfang".NDR THEN "Daten".fertig := "Daten".fertig + 1; END_IF;\nEND_ORGANIZATION_BLOCK';
+    const s = solution(sender, receiver);
+    const c = compileSolution(level, s);
+    expect(
+      [...c.cpus.values()].flatMap((r) =>
+        r.diagnostics.filter((d) => d.severity === 'error').map((d) => d.message),
+      ),
+    ).toEqual([]);
+    const test = {
+      id: 't',
+      name: { de: 't' },
+      durationMs: 600,
+      seeds: [1],
+      stimuli: { S1: [[100, true]] as [number, boolean][] },
+    };
+    const run = new LevelRun(level, s, c.programs, { test, seed: 1 });
+    run.runTo(105);
+    const a = run.cpus.get('cpu1')!;
+    const b = run.cpus.get('cpu2')!;
+    expect(a.readSlot('Daten.status')).toBe(0x7001);
+    run.runTo(600);
+    expect(b.readSlot('Daten.werte[1]')).toBe(22);
+    expect(b.readSlot('Daten.fertig')).toBe(1);
+    expect(a.readSlot('Daten.fertig')).toBe(1);
+    expect(a.readSlot('Daten.status')).toBe(0x7000);
+  });
+
+  it('Fehler: keine Verbindung bzw. Datentypen passen nicht', () => {
+    const sender =
+      DB('Senden', 'TSEND_C') +
+      DATA +
+      'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Senden"(REQ := "Ein", ID := 7, DATA := "Daten".werte);\n"Daten".fehler := "Senden".ERROR;\n"Daten".status := "Senden".STATUS;\nEND_ORGANIZATION_BLOCK';
+    const s = solution(sender, ob(''));
+    const c = compileSolution(level, s);
+    const test = {
+      id: 't',
+      name: { de: 't' },
+      durationMs: 300,
+      seeds: [1],
+      stimuli: { S1: [[100, true]] as [number, boolean][] },
+    };
+    const run = new LevelRun(level, s, c.programs, { test, seed: 1 });
+    run.runTo(300);
+    expect(run.cpus.get('cpu1')!.readSlot('Daten.fehler')).toBe(true);
+    expect(run.cpus.get('cpu1')!.readSlot('Daten.status')).toBe(0x80a3);
+
+    const s2 = solution(
+      DB('Senden', 'TSEND_C') +
+        DATA +
+        'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Senden"(REQ := "Ein", ID := 1, DATA := "Daten".werte);\nEND_ORGANIZATION_BLOCK',
+      DB('Empfang', 'TRCV_C') +
+        DATA +
+        'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Empfang"(EN_R := TRUE, ID := 1, DATA := "Daten".fertig);\n"Daten".status := "Empfang".STATUS;\nEND_ORGANIZATION_BLOCK',
+    );
+    const c2 = compileSolution(level, s2);
+    const run2 = new LevelRun(level, s2, c2.programs, { test, seed: 1 });
+    run2.runTo(300);
+    expect(run2.cpus.get('cpu2')!.readSlot('Daten.status')).toBe(0x80b3);
+  });
+});
