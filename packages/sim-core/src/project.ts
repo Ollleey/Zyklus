@@ -107,6 +107,35 @@ export interface CodeBlock {
    * (nur die Schnittstelle). Zählt nicht zur Programmgröße.
    */
   protected?: boolean;
+  /**
+   * Aus der eigenen Bibliothek eingefügt: Name, Version und Fingerabdruck beim Einfügen.
+   * Unverändert zählt der Baustein nicht zur Programmgröße.
+   */
+  library?: { name: string; version: number; fingerprint: string };
+}
+
+/** Fingerabdruck eines Codebausteins (Schnittstelle, Sprache und Code) für Bibliotheksvergleiche */
+export function blockFingerprint(b: CodeBlock): string {
+  const text = JSON.stringify([
+    b.kind,
+    b.lang,
+    b.iface,
+    b.source,
+    b.fup ?? null,
+    b.kop ?? null,
+    b.returnType ?? null,
+  ]);
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0') + text.length.toString(16);
+}
+
+/** Bibliotheksbaustein unverändert seit dem Einfügen? */
+export function isUnchangedLibraryBlock(b: CodeBlock): boolean {
+  return !!b.library && b.library.fingerprint === blockFingerprint(b);
 }
 
 /** Globaler Datenbaustein */

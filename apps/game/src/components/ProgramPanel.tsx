@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   MAIN_OB,
+  isUnchangedLibraryBlock,
   OB_NUMBERS,
   SIMPLE_EVENTS,
   isSimpleEvent,
@@ -32,6 +33,8 @@ import {
 } from '@zyklus/fup-model';
 import { LadEditor } from './LadEditor';
 import { showNotice } from '../state/commands';
+import { addToLibrary, insertFromLibrary } from '../state/library';
+import { LibraryDialog } from './LibraryDialog';
 import { DbPanel, INSTANCE_TYPES, udtNames } from './DbPanel';
 import { FupEditor, libraryFor } from './FupEditor';
 import { SclEditor } from './SclEditor';
@@ -144,6 +147,7 @@ export function ProgramPanel({
   const [blockName, setBlockName] = useState<string>(MAIN_OB);
   const [showIface, setShowIface] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [jump, setJump] = useState<{ line: number; col: number; nonce: number }>();
   const [fupFocus, setFupFocus] = useState<{ network?: number; box?: string; nonce: number }>();
 
@@ -401,7 +405,11 @@ export function ProgramPanel({
             <select
               className="block-add"
               value=""
-              onChange={(e) => e.target.value && addBlock(e.target.value as NewBlock)}
+              onChange={(e) =>
+                e.target.value === 'library'
+                  ? setShowLibrary(true)
+                  : e.target.value && addBlock(e.target.value as NewBlock)
+              }
               aria-label={t('block.add')}
             >
               <option value="">+ {t('block.add')}</option>
@@ -414,6 +422,7 @@ export function ProgramPanel({
               <option value="diagnostic">{t('block.add.diagnostic')}</option>
               <option value="rackFailure">{t('block.add.rackFailure')}</option>
               <option value="programError">{t('block.add.programError')}</option>
+              <option value="library">{t('library.fromLibrary')}</option>
             </select>
             {block.name !== MAIN_OB && !block.protected && (
               <>
@@ -424,6 +433,24 @@ export function ProgramPanel({
                   spellCheck={false}
                   aria-label={t('table.name')}
                 />
+                {(block.kind === 'FB' || block.kind === 'FC') && (
+                  <button
+                    className="icon-btn"
+                    title={t('library.save')}
+                    onClick={() => {
+                      const v = addToLibrary(block);
+                      showNotice(t('library.saved', { name: block.name, version: v }));
+                    }}
+                  >
+                    📚
+                  </button>
+                )}
+                {block.library && (
+                  <span className="muted" title={t('library.badgeHint')}>
+                    {t('library.badge', { version: block.library.version })}
+                    {isUnchangedLibraryBlock(block) ? '' : ` (${t('library.changed')})`}
+                  </span>
+                )}
                 <button
                   className="icon-btn"
                   title={t('db.delete')}
@@ -668,6 +695,20 @@ export function ProgramPanel({
         </div>
       )}
 
+      {showLibrary && (
+        <LibraryDialog
+          onClose={() => setShowLibrary(false)}
+          onInsert={(e) => {
+            change((p) => insertFromLibrary(p, e));
+            setShowLibrary(false);
+            if (e.kind === 'block') {
+              setBlockName(e.name);
+              setTab('main');
+            } else setTab('dbs');
+            showNotice(t('library.inserted', { name: e.name, version: e.version }));
+          }}
+        />
+      )}
       {confirmDelete && block && (
         <ConfirmDialog
           title={t('block.delete.title', { name: block.name })}

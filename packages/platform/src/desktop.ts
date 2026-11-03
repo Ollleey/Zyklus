@@ -57,6 +57,7 @@ export function fileOfKey(key: string): string {
   if (key === 'zyklus.fortschritt' || key === 'zyklus.patience') return 'fortschritt.json';
   if (key.startsWith('zyklus.anlage.')) return 'sandkasten.json';
   if (key === 'zyklus.eigeneAuftraege') return 'auftraege.json';
+  if (key === 'zyklus.bibliothek') return 'bibliothek.json';
   if (key.startsWith('zyklus.online.'))
     return `beobachten/${safeName(key.slice('zyklus.online.'.length))}.json`;
   return 'einstellungen.json';

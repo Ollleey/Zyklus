@@ -80,3 +80,11 @@ Haltepunkte und die Compiler-Warnung bei Mehrfachzuweisungen.
 Eine **Erweiterung** baut auf einem gelösten Auftrag auf: Du beginnst mit deiner eigenen Lösung
 des Vorgängers (ohne eigene Lösung mit der gelieferten). Dessen Tests laufen als
 **Regressionstests** mit („Regression: …“) – die neue Funktion darf nichts Bestehendes brechen.
+
+## Bibliothek
+
+Eigene FBs und FCs legst du mit 📚 neben dem Bausteinnamen in der **Bibliothek** ab, PLC-Datentypen
+im Reiter Datenbausteine. Jedes Ablegen ist eine neue **Version**. Über „+ Baustein → Aus
+Bibliothek …“ fügst du in einem späteren Auftrag die neueste Version ein; ein gleichnamiger
+Baustein wird dabei aktualisiert. Solange ein eingefügter Baustein **unverändert** ist (Anzeige
+„Bibliothek v2“), zählt er nicht zur Programmgröße – Wiederverwendung lohnt sich.

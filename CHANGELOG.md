@@ -1,5 +1,15 @@
 # Changelog
 
+## M13c – Bibliothek mit Versionen (2026-11-03)
+
+- **Bibliothek**: eigene FBs, FCs (📚 am Baustein) und PLC-Datentypen (Reiter Datenbausteine) als
+  Versionen ablegen; „Aus Bibliothek …“ fügt die neueste Version ein bzw. aktualisiert einen
+  gleichnamigen Baustein; Einträge entfernbar
+- Eingefügte Bausteine tragen Name, Version und Fingerabdruck; **unverändert zählen sie nicht zur
+  Programmgröße** (Anzeige „Bibliothek v2“, nach Änderung „geändert“)
+- Desktop: eigene Datei `bibliothek.json`
+- 783 Tests
+
 ## M13b – Erweiterung (2026-11-03)
 
 - Neue Auftragsart **Erweiterung** (`kind: 'erweiterung'`, `extends`): Ausgangsstand ist die eigene

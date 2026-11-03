@@ -401,5 +401,18 @@
   "hmi.noAlarms": "keine Meldungen",
   "hmi.manualOnly": "Im Handbetrieb bedienbar",
   "metrics.changes": "Änderungen",
-  "metrics.changes.title": "Geänderte Programmzeilen gegenüber dem gelieferten Programm (Leer- und Kommentarzeilen zählen nicht)"
+  "metrics.changes.title": "Geänderte Programmzeilen gegenüber dem gelieferten Programm (Leer- und Kommentarzeilen zählen nicht)",
+  "library.title": "Bibliothek",
+  "library.empty": "Noch leer – lege eigene FBs und FCs mit 📚 neben dem Bausteinnamen ab, Datentypen im Reiter Datenbausteine.",
+  "library.versions": "Versionen",
+  "library.insert": "Einfügen",
+  "library.remove": "Alle Versionen entfernen",
+  "library.hint": "Eingefügt wird die neueste Version; ein gleichnamiger Baustein wird ersetzt. Unverändert zählen Bibliotheksbausteine nicht zur Programmgröße.",
+  "library.fromLibrary": "Aus Bibliothek …",
+  "library.save": "In der Bibliothek ablegen (neue Version)",
+  "library.saved": "{name} als Version {version} in der Bibliothek abgelegt",
+  "library.inserted": "{name} (Version {version}) eingefügt",
+  "library.badge": "Bibliothek v{version}",
+  "library.badgeHint": "Aus der Bibliothek eingefügt. Unverändert zählt der Baustein nicht zur Programmgröße.",
+  "library.changed": "geändert"
 }

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Block, CodeBlock, GlobalDb, InstanceDb, PlcProject, PlcType } from '@zyklus/sim-core';
 import { LIBRARY, libraryBlock } from '@zyklus/scl-compiler';
 import { t } from '../i18n';
+import { showNotice } from '../state/commands';
+import { addToLibrary } from '../state/library';
 import { ELEMENTARY_TYPES, VarTable } from './VarTable';
 
 export const INSTANCE_TYPES = [
@@ -204,6 +206,17 @@ export function DbPanel({ project, onChange, userFbs = [], errorRows }: Props) {
               spellCheck={false}
             />
             <span className="db-kind">{t('db.typeKind')}</span>
+            <button
+              className="icon-btn"
+              title={t('library.save')}
+              onClick={(e) => {
+                e.stopPropagation();
+                const v = addToLibrary(ty);
+                showNotice(t('library.saved', { name: ty.name, version: v }));
+              }}
+            >
+              📚
+            </button>
             <button
               className="icon-btn"
               title={t('db.delete')}

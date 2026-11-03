@@ -1,4 +1,4 @@
-import type { CodeBlock, PlcProject } from '@zyklus/sim-core';
+import { isUnchangedLibraryBlock, type CodeBlock, type PlcProject } from '@zyklus/sim-core';
 import {
   compileProject,
   countStatements,
@@ -42,7 +42,10 @@ export function compilePlcProject(
     const code = b as CodeBlock;
     if (code.name === 'Main') lang = code.lang;
     if (code.lang === 'SCL') {
-      size += code.protected ? 0 : countStatements(parseBody(code.source).body);
+      size +=
+        code.protected || isUnchangedLibraryBlock(code)
+          ? 0
+          : countStatements(parseBody(code.source).body);
       return code;
     }
     let body: FupBody;
@@ -50,10 +53,10 @@ export function compilePlcProject(
       // KOP über das FUP-Modell absenken; Größe = Kontakte, Boxen, Spulen
       const lad = isLadBody(code.kop) ? code.kop : { lad: [] };
       body = ladBodyToFup(lad);
-      if (!code.protected) size += countLadElements(lad);
+      if (!code.protected && !isUnchangedLibraryBlock(code)) size += countLadElements(lad);
     } else {
       body = isFupBody(code.fup) ? code.fup : { networks: [] };
-      if (!code.protected) size += countBoxes(body);
+      if (!code.protected && !isUnchangedLibraryBlock(code)) size += countBoxes(body);
     }
     networks += body.networks.length;
     const lowered = lowerFupBlock({ ...code, fup: body }, project);

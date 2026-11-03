@@ -236,3 +236,26 @@ describe('Kommunikation in FUP', () => {
     expect(r.ok).toBe(true);
   });
 });
+
+describe('Bibliothek', () => {
+  it('unveränderte Bibliotheksbausteine zählen nicht zur Programmgröße, geänderte schon', async () => {
+    const { blockFingerprint } = await import('@zyklus/sim-core');
+    const call = net([
+      box(callType('Ventil'), {
+        id: 'v',
+        operand: '"Ventil_DB"',
+        inputs: { Auf: '"Start"' },
+        outputs: { Offen: '"Motor"' },
+      }),
+    ]);
+    const lib = {
+      ...FB,
+      library: { name: 'Ventil', version: 1, fingerprint: blockFingerprint(FB) },
+    };
+    const plain = compile([call], [FB, IDB]);
+    const reused = compile([call], [lib, IDB]);
+    expect(plain.size - reused.size).toBe(2);
+    const changed = compile([call], [{ ...lib, source: lib.source + ' #Offen := TRUE;' }, IDB]);
+    expect(changed.size).toBe(plain.size + 1);
+  });
+});
