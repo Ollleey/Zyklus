@@ -24,6 +24,8 @@ if (import.meta.env.VITE_PLATFORM === 'desktop') {
 } else {
   await platform.init();
 }
+const { initLanguage } = await import('./i18n');
+initLanguage();
 const [{ App }, { LEVELS }, { SANDBOX }, { migrate }] = await Promise.all([
   import('./App'),
   import('@zyklus/levels'),

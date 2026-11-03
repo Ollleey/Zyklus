@@ -762,10 +762,10 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             <div className="mail">
               <div className="mail-head">
                 <div>
-                  <span className="muted">Von:</span> {tr(level.mail.from)}
+                  <span className="muted">{t('mail.from')}:</span> {tr(level.mail.from)}
                 </div>
                 <div>
-                  <span className="muted">Betreff:</span> <b>{tr(level.mail.subject)}</b>
+                  <span className="muted">{t('mail.subject')}:</span> <b>{tr(level.mail.subject)}</b>
                 </div>
               </div>
               <Markdown text={tr(level.mail.body)} />

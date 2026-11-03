@@ -1,5 +1,13 @@
 # Changelog
 
+## M13e – Englisch (2026-11-03)
+
+- **Englische Oberfläche**: vollständiger Katalog `en.json` (alle Schlüssel und Platzhalter wie
+  Deutsch, per Test geprüft), Sprachwahl im Posteingang, Voreinstellung nach Browsersprache
+- Mehrsprachige Auftragstexte über `tr()` mit globaler Anzeigesprache, Rückfall auf Deutsch;
+  Einführung (Auftrag 0) und Auftrag 1 vollständig auf Englisch, Schrittkarte zweisprachig
+- 793 Tests
+
 ## M13d – Einführung, Meisterstück, Kampagnenabschluss (2026-11-03)
 
 - **Auftrag 0 – Einführung: Licht an** mit geführtem Einstieg: Schrittkarte erkennt Lesen,

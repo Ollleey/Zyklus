@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { tr, type Level } from '@zyklus/sim-core';
-import { t } from '../i18n';
+import { LANGUAGES, chooseLanguage, language, t } from '../i18n';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SavegameMenu } from '../ui/Savegame';
 import {
@@ -77,6 +77,19 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
             {patience ? '▦' : '🔒'} {t('patience.title')}
           </button>
           <SavegameMenu />
+          <select
+            className="lang-select"
+            value={language()}
+            aria-label={t('language.label')}
+            title={t('language.label')}
+            onChange={(e) => chooseLanguage(e.target.value as 'de' | 'en')}
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
         </nav>
       </header>
       <p className="inbox-progress">

@@ -88,3 +88,8 @@ im Reiter Datenbausteine. Jedes Ablegen ist eine neue **Version**. Über „+ Ba
 Bibliothek …“ fügst du in einem späteren Auftrag die neueste Version ein; ein gleichnamiger
 Baustein wird dabei aktualisiert. Solange ein eingefügter Baustein **unverändert** ist (Anzeige
 „Bibliothek v2“), zählt er nicht zur Programmgröße – Wiederverwendung lohnt sich.
+
+## Sprache
+
+Oben im Posteingang wählst du **Deutsch** oder **English**. Übersetzt sind die Oberfläche sowie
+die Einführung und Auftrag 1; Aufträge ohne englischen Text erscheinen auf Deutsch.

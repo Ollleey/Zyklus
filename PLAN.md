@@ -195,7 +195,7 @@ Was heute fehlt, im Vergleich zur Praxis:
 - Level 20–22: Temperaturregelung mit PID_Compact und Störgrößenaufschaltung, Positionieren mit
   HSC, verteilte Anlage mit zwei Stationen und Panel.
 
-### M13 – Inbetriebnahme und Instandhaltung
+### M13 – Inbetriebnahme und Instandhaltung (erledigt, siehe CHANGELOG M13a–M13e; Englisch: Oberfläche, Einführung und Auftrag 1)
 
 - Neue Auftragsart **„Bestandsanlage“**: Projekt mit fremdem Programm wird geliefert (bewusst mit
   Schwächen: Mehrfachzuweisung, fehlende Verriegelung, prellende Eingänge, Überlauf), Ziel ist

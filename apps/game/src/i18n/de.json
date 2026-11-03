@@ -417,5 +417,8 @@
   "library.changed": "geändert",
   "campaign.done.title": "Kampagne abgeschlossen",
   "campaign.done.text": "Alle {n} Aufträge sind abgenommen – vom ersten Lichtschalter bis zum Hochbehälter. Im Sandkasten kannst du eigene Anlagen bauen und als Auftrag veröffentlichen; die Bestwerte jedes Auftrags lassen sich immer noch unterbieten.",
-  "guide.title": "Geführter Einstieg"
+  "guide.title": "Geführter Einstieg",
+  "language.label": "Sprache",
+  "mail.from": "Von",
+  "mail.subject": "Betreff"
 }

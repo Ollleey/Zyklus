@@ -2,24 +2,30 @@
   "id": "00-einfuehrung",
   "order": 0,
   "title": {
-    "de": "Einführung: Licht an"
+    "de": "Einführung: Licht an",
+    "en": "Introduction: lights on"
   },
   "customer": {
-    "de": "ZYKLUS Ausbildungswerkstatt"
+    "de": "ZYKLUS Ausbildungswerkstatt",
+    "en": "ZYKLUS training workshop"
   },
   "mail": {
     "from": {
-      "de": "Werkstattleitung <werkstatt@zyklus-ausbildung.example>"
+      "de": "Werkstattleitung <werkstatt@zyklus-ausbildung.example>",
+      "en": "Workshop management <werkstatt@zyklus-ausbildung.example>"
     },
     "subject": {
-      "de": "Dein erster Auftrag"
+      "de": "Dein erster Auftrag",
+      "en": "Your first job"
     },
     "body": {
-      "de": "Willkommen in der Werkstatt!\n\nBevor die Kundschaft kommt, ein Übungsauftrag: Ein Taster soll eine Lampe schalten – solange er gedrückt ist, leuchtet sie.\n\nRechts unten führt dich eine Karte Schritt für Schritt durch Aufbau, Verdrahtung, Programm und Abnahme. Viel Erfolg!\n\nDie Werkstattleitung"
+      "de": "Willkommen in der Werkstatt!\n\nBevor die Kundschaft kommt, ein Übungsauftrag: Ein Taster soll eine Lampe schalten – solange er gedrückt ist, leuchtet sie.\n\nRechts unten führt dich eine Karte Schritt für Schritt durch Aufbau, Verdrahtung, Programm und Abnahme. Viel Erfolg!\n\nDie Werkstattleitung",
+      "en": "Welcome to the workshop!\n\nBefore the customers arrive, a practice job: a push button should switch a lamp – the lamp is lit for as long as the button is pressed.\n\nA card at the bottom right guides you step by step through hardware, wiring, program and acceptance. Good luck!\n\nThe workshop management"
     }
   },
   "datasheet": {
-    "de": "# Übung: Taster und Lampe\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster |\n| H1 | DO | Lampe |\n\n## Funktion\n\nSolange S1 gedrückt ist, leuchtet H1.\n\n## Hinweise\n\n- Die **CPU kompakt** hat Ein- und Ausgänge eingebaut – mehr Hardware brauchst du nicht.\n- Programm in SCL: `\"Lampe\" := \"Taster\";`\n- **Testpult**: Testfall wählen und ▶ starten. **Abnahme**: alle Testfälle mit allen Seeds; danach siehst du Kosten, Energie und Größe im Vergleich."
+    "de": "# Übung: Taster und Lampe\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster |\n| H1 | DO | Lampe |\n\n## Funktion\n\nSolange S1 gedrückt ist, leuchtet H1.\n\n## Hinweise\n\n- Die **CPU kompakt** hat Ein- und Ausgänge eingebaut – mehr Hardware brauchst du nicht.\n- Programm in SCL: `\"Lampe\" := \"Taster\";`\n- **Testpult**: Testfall wählen und ▶ starten. **Abnahme**: alle Testfälle mit allen Seeds; danach siehst du Kosten, Energie und Größe im Vergleich.",
+    "en": "# Practice: push button and lamp\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Push button |\n| H1 | DO | Lamp |\n\n## Function\n\nWhile S1 is pressed, H1 is lit.\n\n## Notes\n\n- The **CPU kompakt** has built-in inputs and outputs – you need no further hardware.\n- Program in SCL: `\"Lampe\" := \"Taster\";`\n- **Test bench**: choose a test case and press ▶. **Verify**: all test cases with all seeds; afterwards you see cost, energy and size compared to others."
   },
   "board": {
     "width": 12,
@@ -49,7 +55,8 @@
       "id": "S1",
       "tag": "Taster",
       "name": {
-        "de": "Taster (S1)"
+        "de": "Taster (S1)",
+        "en": "Push button (S1)"
       },
       "kind": "DI",
       "side": "left",
@@ -59,7 +66,8 @@
       "id": "H1",
       "tag": "Lampe",
       "name": {
-        "de": "Lampe (H1)"
+        "de": "Lampe (H1)",
+        "en": "Lamp (H1)"
       },
       "kind": "DO",
       "side": "right",
@@ -70,7 +78,8 @@
     {
       "id": "druecken",
       "name": {
-        "de": "Zweimal drücken"
+        "de": "Zweimal drücken",
+        "en": "Press twice"
       },
       "durationMs": 3000,
       "seeds": [

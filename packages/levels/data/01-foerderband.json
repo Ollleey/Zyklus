@@ -2,30 +2,45 @@
   "id": "01-foerderband",
   "order": 1,
   "title": {
-    "de": "Förderband mit Selbsthaltung"
+    "de": "Förderband mit Selbsthaltung",
+    "en": "Conveyor with self-holding"
   },
   "customer": {
-    "de": "Kesselbach Fördertechnik GmbH"
+    "de": "Kesselbach Fördertechnik GmbH",
+    "en": "Kesselbach Fördertechnik GmbH"
   },
   "mail": {
     "from": {
-      "de": "Ingrid Kesselbach <i.kesselbach@kesselbach-foerdertechnik.example>"
+      "de": "Ingrid Kesselbach <i.kesselbach@kesselbach-foerdertechnik.example>",
+      "en": "Ingrid Kesselbach <i.kesselbach@kesselbach-foerdertechnik.example>"
     },
     "subject": {
-      "de": "Erster Auftrag: Band 3 in Halle B"
+      "de": "Erster Auftrag: Band 3 in Halle B",
+      "en": "First job: conveyor 3 in hall B"
     },
     "body": {
-      "de": "Hallo,\n\nwillkommen im Team! Für den Anfang etwas Einfaches: Unser Band 3 in Halle B bekommt eine neue Steuerung. Der Bediener startet das Band mit einem grünen Taster und stoppt es mit einem roten.\n\nWichtig: Der Stopp-Taster ist ein Öffner. Wenn das Kabel abreißt, muss das Band stehen bleiben – das ist bei uns Vorschrift.\n\nDie Peripherie ist schon verlegt, du musst nur CPU und Ein-/Ausgabebaugruppen stecken, verdrahten und programmieren. Bitte so günstig wie möglich, das Budget für Halle B ist knapp.\n\nDatenblatt hängt an.\n\nGrüße\nIngrid Kesselbach\nTeamleitung Automatisierung"
+      "de": "Hallo,\n\nwillkommen im Team! Für den Anfang etwas Einfaches: Unser Band 3 in Halle B bekommt eine neue Steuerung. Der Bediener startet das Band mit einem grünen Taster und stoppt es mit einem roten.\n\nWichtig: Der Stopp-Taster ist ein Öffner. Wenn das Kabel abreißt, muss das Band stehen bleiben – das ist bei uns Vorschrift.\n\nDie Peripherie ist schon verlegt, du musst nur CPU und Ein-/Ausgabebaugruppen stecken, verdrahten und programmieren. Bitte so günstig wie möglich, das Budget für Halle B ist knapp.\n\nDatenblatt hängt an.\n\nGrüße\nIngrid Kesselbach\nTeamleitung Automatisierung",
+      "en": "Hello,\n\nwelcome to the team! Something simple to begin with: our conveyor 3 in hall B gets a new controller. The operator starts the belt with a green button and stops it with a red one.\n\nImportant: the stop button is a normally closed contact. If the cable breaks, the belt has to stop – that is our rule.\n\nThe field wiring is already in place; you only need to plug in the CPU and I/O modules, wire them and program. Please keep it as cheap as possible, the budget for hall B is tight.\n\nDatasheet attached.\n\nRegards\nIngrid Kesselbach\nHead of automation"
     }
   },
   "datasheet": {
-    "de": "# Band 3 – Ansteuerung\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster „Start“, Schließer |\n| S2 | DI | Taster „Stopp“, **Öffner** (Signal 1 = nicht gedrückt) |\n| M1 | DO | Bandmotor, 1 = läuft |\n\n## Funktion\n\n1. Ein Druck auf **S1** startet das Band. Es läuft weiter, wenn S1 losgelassen wird (Selbsthaltung).\n2. Ein Druck auf **S2** stoppt das Band.\n3. **Stopp hat Vorrang:** Solange S2 gedrückt ist, darf das Band nicht laufen – auch wenn S1 gedrückt wird.\n4. Drahtbruch an S2 wirkt wie ein gedrückter Stopp-Taster.\n\n## Zeitverhalten\n\nDer Motor muss spätestens 15 ms nach dem Tastendruck reagieren.\n\n## Hinweis\n\nIn der Variablentabelle erscheinen angeschlossene Geräte automatisch unter ihrem Namen (z. B. `\"Start\"`)."
+    "de": "# Band 3 – Ansteuerung\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster „Start“, Schließer |\n| S2 | DI | Taster „Stopp“, **Öffner** (Signal 1 = nicht gedrückt) |\n| M1 | DO | Bandmotor, 1 = läuft |\n\n## Funktion\n\n1. Ein Druck auf **S1** startet das Band. Es läuft weiter, wenn S1 losgelassen wird (Selbsthaltung).\n2. Ein Druck auf **S2** stoppt das Band.\n3. **Stopp hat Vorrang:** Solange S2 gedrückt ist, darf das Band nicht laufen – auch wenn S1 gedrückt wird.\n4. Drahtbruch an S2 wirkt wie ein gedrückter Stopp-Taster.\n\n## Zeitverhalten\n\nDer Motor muss spätestens 15 ms nach dem Tastendruck reagieren.\n\n## Hinweis\n\nIn der Variablentabelle erscheinen angeschlossene Geräte automatisch unter ihrem Namen (z. B. `\"Start\"`).",
+    "en": "# Conveyor 3 – control\n\n## Field devices\n\n| Device | Kind | Description |\n|---|---|---|\n| S1 | DI | Button “Start”, normally open |\n| S2 | DI | Button “Stop”, **normally closed** (signal 1 = not pressed) |\n| M1 | DO | Belt motor, 1 = running |\n\n## Function\n\n1. Pressing **S1** starts the belt. It keeps running when S1 is released (self-holding).\n2. Pressing **S2** stops the belt.\n3. **Stop has priority:** while S2 is pressed the belt must not run – even if S1 is pressed.\n4. A wire break at S2 acts like a pressed stop button.\n\n## Timing\n\nThe motor must react no later than 15 ms after the button is pressed.\n\n## Note\n\nConnected devices appear automatically in the tag table under their name (e.g. `\"Start\"`)."
   },
   "board": {
     "width": 20,
     "ductCapacity": 4
   },
-  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "cpu-kompakt", "di4", "do4", "dio8"],
+  "allowedModules": [
+    "cpu-klein",
+    "cpu-mittel",
+    "di8",
+    "do8",
+    "cpu-kompakt",
+    "di4",
+    "do4",
+    "dio8"
+  ],
   "toleranceMs": 15,
   "par": {
     "cost": 8,
@@ -43,7 +58,8 @@
       "id": "S1",
       "tag": "Start",
       "name": {
-        "de": "Taster Start (S1)"
+        "de": "Taster Start (S1)",
+        "en": "Start button (S1)"
       },
       "kind": "DI",
       "side": "left",
@@ -53,7 +69,8 @@
       "id": "S2",
       "tag": "Stopp",
       "name": {
-        "de": "Taster Stopp, Öffner (S2)"
+        "de": "Taster Stopp, Öffner (S2)",
+        "en": "Stop button, NC (S2)"
       },
       "kind": "DI",
       "side": "left",
@@ -64,7 +81,8 @@
       "id": "M1",
       "tag": "Bandmotor",
       "name": {
-        "de": "Bandmotor (M1)"
+        "de": "Bandmotor (M1)",
+        "en": "Belt motor (M1)"
       },
       "kind": "DO",
       "side": "right",
@@ -75,72 +93,146 @@
     {
       "id": "start-stopp",
       "name": {
-        "de": "Starten und Stoppen"
+        "de": "Starten und Stoppen",
+        "en": "Start and stop"
       },
       "durationMs": 2000,
-      "seeds": [1],
+      "seeds": [
+        1
+      ],
       "stimuli": {
         "S1": [
-          [200, true],
-          [400, false]
+          [
+            200,
+            true
+          ],
+          [
+            400,
+            false
+          ]
         ],
         "S2": [
-          [1000, true],
-          [1200, false]
+          [
+            1000,
+            true
+          ],
+          [
+            1200,
+            false
+          ]
         ]
       },
       "expect": {
         "M1": [
-          [200, true],
-          [1000, false]
+          [
+            200,
+            true
+          ],
+          [
+            1000,
+            false
+          ]
         ]
       }
     },
     {
       "id": "vorrang",
       "name": {
-        "de": "Stopp hat Vorrang"
+        "de": "Stopp hat Vorrang",
+        "en": "Stop has priority"
       },
       "durationMs": 2000,
-      "seeds": [1],
+      "seeds": [
+        1
+      ],
       "stimuli": {
         "S1": [
-          [500, true],
-          [700, false],
-          [1200, true],
-          [1300, false],
-          [1600, true],
-          [1700, false]
+          [
+            500,
+            true
+          ],
+          [
+            700,
+            false
+          ],
+          [
+            1200,
+            true
+          ],
+          [
+            1300,
+            false
+          ],
+          [
+            1600,
+            true
+          ],
+          [
+            1700,
+            false
+          ]
         ],
         "S2": [
-          [300, true],
-          [900, false],
-          [1600, true],
-          [1700, false]
+          [
+            300,
+            true
+          ],
+          [
+            900,
+            false
+          ],
+          [
+            1600,
+            true
+          ],
+          [
+            1700,
+            false
+          ]
         ]
       },
       "expect": {
         "M1": [
-          [1200, true],
-          [1600, false]
+          [
+            1200,
+            true
+          ],
+          [
+            1600,
+            false
+          ]
         ]
       }
     },
     {
       "id": "kurz",
       "name": {
-        "de": "Kurzer Tastendruck"
+        "de": "Kurzer Tastendruck",
+        "en": "Short button press"
       },
       "durationMs": 1000,
-      "seeds": [1],
+      "seeds": [
+        1
+      ],
       "stimuli": {
         "S1": [
-          [100, true],
-          [140, false]
+          [
+            100,
+            true
+          ],
+          [
+            140,
+            false
+          ]
         ]
       },
       "expect": {
-        "M1": [[100, true]]
+        "M1": [
+          [
+            100,
+            true
+          ]
+        ]
       }
     }
   ]
