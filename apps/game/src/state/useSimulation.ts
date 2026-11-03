@@ -172,7 +172,7 @@ export function useSimulation(
       const run = runRef.current;
       if (!run) return;
       if (run instanceof RemoteRun) {
-        if (run.error || run.done) {
+        if (run.error || run.done || run.breakHit) {
           setRunning(false);
           return;
         }
@@ -194,11 +194,16 @@ export function useSimulation(
       // eingestellt, die Darstellung bleibt flüssig
       const target = run.time + Math.max(1, Math.round(dt * speed)) - 1;
       const start = performance.now();
-      while (run.time <= target && !run.done && performance.now() - start < budget) {
+      while (
+        run.time <= target &&
+        !run.done &&
+        !run.breakHit &&
+        performance.now() - start < budget
+      ) {
         run.runTo(Math.min(target, run.time + 25));
       }
       setFrame((f) => f + 1);
-      if (run.done) {
+      if (run.done || run.breakHit) {
         setRunning(false);
         return;
       }
@@ -224,7 +229,10 @@ export function useSimulation(
       setSeed(s);
     },
     play: () => {
-      if (ensure()) setRunning(true);
+      const run = ensure();
+      if (!run) return;
+      if (run.breakHit) run.clearBreak();
+      setRunning(true);
     },
     pause: () => setRunning(false),
     step: () => {

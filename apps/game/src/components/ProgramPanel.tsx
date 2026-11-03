@@ -43,6 +43,12 @@ interface Props {
   onChange: (s: Solution) => void;
   /** Beobachten: nur während einer Simulation gesetzt */
   watch?: WatchReader;
+  /** Haltepunkte je CPU und Baustein; `hit`: erreichter Haltepunkt */
+  breakpoints?: {
+    lines: (cpu: string, block: string) => Set<number>;
+    toggle: (cpu: string, block: string, line: number) => void;
+    hit?: { cpu: string; block: string; line: number };
+  };
   /** Beobachten: Werte der Messpunkte einer CPU (während einer Simulation) */
   probes?: (cpu: string) => readonly (boolean | number | string)[] | undefined;
   /** Beobachtungs- und Forcetabellen je CPU; `access` nur während einer Simulation */
@@ -108,7 +114,15 @@ function newBlock(blocks: Block[], what: NewBlock): CodeBlock {
   return { kind, name, number, lang: 'SCL', iface, source: '', ...(event ? { event } : {}) };
 }
 
-export function ProgramPanel({ solution, compiled, onChange, watch, probes, online }: Props) {
+export function ProgramPanel({
+  solution,
+  compiled,
+  onChange,
+  watch,
+  probes,
+  online,
+  breakpoints,
+}: Props) {
   const boolFormat = useBoolFormat();
   const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
   const [cpuId, setCpuId] = useState<string | undefined>(cpus[0]?.id);
@@ -501,6 +515,15 @@ export function ProgramPanel({ solution, compiled, onChange, watch, probes, onli
                 })
               }
               conditions={conditionsOf(result?.program?.probes, probes?.(cpuId), block.name)}
+              breakpoints={breakpoints?.lines(cpuId, block.name)}
+              onToggleBreakpoint={
+                breakpoints && ((line) => breakpoints.toggle(cpuId, block.name, line))
+              }
+              hitLine={
+                breakpoints?.hit?.cpu === cpuId && breakpoints.hit.block === block.name
+                  ? breakpoints.hit.line
+                  : undefined
+              }
               key={block.name}
               value={block.source}
               onChange={(source) => changeBlock((b) => ({ ...b, source }))}

@@ -166,16 +166,67 @@ export class LevelRun {
   }
 
   tick(): void {
-    if (!this.done) this.sim.tick();
+    if (this.done) return;
+    this.sim.tick();
+    if (this.breakpoints.size) this.checkBreakpoints();
   }
 
+  /** Haltepunkte je CPU als Messpunkt-Indizes der Anweisungszeilen, mit letztem Zählerstand */
+  private readonly breakpoints = new Map<
+    string,
+    { lines: { block: string; line: number }[]; probes: number[]; counts: number[] }
+  >();
+  /** erreichter Haltepunkt (bis `clearBreak`) */
+  breakHit: { cpu: string; block: string; line: number; time: number } | null = null;
+
+  /**
+   * Haltepunkte setzen: Anweisungen in `block` ab Zeile `line`. Die Simulation hält nach dem
+   * Zyklus an, in dem eine dieser Anweisungen lief (Spielregel; in TIA mitten im Zyklus).
+   */
+  setBreakpoints(cpuId: string, lines: { block: string; line: number }[]): void {
+    const cpu = this.cpus.get(cpuId);
+    if (!cpu) return;
+    const decls = cpu.program.probes ?? [];
+    const probes = decls.flatMap((d, i) =>
+      d.kind === 'line' && lines.some((l) => l.block === d.block && l.line === d.line) ? [i] : [],
+    );
+    if (!probes.length) this.breakpoints.delete(cpuId);
+    else {
+      this.breakpoints.set(cpuId, {
+        lines,
+        probes,
+        counts: probes.map((i) => Number(cpu.probes[i])),
+      });
+    }
+  }
+
+  clearBreak(): void {
+    this.breakHit = null;
+  }
+
+  private checkBreakpoints(): void {
+    for (const [id, bp] of this.breakpoints) {
+      const cpu = this.cpus.get(id);
+      if (!cpu) continue;
+      bp.probes.forEach((p, k) => {
+        const n = Number(cpu.probes[p]);
+        if (n !== bp.counts[k] && !this.breakHit) {
+          const d = cpu.program.probes![p]!;
+          this.breakHit = { cpu: id, block: d.block, line: d.line, time: this.sim.time - 1 };
+        }
+        bp.counts[k] = n;
+      });
+    }
+  }
+
+  /** bis Tick `t`; hält vorher an, wenn ein Haltepunkt erreicht wurde (`breakHit`) */
   runTo(t: number): void {
-    while (this.sim.time <= t && !this.done) this.sim.tick();
+    while (this.sim.time <= t && !this.done && !this.breakHit) this.tick();
   }
 
   runToEnd(): void {
     if (!Number.isFinite(this.durationMs)) throw new Error('Handbetrieb hat kein Ende');
-    while (!this.done) this.sim.tick();
+    while (!this.done) this.tick();
   }
 
   /**
@@ -215,6 +266,9 @@ export class LevelRun {
       this.cpus.set(id, next);
       const i = this.sim.cpus.indexOf(old);
       if (i >= 0) this.sim.cpus[i] = next;
+      // Haltepunkte auf die Messpunkte des neuen Programms umlegen
+      const bp = this.breakpoints.get(id);
+      if (bp) this.setBreakpoints(id, bp.lines);
     }
   }
 
@@ -255,7 +309,7 @@ export class LevelRun {
   stepCycle(cpuId?: string): void {
     const cpu = cpuId ? this.cpus.get(cpuId)! : [...this.cpus.values()][0]!;
     const before = cpu.metrics.cycles;
-    while (cpu.metrics.cycles === before && !this.done && cpu.mode === 'RUN') this.sim.tick();
+    while (cpu.metrics.cycles === before && !this.done && cpu.mode === 'RUN') this.tick();
   }
 
   private applyInputs(t: number): void {

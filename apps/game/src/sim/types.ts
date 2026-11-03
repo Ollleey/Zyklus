@@ -41,6 +41,10 @@ export interface RunView {
     key: string,
     spec: { cpu: string; target: { address: string } | { slot: string } } | undefined,
   ): void;
+  /** erreichter Haltepunkt (die Simulation hält an) */
+  readonly breakHit: { cpu: string; block: string; line: number; time: number } | null;
+  setBreakpoints(cpuId: string, lines: { block: string; line: number }[]): void;
+  clearBreak(): void;
   /** geänderte Programme laden (in RUN bzw. mit STOP) */
   load(programs: Map<string, IrProgram>, opts: { keepValues: boolean; restart: boolean }): void;
   /** Steuern: Wert einmalig schreiben */

@@ -1,5 +1,18 @@
 # Changelog
 
+## M9f – Haltepunkte, Handbuch „Online-Funktionen“ (2026-11-03)
+
+- **Haltepunkte** im SCL-Editor: Klick in den linken Rand setzt bzw. löscht einen roten Punkt.
+  Die Simulation hält nach dem Zyklus an, in dem die Zeile lief (Spielregel; in TIA mitten im
+  Zyklus); die Zeile ist rot hinterlegt, die Simulationsleiste nennt Baustein, Zeile und Zeit.
+  **Start** läuft bis zum nächsten Treffer, **Zyklus** rechnet genau einen Zyklus weiter.
+  Haltepunkte überstehen „Laden“ und gelten auch im Web Worker des Sandkastens
+- Kern: `LevelRun.setBreakpoints`, `breakHit`, `clearBreak` (über die Messpunkte aus M9b)
+- Handbuch: neue Seite **„Online-Funktionen“** (Beobachten, Beobachtungs- und Forcetabelle, Trace,
+  Querverweise, Laden, Haltepunkte)
+- M9 damit abgeschlossen
+- 707 Tests
+
 ## M9e – Übersetzen und Laden getrennt (2026-11-03)
 
 - Im **Handbetrieb und Sandkasten** startet eine Programmänderung den Versuch nicht mehr neu: die

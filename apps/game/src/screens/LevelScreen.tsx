@@ -106,6 +106,8 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
   const [pendingImport, setPendingImport] = useState<Solution | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmLoad, setConfirmLoad] = useState(false);
+  /** Haltepunkte: `cpu|baustein` → Zeilen */
+  const [breakpoints, setBreakpoints] = useState<Record<string, number[]>>({});
 
   useEffect(() => saveSolution(level.id, solution), [level.id, solution]);
   const [online, setOnline] = useState<OnlineState>(() => loadOnline(level.id));
@@ -290,6 +292,21 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sim.frame]);
 
+  // Haltepunkte an den laufenden Versuch geben (auch nach Laden und neuem Versuch)
+  const bpKey = JSON.stringify(breakpoints);
+  useEffect(() => {
+    if (!run) return;
+    for (const cpu of run.cpus.keys()) {
+      const lines = Object.entries(breakpoints).flatMap(([k, ls]) => {
+        const [c, block] = k.split('|') as [string, string];
+        return c === cpu ? ls.map((line) => ({ block, line })) : [];
+      });
+      run.setBreakpoints(cpu, lines);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run, bpKey]);
+  const breakHit = run?.breakHit ?? null;
+
   const stopped = run && [...run.cpus.values()].find((c) => c.mode === 'STOP');
   const test = sim.mode === 'test' ? level.tests[sim.testIdx] : undefined;
 
@@ -370,6 +387,16 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           onChange={setSolution}
           watch={run ? watch : undefined}
           probes={run && !sim.pending ? (cpu) => run.cpus.get(cpu)?.probes : undefined}
+          breakpoints={{
+            lines: (cpu, block) => new Set(breakpoints[`${cpu}|${block}`] ?? []),
+            toggle: (cpu, block, line) => {
+              const k = `${cpu}|${block}`;
+              const cur = breakpoints[k] ?? [];
+              const next = cur.includes(line) ? cur.filter((l) => l !== line) : [...cur, line];
+              setBreakpoints({ ...breakpoints, [k]: next });
+            },
+            hit: breakHit ?? undefined,
+          }}
           online={{
             state: online,
             onChange: (cpu, tb) => setOnline({ ...online, [cpu]: tb }),
@@ -468,6 +495,12 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                 <span className="sim-warn">{t('sim.changedBroken')}</span>
               ))}
             <BoolFormatSwitch />
+            {breakHit && (
+              <span className="sim-break">
+                ⏸ {t('sim.break', { block: breakHit.block, line: String(breakHit.line) })} (
+                {(breakHit.time / 1000).toFixed(3)} s)
+              </span>
+            )}
             {stopped && (
               <span className="sim-stop">
                 {t('sim.stopped')}: {stopped.stopInfo?.message}

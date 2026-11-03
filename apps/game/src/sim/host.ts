@@ -46,7 +46,12 @@ export class SimHost {
     switch (cmd.type) {
       case 'advance': {
         const start = performance.now();
-        while (run.time <= cmd.time && !run.done && performance.now() - start < cmd.budgetMs) {
+        while (
+          run.time <= cmd.time &&
+          !run.done &&
+          !run.breakHit &&
+          performance.now() - start < cmd.budgetMs
+        ) {
           run.runTo(Math.min(cmd.time, run.time + 25));
         }
         break;
@@ -65,6 +70,12 @@ export class SimHost {
         break;
       case 'powerCycle':
         run.powerCycle(cmd.cpu);
+        break;
+      case 'breakpoints':
+        run.setBreakpoints(cmd.cpu, cmd.lines);
+        break;
+      case 'clearBreak':
+        run.clearBreak();
         break;
       case 'load':
         run.load(new Map(cmd.programs), { keepValues: cmd.keepValues, restart: cmd.restart });
@@ -137,6 +148,7 @@ export class SimHost {
       epoch: this.epoch,
       time: run.time,
       done: run.done,
+      breakHit: run.breakHit,
       traces,
       cpus: [...run.cpus].map(([id, c]) => ({
         id,

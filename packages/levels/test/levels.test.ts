@@ -529,3 +529,26 @@ describe('Trace von Programmvariablen', () => {
     expect(trace).toEqual(run.traces.get('H1'));
   });
 });
+
+describe('Haltepunkte', () => {
+  it('hält nach dem Zyklus an, in dem die Zeile lief', () => {
+    const level = levelById('18-lackmischer')!;
+    const solution = reference(level);
+    const c = compileSolution(level, solution);
+    const run = new LevelRun(level, solution, c.programs, { test: level.tests[0], seed: 1 });
+    run.setBreakpoints('cpu1', [{ block: 'Main', line: 7 }]);
+    run.runTo(20_000);
+    expect(run.breakHit).toMatchObject({ cpu: 'cpu1', block: 'Main', line: 7 });
+    expect(run.breakHit!.time).toBeGreaterThanOrEqual(500);
+    expect(run.breakHit!.time).toBeLessThan(520);
+    run.clearBreak();
+    run.runTo(20_000);
+    // nächster Start bei 7 s (der bei 4 s fällt in die laufende Mischung)
+    expect(run.breakHit!.time).toBeGreaterThanOrEqual(7000);
+    run.clearBreak();
+    run.setBreakpoints('cpu1', []);
+    run.runTo(20_000);
+    expect(run.breakHit).toBeNull();
+    expect(run.done).toBe(true);
+  });
+});

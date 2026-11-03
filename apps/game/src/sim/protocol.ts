@@ -44,6 +44,8 @@ export type Command =
   | { type: 'cpuSwitch'; cpu: string; mode: 'RUN' | 'STOP' }
   | { type: 'powerCycle'; cpu: string }
   | { type: 'cpuForce'; cpu: string; address: string; value: Value | undefined }
+  | { type: 'breakpoints'; cpu: string; lines: { block: string; line: number }[] }
+  | { type: 'clearBreak' }
   | {
       type: 'load';
       programs: [string, IrProgram][];
@@ -110,6 +112,7 @@ export interface Snapshot {
   traces: [key: string, edges: Edge[]][];
   cpus: CpuSnapshot[];
   forced: [device: string, value: boolean | number][];
+  breakHit: { cpu: string; block: string; line: number; time: number } | null;
   /** Antworten auf die Lesewünsche; Fehler als `{ error }` */
   values: [key: string, value: boolean | number | { error: string }][];
   plant?: PlantSnapshot;

@@ -14,9 +14,26 @@ interface Props {
   live?: (line: string) => string | undefined;
   /** Beobachten: Ergebnis der Bedingung je Zeile (TRUE grün, FALSE blau) */
   conditions?: Map<number, boolean>;
+  /** Haltepunkte (Zeilen); Klick in den Rand schaltet um */
+  breakpoints?: Set<number>;
+  onToggleBreakpoint?: (line: number) => void;
+  /** Zeile des erreichten Haltepunkts */
+  hitLine?: number;
 }
 
-export function SclEditor({ value, onChange, diagnostics, jump, live, conditions }: Props) {
+export function SclEditor({
+  value,
+  onChange,
+  diagnostics,
+  jump,
+  live,
+  conditions,
+  breakpoints,
+  onToggleBreakpoint,
+  hitLine,
+}: Props) {
+  const toggleRef = useRef(onToggleBreakpoint);
+  toggleRef.current = onToggleBreakpoint;
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const liveRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const shown = useRef('');
@@ -31,6 +48,14 @@ export function SclEditor({ value, onChange, diagnostics, jump, live, conditions
   const onMount: OnMount = (editor) => {
     editorRef.current = editor as unknown as monaco.editor.IStandaloneCodeEditor;
     applyMarkers();
+    // Klick in den Rand links (Glyphen oder Zeilennummer) setzt bzw. löscht einen Haltepunkt
+    editor.onMouseDown((e) => {
+      const T = monaco.editor.MouseTargetType;
+      const t = e.target.type as unknown as number;
+      if (t !== T.GUTTER_GLYPH_MARGIN && t !== T.GUTTER_LINE_NUMBERS) return;
+      const line = e.target.position?.lineNumber;
+      if (line && toggleRef.current) toggleRef.current(line);
+    });
   };
 
   useEffect(applyMarkers, [diagnostics]);
@@ -55,6 +80,22 @@ export function SclEditor({ value, onChange, diagnostics, jump, live, conditions
         });
       }
     }
+    for (const n of breakpoints ?? []) {
+      if (n < 1 || n > model.getLineCount()) continue;
+      decos.push({
+        range: new monaco.Range(n, 1, n, 1),
+        options: {
+          glyphMarginClassName: 'bp-dot',
+          glyphMarginHoverMessage: { value: 'Haltepunkt' },
+        },
+      });
+    }
+    if (hitLine && hitLine <= model.getLineCount()) {
+      decos.push({
+        range: new monaco.Range(hitLine, 1, hitLine, 1),
+        options: { isWholeLine: true, className: 'bp-hit-line' },
+      });
+    }
     for (const [n, v] of conditions ?? []) {
       if (n < 1 || n > model.getLineCount()) continue;
       decos.push({
@@ -67,7 +108,10 @@ export function SclEditor({ value, onChange, diagnostics, jump, live, conditions
       });
     }
     const key = decos
-      .map((d) => `${d.range.startLineNumber}:${d.options.after?.content ?? d.options.className}`)
+      .map(
+        (d) =>
+          `${d.range.startLineNumber}:${d.options.after?.content ?? d.options.className ?? d.options.glyphMarginClassName}`,
+      )
       .join('|');
     if (key === shown.current) return;
     shown.current = key;
@@ -101,6 +145,7 @@ export function SclEditor({ value, onChange, diagnostics, jump, live, conditions
           automaticLayout: true,
           renderWhitespace: 'none',
           wordBasedSuggestions: 'off',
+          glyphMargin: !!onToggleBreakpoint,
         }}
       />
     </div>

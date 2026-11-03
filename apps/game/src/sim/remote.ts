@@ -100,6 +100,7 @@ export class RemoteRun implements RunView {
   private apply(s: Snapshot): void {
     this.time = s.time;
     this.done = s.done;
+    this.breakHit = s.breakHit;
     for (const [key, edges] of s.traces) {
       const tr = this.traces.get(key);
       if (tr) for (const e of edges) tr.push(e);
@@ -172,6 +173,17 @@ export class RemoteRun implements RunView {
 
   powerCycle(cpuId: string): void {
     this.command({ type: 'powerCycle', cpu: cpuId });
+  }
+
+  breakHit: { cpu: string; block: string; line: number; time: number } | null = null;
+
+  setBreakpoints(cpuId: string, lines: { block: string; line: number }[]): void {
+    this.command({ type: 'breakpoints', cpu: cpuId, lines });
+  }
+
+  clearBreak(): void {
+    this.breakHit = null;
+    this.command({ type: 'clearBreak' });
   }
 
   load(programs: Map<string, IrProgram>, opts: { keepValues: boolean; restart: boolean }): void {

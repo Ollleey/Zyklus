@@ -3677,3 +3677,20 @@ text.fup-live-num {
   align-items: center;
   gap: 6px;
 }
+
+/* Haltepunkte */
+.bp-dot {
+  background: #e5484d;
+  border-radius: 50%;
+  width: 10px !important;
+  height: 10px !important;
+  margin-left: 4px;
+  margin-top: 4px;
+}
+.bp-hit-line {
+  background: rgba(229, 72, 77, 0.18);
+}
+.sim-break {
+  color: #e5484d;
+  font-size: 12px;
+}

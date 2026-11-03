@@ -140,7 +140,7 @@ Was heute fehlt, im Vergleich zur Praxis:
 - Nicht umgesetzt: PLC-Variablen vom Typ eines PLC-Datentyps, `AT`-Sichten, Istwert-Spalte im
   DB-Editor (kommt mit dem Beobachten in M9).
 
-### M9 – Online-Funktionen (Testen wie am Gerät)
+### M9 – Online-Funktionen (Testen wie am Gerät) (erledigt, siehe CHANGELOG M9a–M9f)
 
 - **Beobachten** im SCL-Editor (Werte neben den Zeilen, Bedingungen grün/blau) und im FUP-Editor
   (Signalfluss farbig, Werte an Pins), angehalten bei Pause.

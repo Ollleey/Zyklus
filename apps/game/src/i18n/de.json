@@ -97,6 +97,7 @@
   "sim.changed": "Programm geändert – die CPU arbeitet noch mit dem geladenen Stand",
   "sim.changedBroken": "Programm geändert, übersetzt aber nicht – die CPU arbeitet mit dem geladenen Stand",
   "sim.loadRun": "Laden (in RUN)",
+  "sim.break": "Haltepunkt {block}, Zeile {line} – angehalten nach dem Zyklus",
   "sim.loadStop": "Laden (STOP nötig)",
   "sim.loadStop.title": "Laden mit STOP",
   "sim.loadStop.text": "Die CPU geht kurz in STOP, lädt das Programm und läuft mit dem Anlauf (OB100) wieder an. Was soll mit den Istwerten der Variablen geschehen?",
