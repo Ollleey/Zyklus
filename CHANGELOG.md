@@ -1,5 +1,17 @@
 # Changelog
 
+## M10c – Baugruppenstörungen (2026-11-03)
+
+- Testfälle können Störungen vorgeben: `moduleFaults: [{ device, kind, from, to }]` – die
+  Baugruppe, an der das Gerät hängt, ist **gezogen** (`pulled`) oder **ohne Lastspannung**
+  (`noLoad`); Drahtbruch zur Laufzeit gab es schon (`faults`)
+- Gestörte Baugruppe: Eingänge liefern 0, Ausgänge sind aus; gezogen → Baugruppenausfall (OB86,
+  Diagnosepuffer, ERROR-LED), fehlende Lastspannung → Diagnose (OB82), wenn an der Baugruppe
+  freigegeben
+- Sandkasten: in den Eigenschaften einer E/A-Baugruppe „Baugruppe ziehen/stecken“ und
+  „Lastspannung aus/ein“ während der Simulation
+- 720 Tests
+
 ## M10b – Fehler-OBs, Diagnosepuffer, GET_ERR_ID, RUNTIME (2026-11-03)
 
 - Neue OB-Arten im Menü „+ Baustein“:

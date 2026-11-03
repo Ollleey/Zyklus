@@ -370,6 +370,15 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           readIo={run ? readIo : undefined}
           canSwitch={sandbox}
           forced={run && run.forcedIds.length ? (id) => run.forced(id) !== undefined : undefined}
+          onModuleFault={
+            sandbox && run
+              ? (module, kind, on) => {
+                  run.setModuleFault(module, kind, on);
+                  sim.redraw();
+                }
+              : undefined
+          }
+          moduleFaults={run ? (module) => run.moduleFaults(module) : undefined}
           onCpuSwitch={(cpu, mode) => {
             if (mode === 'RESTART') run?.powerCycle(cpu);
             else run?.setCpuSwitch(cpu, mode);

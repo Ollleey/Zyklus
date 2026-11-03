@@ -108,3 +108,52 @@ describe('System- und Taktmerker', () => {
     expect(cpu.read('%M1.3')).toBe(false);
   });
 });
+
+describe('Baugruppenstörungen', () => {
+  const id = '01-foerderband';
+  const level = levelById(id)!;
+  const motor = level.devices.find((d) => d.id === 'M1')!;
+  const src = (ob86: boolean) =>
+    `DATA_BLOCK "D"\nVAR\n  Ausfall : Int;\nEND_VAR\nBEGIN\nEND_DATA_BLOCK\n` +
+    (ob86
+      ? `ORGANIZATION_BLOCK "Ausfall"\n// Ereignis: Baugruppenausfall\nBEGIN\n"D".Ausfall := "D".Ausfall + 1;\nEND_ORGANIZATION_BLOCK\n`
+      : '') +
+    ob('"Bandmotor" := TRUE;');
+
+  it('gezogene Ausgabebaugruppe: Ausgang aus, OB86 kommend und gehend', () => {
+    const s = solution(id, src(true));
+    const c = compileSolution(level, s);
+    const test = {
+      ...level.tests[0]!,
+      durationMs: 3000,
+      moduleFaults: [{ device: 'M1', kind: 'pulled' as const, from: 1000, to: 2000 }],
+    };
+    const run = new LevelRun(level, s, c.programs, { test, seed: 1 });
+    run.runTo(1500);
+    expect(run.outputValue(motor)).toBe(false);
+    const cpu = run.cpus.get('cpu1')!;
+    expect(cpu.diagActive).toBe(1);
+    run.runTo(2500);
+    expect(run.outputValue(motor)).toBe(true);
+    expect(cpu.readSlot('D.Ausfall')).toBe(2);
+    expect(cpu.diagnostics.map((d) => d.text)).toContain(
+      'kommend: Baugruppe do1 gezogen bzw. ausgefallen',
+    );
+  });
+
+  it('fehlende Lastspannung: Ausgang aus, Diagnose nur wenn freigegeben; von Hand im Sandkasten', () => {
+    for (const diag of [false, true]) {
+      const s = solution(id, src(false), { do1: { diagnostics: diag } });
+      const c = compileSolution(level, s);
+      const run = new LevelRun(level, s, c.programs, {});
+      run.runTo(100);
+      run.setModuleFault('do1', 'noLoad', true);
+      run.runTo(200);
+      expect(run.outputValue(motor)).toBe(false);
+      expect(run.cpus.get('cpu1')!.diagActive).toBe(diag ? 1 : 0);
+      run.setModuleFault('do1', 'noLoad', false);
+      run.runTo(300);
+      expect(run.outputValue(motor)).toBe(true);
+    }
+  });
+});

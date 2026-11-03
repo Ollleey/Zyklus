@@ -47,6 +47,7 @@ export type Command =
   | { type: 'cpuForce'; cpu: string; address: string; value: Value | undefined }
   | { type: 'breakpoints'; cpu: string; lines: { block: string; line: number }[] }
   | { type: 'clearBreak' }
+  | { type: 'moduleFault'; module: string; kind: 'pulled' | 'noLoad'; on: boolean }
   | {
       type: 'load';
       programs: [string, IrProgram][];

@@ -52,6 +52,9 @@ export interface RunView {
     key: string,
     spec: { cpu: string; target: { address: string } | { slot: string } } | undefined,
   ): void;
+  /** Baugruppe ziehen bzw. Lastspannung wegnehmen (Sandkasten) */
+  setModuleFault(module: string, kind: 'pulled' | 'noLoad', on: boolean): void;
+  moduleFaults(module: string): Set<'pulled' | 'noLoad'>;
   /** erreichter Haltepunkt (die Simulation hält an) */
   readonly breakHit: { cpu: string; block: string; line: number; time: number } | null;
   setBreakpoints(cpuId: string, lines: { block: string; line: number }[]): void;

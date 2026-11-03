@@ -3728,3 +3728,7 @@ text.fup-live-num {
 .diag-buffer .diag-diag {
   color: var(--amber);
 }
+.inspector-faults {
+  display: inline-flex;
+  gap: 6px;
+}

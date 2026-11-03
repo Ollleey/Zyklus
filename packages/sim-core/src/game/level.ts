@@ -141,6 +141,20 @@ export interface TestCase {
   checks?: Check[];
   /** Spannungsausfälle der Steuerung: [aus ab, wieder ein ab] in ms */
   power?: [number, number][];
+  /**
+   * Baugruppenstörungen: die Baugruppe, an der `device` hängt, ist gezogen (`pulled`, OB86) oder
+   * ohne Lastspannung (`noLoad`, Diagnose/OB82, wenn freigegeben) von `from` bis `to`
+   */
+  moduleFaults?: ModuleFaultSpec[];
+}
+
+export type ModuleFaultKind = 'pulled' | 'noLoad';
+
+export interface ModuleFaultSpec {
+  device: string;
+  kind: ModuleFaultKind;
+  from: number;
+  to: number;
 }
 
 export interface Level {
@@ -233,6 +247,13 @@ export function validateLevel(json: unknown): Level {
   for (const tc of l.tests ?? []) {
     if (!(tc.durationMs > 0)) p.push(`Test ${tc.id}: durationMs fehlt`);
     if (!Array.isArray(tc.seeds) || !tc.seeds.length) p.push(`Test ${tc.id}: seeds fehlt`);
+    for (const f of tc.moduleFaults ?? []) {
+      if (!devices.has(f.device))
+        p.push(`Test ${tc.id}: Baugruppenstörung an unbekanntem Gerät ${f.device}`);
+      if (f.kind !== 'pulled' && f.kind !== 'noLoad')
+        p.push(`Test ${tc.id}: Störungsart ${f.kind} unbekannt`);
+      if (!(f.to > f.from)) p.push(`Test ${tc.id}: Baugruppenstörung braucht from < to`);
+    }
     let lastOn = -1;
     for (const iv of tc.power ?? []) {
       if (!Array.isArray(iv) || !(iv[0] > lastOn) || !(iv[1] > iv[0]) || iv[1] >= tc.durationMs) {

@@ -3,7 +3,14 @@ import type { IrProgram } from '../ir';
 import { Simulation } from '../simulation';
 import type { Value } from '../types';
 import { analyzeBoard, type BoardAnalysis, type Solution } from './board';
-import { probeKey, type Device, type Edge, type Level, type TestCase } from './level';
+import {
+  probeKey,
+  type Device,
+  type Edge,
+  type Level,
+  type ModuleFaultKind,
+  type TestCase,
+} from './level';
 import { COUPLER_BASE, COUPLER_WORDS, moduleType } from './modules';
 import { createPlant, type Plant } from './plants';
 import {
@@ -163,6 +170,68 @@ export class LevelRun {
     return this.commanded(d);
   }
 
+  /** Störungen von Hand (Sandkasten): Baugruppe → Art */
+  private readonly manualFaults = new Map<string, Set<ModuleFaultKind>>();
+  /** gemeldeter Zustand je Baugruppe und Art (für kommend/gehend) */
+  private readonly faultState = new Map<string, boolean>();
+
+  /** Baugruppe ziehen bzw. Lastspannung wegnehmen (`on`) oder wiederherstellen */
+  setModuleFault(module: string, kind: ModuleFaultKind, on: boolean): void {
+    const set = this.manualFaults.get(module) ?? new Set();
+    if (on) set.add(kind);
+    else set.delete(kind);
+    this.manualFaults.set(module, set);
+  }
+
+  /** aktive Störungen einer Baugruppe zum Zeitpunkt t */
+  moduleFaults(module: string, t = this.sim.time): Set<ModuleFaultKind> {
+    const out = new Set(this.manualFaults.get(module) ?? []);
+    for (const f of this.opts.test?.moduleFaults ?? []) {
+      if (t >= f.from && t < f.to && this.analysis.bindings.get(f.device)?.module === module) {
+        out.add(f.kind);
+      }
+    }
+    return out;
+  }
+
+  /** Baugruppe ohne Funktion (gezogen oder ohne Lastspannung): Eingänge 0, Ausgänge aus */
+  private moduleDead(module: string, t: number): boolean {
+    return this.moduleFaults(module, t).size > 0;
+  }
+
+  /** kommende und gehende Baugruppenstörungen an die CPU melden */
+  private reportModuleFaults(t: number): void {
+    const modules = new Set<string>([
+      ...this.manualFaults.keys(),
+      ...(this.opts.test?.moduleFaults ?? []).flatMap((f) => {
+        const m = this.analysis.bindings.get(f.device)?.module;
+        return m ? [m] : [];
+      }),
+    ]);
+    for (const module of modules) {
+      const cpuId = this.analysis.cpuOf.get(module);
+      const cpu = cpuId ? this.cpus.get(cpuId) : undefined;
+      if (!cpu) continue;
+      const active = this.moduleFaults(module, t);
+      for (const kind of ['pulled', 'noLoad'] as const) {
+        const key = `${module}|${kind}`;
+        const on = active.has(kind);
+        if ((this.faultState.get(key) ?? false) === on) continue;
+        this.faultState.set(key, on);
+        if (kind === 'pulled') {
+          cpu.rackEvent(
+            t,
+            key,
+            `Baugruppe ${module} ${on ? 'gezogen bzw. ausgefallen' : 'wieder gesteckt'}`,
+            on,
+          );
+        } else if (this.solution.config?.[module]?.diagnostics) {
+          cpu.diagnosticEvent(t, key, `Lastspannung fehlt an ${module}`, on);
+        }
+      }
+    }
+  }
+
   /** letzter Ausgangswert je Gerät, solange die CPU in RUN war („letzten Wert halten“) */
   private readonly lastRun = new Map<string, Value>();
 
@@ -172,6 +241,7 @@ export class LevelRun {
     // Stellglied mit anderer Signalart als der Ausgang: kommt nichts Brauchbares an
     if (b.mismatch && d.kind === 'AO') return 0;
     const cpu = this.cpus.get(b.cpu)!;
+    if (this.moduleDead(b.module, this.sim.time)) return d.kind === 'AO' ? 0 : false;
     const v = cpu.read(b.address, b.t);
     // Verhalten der Ausgangsbaugruppe bei CPU-STOP (ohne Spannung ist alles aus)
     const cfg = this.solution.config?.[b.module];
@@ -361,6 +431,7 @@ export class LevelRun {
   }
 
   private applyInputs(t: number): void {
+    this.reportModuleFaults(t);
     for (const [off, on] of this.opts.test?.power ?? []) {
       if (t === off) for (const c of this.cpus.values()) c.powerOff(t);
       if (t === on) for (const c of this.cpus.values()) c.powerOn(t);
@@ -393,9 +464,11 @@ export class LevelRun {
       } else {
         continue;
       }
+      const b = this.analysis.bindings.get(d.id);
+      // gezogene Baugruppe bzw. ohne Lastspannung: Eingang liefert 0
+      if (b && this.moduleDead(b.module, t)) v = d.kind === 'AI' ? 0 : false;
       const f = this.forces.get(d.id);
       if (f !== undefined) v = f;
-      const b = this.analysis.bindings.get(d.id);
       if (b) this.cpus.get(b.cpu)!.setInput(b.address, v, b.t);
       this.push(d.id, t, v);
     }

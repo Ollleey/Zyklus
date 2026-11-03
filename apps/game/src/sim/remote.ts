@@ -177,6 +177,19 @@ export class RemoteRun implements RunView {
   }
 
   breakHit: { cpu: string; block: string; line: number; time: number } | null = null;
+  private readonly faults = new Map<string, Set<'pulled' | 'noLoad'>>();
+
+  setModuleFault(module: string, kind: 'pulled' | 'noLoad', on: boolean): void {
+    const set = this.faults.get(module) ?? new Set();
+    if (on) set.add(kind);
+    else set.delete(kind);
+    this.faults.set(module, set);
+    this.command({ type: 'moduleFault', module, kind, on });
+  }
+
+  moduleFaults(module: string): Set<'pulled' | 'noLoad'> {
+    return new Set(this.faults.get(module) ?? []);
+  }
 
   setBreakpoints(cpuId: string, lines: { block: string; line: number }[]): void {
     this.command({ type: 'breakpoints', cpu: cpuId, lines });

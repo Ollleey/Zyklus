@@ -74,6 +74,9 @@ export class SimHost {
       case 'breakpoints':
         run.setBreakpoints(cmd.cpu, cmd.lines);
         break;
+      case 'moduleFault':
+        run.setModuleFault(cmd.module, cmd.kind, cmd.on);
+        break;
       case 'clearBreak':
         run.clearBreak();
         break;

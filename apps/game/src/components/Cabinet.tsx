@@ -58,6 +58,9 @@ interface Props {
   /** Betriebsartenschalter bedienbar (Sandkasten) */
   canSwitch?: boolean;
   onCpuSwitch?: (cpu: string, mode: 'RUN' | 'STOP' | 'RESTART') => void;
+  /** Störungen von Hand: Baugruppe ziehen, Lastspannung wegnehmen */
+  onModuleFault?: (module: string, kind: 'pulled' | 'noLoad', on: boolean) => void;
+  moduleFaults?: (module: string) => Set<'pulled' | 'noLoad'>;
   /** geforcte Geräte (Markierung „F“) */
   forced?: (deviceId: string) => boolean;
 }
@@ -81,6 +84,8 @@ export function Cabinet({
   readIo,
   canSwitch = false,
   onCpuSwitch,
+  onModuleFault,
+  moduleFaults,
   forced,
 }: Props) {
   const [tool, setTool] = useState<Tool>(null);
@@ -636,6 +641,19 @@ export function Cabinet({
           onRange={(ch, range) => onChange(setChannelRange(solution, selectedModule.id, ch, range))}
           onConfig={(patch) => onChange(setModuleConfig(solution, selectedModule.id, patch))}
           status={cpuStatus?.get(selectedModule.id)}
+          faults={
+            onModuleFault && moduleFaults
+              ? {
+                  active: moduleFaults(selectedModule.id),
+                  toggle: (kind) =>
+                    onModuleFault(
+                      selectedModule.id,
+                      kind,
+                      !moduleFaults(selectedModule.id).has(kind),
+                    ),
+                }
+              : undefined
+          }
         />
       )}
       <div className="cabinet-info">
@@ -670,6 +688,7 @@ function ModuleInspector({
   onRange,
   onConfig,
   status,
+  faults,
 }: {
   solution: Solution;
   moduleId: string;
@@ -677,6 +696,8 @@ function ModuleInspector({
   onConfig: (patch: Partial<ModuleConfig>) => void;
   /** CPU im Lauf: Diagnosepuffer */
   status?: CpuStatus;
+  /** Störungen von Hand (Sandkasten, während der Simulation) */
+  faults?: { active: Set<'pulled' | 'noLoad'>; toggle: (kind: 'pulled' | 'noLoad') => void };
 }) {
   const m = solution.modules.find((x) => x.id === moduleId);
   const mt = m ? MODULE_TYPES[m.type] : undefined;
@@ -831,6 +852,24 @@ function ModuleInspector({
             />
           </label>
         ))}
+      {!isCpu && faults && (
+        <span className="inspector-faults">
+          <button
+            className={`btn btn-small ${faults.active.has('pulled') ? 'btn-danger' : ''}`}
+            onClick={() => faults.toggle('pulled')}
+            title={t('cabinet.pullHint')}
+          >
+            {faults.active.has('pulled') ? t('cabinet.plugIn') : t('cabinet.pull')}
+          </button>
+          <button
+            className={`btn btn-small ${faults.active.has('noLoad') ? 'btn-danger' : ''}`}
+            onClick={() => faults.toggle('noLoad')}
+            title={t('cabinet.loadHint')}
+          >
+            {faults.active.has('noLoad') ? t('cabinet.loadOn') : t('cabinet.loadOff')}
+          </button>
+        </span>
+      )}
       {isCpu && status && (
         <details className="diag-buffer" open>
           <summary>
