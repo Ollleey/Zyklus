@@ -4013,3 +4013,14 @@ text.fup-live-num {
   color: var(--red);
   font-weight: 600;
 }
+
+.campaign-done {
+  margin: 8px 0 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--amber);
+  background: var(--panel-2);
+}
+.campaign-done h2 {
+  margin: 0 0 4px;
+}

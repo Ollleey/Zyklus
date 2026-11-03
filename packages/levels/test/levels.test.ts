@@ -78,7 +78,7 @@ function verify(level: Level, solution: Solution) {
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
     expect(LEVELS.map((l) => l.order)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
     ]);
   });
 
@@ -673,6 +673,32 @@ describe('Bestandsanlage', () => {
     const main = p.blocks.find((b) => b.name === 'Main') as { source: string };
     main.source = `// nur ein Kommentar\n${main.source}`;
     expect(compileSolution(level, given).changes).toBe(0);
+  });
+});
+
+describe('Meisterstück', () => {
+  const level = levelById('27-hochbehaelter')!;
+  const ref = readFileSync(join(DATA, '27-hochbehaelter.scl'), 'utf8');
+  const failedTests = (src: string, board = BOARDS[level.id]!) => {
+    const v = verify(level, solutionFor(level, src, board));
+    return [...new Set(v.runs.filter((r) => !r.passed).map((r) => r.testId))];
+  };
+
+  it('ohne Drahtbrucherkennung läuft die Pumpe bei 32767 nicht – Störung fehlt', () => {
+    expect(failedTests(ref.replace('#stoerung := "Fuellstand" > 30000;', '#stoerung := FALSE;'))).toEqual(
+      ['drahtbruch'],
+    );
+  });
+
+  it('falscher Messbereich (0–10 V) liefert Überlauf', () => {
+    const board = { ...BOARDS[level.id]!, config: {} };
+    expect(failedTests(ref, board)).toEqual(['normal', 'drahtbruch']);
+  });
+
+  it('Automatik-Schalter missachtet', () => {
+    expect(failedTests(ref.replace('IF NOT "P_Auto" OR #stoerung THEN', 'IF #stoerung THEN'))).toEqual([
+      'aus',
+    ]);
   });
 });
 

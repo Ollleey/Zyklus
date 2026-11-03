@@ -414,5 +414,8 @@
   "library.inserted": "{name} (Version {version}) eingefügt",
   "library.badge": "Bibliothek v{version}",
   "library.badgeHint": "Aus der Bibliothek eingefügt. Unverändert zählt der Baustein nicht zur Programmgröße.",
-  "library.changed": "geändert"
+  "library.changed": "geändert",
+  "campaign.done.title": "Kampagne abgeschlossen",
+  "campaign.done.text": "Alle {n} Aufträge sind abgenommen – vom ersten Lichtschalter bis zum Hochbehälter. Im Sandkasten kannst du eigene Anlagen bauen und als Auftrag veröffentlichen; die Bestwerte jedes Auftrags lassen sich immer noch unterbieten.",
+  "guide.title": "Geführter Einstieg"
 }

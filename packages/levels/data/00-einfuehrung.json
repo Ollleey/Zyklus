@@ -1,0 +1,121 @@
+{
+  "id": "00-einfuehrung",
+  "order": 0,
+  "title": {
+    "de": "Einführung: Licht an"
+  },
+  "customer": {
+    "de": "ZYKLUS Ausbildungswerkstatt"
+  },
+  "mail": {
+    "from": {
+      "de": "Werkstattleitung <werkstatt@zyklus-ausbildung.example>"
+    },
+    "subject": {
+      "de": "Dein erster Auftrag"
+    },
+    "body": {
+      "de": "Willkommen in der Werkstatt!\n\nBevor die Kundschaft kommt, ein Übungsauftrag: Ein Taster soll eine Lampe schalten – solange er gedrückt ist, leuchtet sie.\n\nRechts unten führt dich eine Karte Schritt für Schritt durch Aufbau, Verdrahtung, Programm und Abnahme. Viel Erfolg!\n\nDie Werkstattleitung"
+    }
+  },
+  "datasheet": {
+    "de": "# Übung: Taster und Lampe\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster |\n| H1 | DO | Lampe |\n\n## Funktion\n\nSolange S1 gedrückt ist, leuchtet H1.\n\n## Hinweise\n\n- Die **CPU kompakt** hat Ein- und Ausgänge eingebaut – mehr Hardware brauchst du nicht.\n- Programm in SCL: `\"Lampe\" := \"Taster\";`\n- **Testpult**: Testfall wählen und ▶ starten. **Abnahme**: alle Testfälle mit allen Seeds; danach siehst du Kosten, Energie und Größe im Vergleich."
+  },
+  "board": {
+    "width": 12,
+    "ductCapacity": 4
+  },
+  "allowedModules": [
+    "cpu-kompakt",
+    "cpu-klein",
+    "di4",
+    "do4"
+  ],
+  "toleranceMs": 30,
+  "par": {
+    "cost": 7,
+    "energy": 300,
+    "size": 1
+  },
+  "plant": {
+    "type": "lamp",
+    "params": {
+      "lamp": "H1"
+    }
+  },
+  "guide": true,
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Taster",
+      "name": {
+        "de": "Taster (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "H1",
+      "tag": "Lampe",
+      "name": {
+        "de": "Lampe (H1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "druecken",
+      "name": {
+        "de": "Zweimal drücken"
+      },
+      "durationMs": 3000,
+      "seeds": [
+        1
+      ],
+      "stimuli": {
+        "S1": [
+          [
+            500,
+            true
+          ],
+          [
+            1200,
+            false
+          ],
+          [
+            2000,
+            true
+          ],
+          [
+            2300,
+            false
+          ]
+        ]
+      },
+      "expect": {
+        "H1": [
+          [
+            500,
+            true
+          ],
+          [
+            1200,
+            false
+          ],
+          [
+            2000,
+            true
+          ],
+          [
+            2300,
+            false
+          ]
+        ]
+      }
+    }
+  ]
+}

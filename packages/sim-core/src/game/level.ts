@@ -202,6 +202,8 @@ export interface Level {
   given?: GivenSolution;
   /** Erweiterung: Vorgängerauftrag, dessen eigene Lösung als Ausgangsstand dient */
   extends?: string;
+  /** geführter Einstieg: Schrittkarte im Auftrag (Einführung) */
+  guide?: boolean;
   tests: TestCase[];
 }
 

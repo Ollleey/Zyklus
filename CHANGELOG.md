@@ -1,5 +1,17 @@
 # Changelog
 
+## M13d – Einführung, Meisterstück, Kampagnenabschluss (2026-11-03)
+
+- **Auftrag 0 – Einführung: Licht an** mit geführtem Einstieg: Schrittkarte erkennt Lesen,
+  CPU stecken, Verdrahten, Programm, Testpult und Abnahme selbst
+- **Auftrag 27 – Meisterstück: Hochbehälter**: Füllstand mit 4–20 mA und Hysterese, Automatik am
+  Panel, Drahtbrucherkennung mit Störlampe und Program_Alarm
+- **Kampagnenabschluss**: Hinweis im Posteingang, wenn alle Aufträge abgenommen sind
+- Freischalten: Einführung und Auftrag 1 sind immer offen, abgenommene Aufträge bleiben offen
+  (bestehende Spielstände verlieren keinen Zugang)
+- Fehllösungen Auftrag 27: ohne Drahtbrucherkennung, falscher Messbereich, Automatik missachtet
+- 792 Tests
+
 ## M13c – Bibliothek mit Versionen (2026-11-03)
 
 - **Bibliothek**: eigene FBs, FCs (📚 am Baustein) und PLC-Datentypen (Reiter Datenbausteine) als

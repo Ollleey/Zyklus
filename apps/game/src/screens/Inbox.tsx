@@ -82,13 +82,20 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
       <p className="inbox-progress">
         {solved} / {levels.length} {t('inbox.progress')}
       </p>
+      {levels.length > 0 && solved === levels.length && (
+        <section className="campaign-done" aria-live="polite">
+          <h2>🏆 {t('campaign.done.title')}</h2>
+          <p>{t('campaign.done.text', { n: levels.length })}</p>
+        </section>
+      )}
       <h2>{t('inbox.title')}</h2>
       {levels.length === 0 && <p>{t('inbox.empty')}</p>}
       <ul className="mail-list">
         {levels.map((l, i) => {
           const p = progress[l.id];
-          // Aufträge werden nacheinander freigeschaltet
-          const unlocked = i === 0 || progress[levels[i - 1]!.id]?.solved;
+          // Aufträge werden nacheinander freigeschaltet; Einführung und Auftrag 1 sind immer offen
+          const unlocked =
+            i === 0 || l.order <= 1 || p?.solved || progress[levels[i - 1]!.id]?.solved;
           return (
             <li key={l.id}>
               <button

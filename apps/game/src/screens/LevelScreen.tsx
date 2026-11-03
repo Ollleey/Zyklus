@@ -13,6 +13,7 @@ import {
 } from '@zyklus/sim-core';
 import { projectToSource } from '@zyklus/scl-compiler';
 import { compileSolution, givenSolution, levelById } from '@zyklus/levels';
+import { LevelGuide } from '../components/LevelGuide';
 import { t } from '../i18n';
 import { Cabinet, type CpuStatus } from '../components/Cabinet';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
@@ -118,6 +119,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
     (solution.modules.length && !fresh) || plant ? null : sandbox ? 'datasheet' : 'mail',
   );
   const [result, setResult] = useState<Verification | null>(null);
+  const [guideOpen, setGuideOpen] = useState(!!level.guide && !sandbox);
   const [confirmReset, setConfirmReset] = useState(false);
   const [pendingImport, setPendingImport] = useState<Solution | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -776,6 +778,20 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
         </aside>
       )}
 
+      {guideOpen && (
+        <LevelGuide
+          state={{
+            briefOpen: brief !== null,
+            solution,
+            analysis: compiled.analysis,
+            compiledOk: compiled.ok,
+            size: compiled.size,
+            tested: (run?.time ?? 0) > 300,
+            passed: !!result?.passed || !!progress?.solved,
+          }}
+          onClose={() => setGuideOpen(false)}
+        />
+      )}
       {confirmReset && (
         <ConfirmDialog
           title={t('level.reset.title')}

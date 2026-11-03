@@ -1,0 +1,295 @@
+{
+  "id": "27-hochbehaelter",
+  "order": 27,
+  "title": {
+    "de": "Meisterstück: Hochbehälter"
+  },
+  "customer": {
+    "de": "Gemeindewerke Altenstein"
+  },
+  "mail": {
+    "from": {
+      "de": "Claudia Altmann <c.altmann@gw-altenstein.example>"
+    },
+    "subject": {
+      "de": "Zum Abschluss: unser Hochbehälter"
+    },
+    "body": {
+      "de": "Hallo,\n\nman hat uns erzählt, du hättest inzwischen so ziemlich alles gesteuert, was sich bewegt. Dann zum Schluss etwas, an dem eine ganze Gemeinde hängt: unser Hochbehälter.\n\nDie Pumpe soll den Füllstand halten, der Wärter will am Panel Automatik ein- und ausschalten und sehen, was los ist. Und wenn die Messung ausfällt, darf die Pumpe nicht blind weiterlaufen – dann soll eine Meldung kommen.\n\nWenn das läuft, gehört dir unser Dank – und ein Platz an der Wand der Ehemaligen.\n\nClaudia Altmann"
+    }
+  },
+  "datasheet": {
+    "de": "# Hochbehälter Altenstein\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Füllstand 0 … 100 %, Signal **4–20 mA** |\n| P1 | DO | Förderpumpe (Leistung: Relaisausgang) |\n| P2 | Panel | Schalter Automatik |\n| P3 | Panel | Lampe Pumpe läuft |\n| P4 | Panel | Lampe Messung gestört |\n\n## Funktion\n\n1. **Automatik** (P2 ein): Pumpe ein unter **40 %**, aus über **80 %** (Hysterese).\n2. Automatik aus: Pumpe aus.\n3. **Messung gestört** (Drahtbruch am Fühler): Pumpe aus, P4 an, eine **Meldung** (Program_Alarm) steht an. Ist die Messung zurück, geht es normal weiter.\n4. P3 zeigt, ob die Pumpe läuft.\n5. Füllstand im Betrieb immer zwischen **35 % und 85 %**, Pumpe schaltet höchstens 10-mal in 40 s.\n\n## Hinweise\n\n- Der Fühler liefert 4–20 mA: Messbereich der Analogbaugruppe passend einstellen. Bei Drahtbruch liefert der Kanal **32767**.\n- Das Panel ist über Merker verbunden (Variablen P_Auto, P_Pumpe, P_Stoerung)."
+  },
+  "board": {
+    "width": 15,
+    "ductCapacity": 4
+  },
+  "allowedModules": [
+    "cpu-klein",
+    "cpu-mittel",
+    "ai2",
+    "ai4",
+    "rel4",
+    "do4",
+    "do8"
+  ],
+  "toleranceMs": 100,
+  "par": {
+    "cost": 10,
+    "energy": 86312,
+    "size": 9
+  },
+  "plant": {
+    "type": "tank",
+    "params": {
+      "sensor": "B1",
+      "pump": "P1",
+      "inflow": 12,
+      "level0": 50,
+      "outflow": [
+        [
+          0,
+          4
+        ]
+      ]
+    }
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Fuellstand",
+      "name": {
+        "de": "Füllstandssonde (B1)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "signal": "4-20mA",
+      "analog": {
+        "unit": "%",
+        "min": 0,
+        "max": 100,
+        "noise": 80
+      }
+    },
+    {
+      "id": "P1",
+      "tag": "Pumpe",
+      "name": {
+        "de": "Förderpumpe (P1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor",
+      "power": true
+    },
+    {
+      "id": "P2",
+      "tag": "P_Auto",
+      "name": {
+        "de": "Automatik"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "switch",
+      "hmi": true
+    },
+    {
+      "id": "P3",
+      "tag": "P_Pumpe",
+      "name": {
+        "de": "Pumpe läuft"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp",
+      "hmi": true
+    },
+    {
+      "id": "P4",
+      "tag": "P_Stoerung",
+      "name": {
+        "de": "Messung gestört"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp",
+      "hmi": true
+    }
+  ],
+  "tests": [
+    {
+      "id": "normal",
+      "name": {
+        "de": "Automatik, normaler Verbrauch"
+      },
+      "durationMs": 40000,
+      "seeds": [
+        1,
+        2
+      ],
+      "stimuli": {
+        "P2": [
+          [
+            0,
+            true
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Füllstand zwischen 35 % und 85 %"
+          },
+          "signal": "plant.level",
+          "min": 35,
+          "max": 85,
+          "from": 0,
+          "to": 40000
+        },
+        {
+          "kind": "maxChanges",
+          "name": {
+            "de": "Pumpe schaltet höchstens 10-mal"
+          },
+          "signal": "P1",
+          "max": 10
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "keine Meldung"
+          },
+          "signal": "alarm.active",
+          "min": 0,
+          "max": 0,
+          "from": 0,
+          "to": 40000
+        }
+      ]
+    },
+    {
+      "id": "aus",
+      "name": {
+        "de": "Automatik aus"
+      },
+      "durationMs": 20000,
+      "seeds": [
+        3
+      ],
+      "stimuli": {
+        "P2": [
+          [
+            0,
+            true
+          ],
+          [
+            8000,
+            false
+          ]
+        ]
+      },
+      "plant": {
+        "level0": 30
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": {
+            "de": "Pumpe aus ohne Automatik"
+          },
+          "signal": "P1",
+          "value": false,
+          "from": 8100,
+          "to": 20000
+        }
+      ]
+    },
+    {
+      "id": "drahtbruch",
+      "name": {
+        "de": "Drahtbruch am Fühler"
+      },
+      "durationMs": 30000,
+      "seeds": [
+        4
+      ],
+      "stimuli": {
+        "P2": [
+          [
+            0,
+            true
+          ]
+        ]
+      },
+      "faults": {
+        "B1": [
+          [
+            10000,
+            20000,
+            "break"
+          ]
+        ]
+      },
+      "plant": {
+        "level0": 38
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": {
+            "de": "Pumpe aus während der Störung"
+          },
+          "signal": "P1",
+          "value": false,
+          "from": 10100,
+          "to": 20000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Störlampe während der Störung"
+          },
+          "signal": "P4",
+          "value": true,
+          "from": 10100,
+          "to": 20000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Störlampe danach aus"
+          },
+          "signal": "P4",
+          "value": false,
+          "from": 20200,
+          "to": 30000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Meldung steht an"
+          },
+          "signal": "alarm.active",
+          "min": 1,
+          "max": 9,
+          "from": 10200,
+          "to": 19900
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Meldung ist gegangen"
+          },
+          "signal": "alarm.active",
+          "min": 0,
+          "max": 0,
+          "from": 20300,
+          "to": 30000
+        }
+      ]
+    }
+  ]
+}

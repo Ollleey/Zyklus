@@ -1,4 +1,5 @@
 import { validateLevel, type Level } from '@zyklus/sim-core';
+import level00 from '../data/00-einfuehrung.json';
 import level01 from '../data/01-foerderband.json';
 import level02 from '../data/02-zweihand.json';
 import level03 from '../data/03-stromstoss.json';
@@ -25,11 +26,13 @@ import level23 from '../data/23-positionieren.json';
 import level24 from '../data/24-pumpstation.json';
 import level25 from '../data/25-rolltor.json';
 import level26 from '../data/26-saege.json';
+import level27 from '../data/27-hochbehaelter.json';
 
 export * from './compile';
 
 /** Alle Aufträge der Kampagne, sortiert. Wird beim Laden validiert. */
 export const LEVELS: Level[] = [
+  level00,
   level01,
   level02,
   level03,
@@ -56,6 +59,7 @@ export const LEVELS: Level[] = [
   level24,
   level25,
   level26,
+  level27,
 ]
   .map((l) => validateLevel(l))
   .sort((a, b) => a.order - b.order);

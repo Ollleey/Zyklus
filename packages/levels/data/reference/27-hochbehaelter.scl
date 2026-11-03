@@ -1,0 +1,34 @@
+DATA_BLOCK "Messung_gestoert"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+Program_Alarm
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      prozent : Real;
+      stoerung : Bool;
+   END_VAR
+
+BEGIN
+	// Drahtbruch: Kanal 4–20 mA liefert 32767
+	#stoerung := "Fuellstand" > 30000;
+	#prozent := SCALE_X(MIN := 0.0, VALUE := NORM_X(MIN := 0, VALUE := "Fuellstand", MAX := 27648), MAX := 100.0);
+	IF NOT "P_Auto" OR #stoerung THEN
+	    "Pumpe" := FALSE;
+	ELSIF #prozent < 40.0 THEN
+	    "Pumpe" := TRUE;
+	ELSIF #prozent > 80.0 THEN
+	    "Pumpe" := FALSE;
+	END_IF;
+	"P_Pumpe" := "Pumpe";
+	"P_Stoerung" := #stoerung;
+	"Messung_gestoert"(SIG := #stoerung, TEXT := 'Füllstandsmessung gestört');
+END_ORGANIZATION_BLOCK

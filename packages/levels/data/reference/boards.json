@@ -1204,5 +1204,64 @@
         "hsc": 112
       }
     }
+  },
+  "00-einfuehrung": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-kompakt",
+        "x": 0
+      }
+    ],
+    "wires": [
+      {
+        "device": "S1",
+        "module": "cpu1",
+        "channel": 0
+      },
+      {
+        "device": "H1",
+        "module": "cpu1",
+        "channel": 6
+      }
+    ]
+  },
+  "27-hochbehaelter": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "ai1",
+        "type": "ai2",
+        "x": 6
+      },
+      {
+        "id": "rel1",
+        "type": "rel4",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "ai1",
+        "channel": 0
+      },
+      {
+        "device": "P1",
+        "module": "rel1",
+        "channel": 0
+      }
+    ],
+    "config": {
+      "ai1": {
+        "ranges": {
+          "0": "4-20mA"
+        }
+      }
+    }
   }
 }
