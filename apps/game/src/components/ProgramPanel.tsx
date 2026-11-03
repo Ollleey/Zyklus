@@ -26,9 +26,10 @@ import { TagTable } from './TagTable';
 import { ELEMENTARY_TYPES, VarTable } from './VarTable';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { OnlinePanel, type OnlineAccess } from './OnlinePanel';
+import { CrossRefPanel } from './CrossRefPanel';
 import { EMPTY_TABLES, resolveOperand, type OnlineState, type OnlineTables } from '../state/online';
 
-type Tab = 'main' | 'tags' | 'dbs' | 'online';
+type Tab = 'main' | 'tags' | 'dbs' | 'online' | 'xref';
 
 /** Wert eines Operanden in der laufenden Simulation */
 export type WatchReader = (
@@ -253,6 +254,12 @@ export function ProgramPanel({ solution, compiled, onChange, watch, probes, onli
           onClick={() => setTab('dbs')}
         >
           {t('program.dbs')}
+        </button>
+        <button
+          className={`tab ${tab === 'xref' ? 'tab-active' : ''}`}
+          onClick={() => setTab('xref')}
+        >
+          {t('program.xref')}
         </button>
         {online && (
           <button
@@ -524,6 +531,21 @@ export function ProgramPanel({ solution, compiled, onChange, watch, probes, onli
             tags={project.tags}
             onChange={(tags) => change((p) => ({ ...p, tags }))}
             errorRows={errorRows.get('tags')}
+          />
+        </div>
+      )}
+      {tab === 'xref' && (
+        <div className="scroll">
+          <CrossRefPanel
+            project={project}
+            xref={result?.xref ?? []}
+            calls={result?.calls ?? []}
+            onJump={(name, line) => {
+              if (!isCodeName(name)) return;
+              setBlockName(name);
+              setTab('main');
+              setJump({ line, col: 1, nonce: Math.random() });
+            }}
           />
         </div>
       )}

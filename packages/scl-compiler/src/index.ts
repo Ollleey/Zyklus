@@ -18,7 +18,9 @@ export {
   isBuiltinFunction,
   refText,
   type CompileOptions,
+  type CallRef,
   type CompileResult,
+  type XRef,
   type Location,
   type ProjectDiagnostic,
 } from './compiler';

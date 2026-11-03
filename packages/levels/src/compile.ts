@@ -8,7 +8,7 @@ import {
   type Level,
   type Solution,
 } from '@zyklus/sim-core';
-import type { ProjectDiagnostic } from '@zyklus/scl-compiler';
+import type { CallRef, ProjectDiagnostic, XRef } from '@zyklus/scl-compiler';
 import { compilePlcProject } from '@zyklus/fup-model';
 
 export interface CpuCompileResult {
@@ -24,6 +24,9 @@ export interface CpuCompileResult {
   /** Daten im Arbeitsspeicher in Byte und Grenze der CPU */
   dataBytes: number;
   dataLimit: number;
+  /** Querverweise und Aufrufe des Projekts */
+  xref: XRef[];
+  calls: CallRef[];
   diagnostics: ProjectDiagnostic[];
 }
 
@@ -129,6 +132,8 @@ export function compileSolution(level: Level, solution: Solution): SolutionCompi
       used,
       dataBytes: data,
       dataLimit,
+      xref: r.xref ?? [],
+      calls: r.calls ?? [],
       diagnostics,
     });
     if (ok && r.program) programs.set(m.id, r.program);

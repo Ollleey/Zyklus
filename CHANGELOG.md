@@ -1,5 +1,19 @@
 # Changelog
 
+## M9d – Querverweise, Aufrufstruktur, Zuordnungsliste (2026-11-03)
+
+- Neuer Reiter **„Querverweise“** im Programmbereich:
+  - **Querverweisliste**: jedes Symbol (`"Motor"`, `"Daten".Wert`, `#t`, `%Q0.1`) mit Adresse,
+    Stelle (Baustein, Zeile – Klick springt hin) und Zugriff lesen/schreiben; Filter; Kennzeichen
+    ✎n bei mehreren Schreibstellen
+  - **Aufrufstruktur**: je OB die aufgerufenen FB/FC (verschachtelt) und Systembausteine mit Instanz
+  - **Zuordnungsliste**: belegte Bits in E/A/Merker (■ im Programm verwendet, □ nur als
+    PLC-Variable angelegt)
+- **Warnung bei Mehrfachzuweisung**: wird ein Ausgang an zwei Stellen unbedingt zugewiesen, wirkt
+  die frühere nie – die Meldung nennt die erste Stelle
+- Compiler: `xref` und `calls` im Übersetzungsergebnis
+- 703 Tests
+
 ## M9c – Trace mit Trigger (2026-11-03)
 
 - Der Logikanalysator wird zum **Trace**: Leiste über dem Zeitdiagramm

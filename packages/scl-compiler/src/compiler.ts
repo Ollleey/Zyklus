@@ -91,10 +91,34 @@ export interface CompileOptions {
   probes?: boolean;
 }
 
+/** Querverweis: Zugriff auf ein Symbol an einer Stelle im Code */
+export interface XRef {
+  /** `"Motor"`, `"Daten".Wert`, `#zaehler`, `%Q0.1` (ohne Feldindizes) */
+  symbol: string;
+  /** Absolutadresse bei PLC-Variablen und Adressen */
+  address?: string;
+  block: string;
+  line: number;
+  col: number;
+  access: 'r' | 'w';
+}
+
+/** Aufruf: Baustein `from` ruft `to` (eigener FB/FC oder Instanz eines Systembausteins) */
+export interface CallRef {
+  from: string;
+  to: string;
+  /** Instanz-DB bzw. Multiinstanz, bei FC leer */
+  instance?: string;
+  line: number;
+}
+
 export interface CompileResult {
   ok: boolean;
   program?: IrProgram;
   diagnostics: ProjectDiagnostic[];
+  /** Querverweise und Aufrufe (für Querverweisliste, Aufrufstruktur, Zuordnungsliste) */
+  xref?: XRef[];
+  calls?: CallRef[];
   /** Programmgröße: Anzahl Anweisungen (nicht Zeilen) */
   statementCount: number;
   /** Ganzzahl-Literale 0/1, die als BOOL gelesen wurden (für den Export als TRUE/FALSE) */
@@ -418,6 +442,8 @@ function compileUnits(units: Unit[], tags: Tag[], opts: CompileOptions): Compile
     diagnostics,
     statementCount: gen.statementCount,
     boolLiterals: gen.boolLiterals,
+    xref: gen.xref,
+    calls: gen.calls,
   };
 }
 
@@ -541,6 +567,13 @@ class CodeGen {
   readonly diagnostics: ProjectDiagnostic[] = [];
   statementCount = 0;
   readonly boolLiterals: BoolLiteral[] = [];
+  readonly xref: XRef[] = [];
+  readonly calls: CallRef[] = [];
+  private readonly xrefOf = new WeakMap<Ref, XRef>();
+  /** Verschachtelung in IF/CASE/Schleifen (0 = unbedingte Anweisung) */
+  private condDepth = 0;
+  /** unbedingte Zuweisungen an Ausgänge: Schlüssel → erste Stelle */
+  private readonly outputWrites = new Map<string, { block: string; line: number; name: string }>();
   private readonly b = new ProgramBuilder();
   private tags = new TagTable();
   private locals = new Map<string, Sym>();
@@ -1510,6 +1543,14 @@ class CodeGen {
     }
     if (!dry) this.called.add(key);
     const where = this.where;
+    if (!dry && !this.mute && !this.intrinsics && where.block && where.part === 'code') {
+      this.calls.push({
+        from: where.block,
+        to: callee.name,
+        ...(inst ? { instance: inst.display } : {}),
+        line: span.start.line,
+      });
+    }
 
     // Gültigkeitsbereich des Bausteins
     const scope = new Map<string, Sym>(inst ? this.instanceScope(inst) : []);
@@ -1912,7 +1953,9 @@ class CodeGen {
   private loopBody(loop: Loop, body: Stmt[]): void {
     this.loops.push(loop);
     this.loopDepth++;
+    this.condDepth++;
     this.stmts(body);
+    this.condDepth--;
     this.loopDepth--;
     this.loops.pop();
   }
@@ -1930,10 +1973,43 @@ class CodeGen {
     }
     if (res.k === 'place') {
       if (!res.writable) this.fail(`${refText(target)} kann nur gelesen werden`, target.span);
+      this.markWrite(target);
       this.assignPlace(res.place, e, refText(target));
       return;
     }
-    this.assignTo(this.writableOf(res, target), e);
+    const dst = this.writableOf(res, target);
+    this.checkMultipleWrite(dst.o, target);
+    this.assignTo(dst, e);
+  }
+
+  /**
+   * Warnung, wenn ein Ausgang an zwei Stellen unbedingt zugewiesen wird: die frühere Zuweisung
+   * wirkt dann nie (häufiger Fehler beim Erweitern eines Programms).
+   */
+  private checkMultipleWrite(o: Operand, r: Ref): void {
+    const block = this.where.block;
+    if (
+      o.k !== 'io' ||
+      o.area !== 'Q' ||
+      this.condDepth ||
+      this.mute ||
+      this.intrinsics ||
+      !block
+    ) {
+      return;
+    }
+    const key = `${o.byte}.${o.bit}|${o.t}`;
+    const first = this.outputWrites.get(key);
+    const here = { block, line: r.span.start.line, name: refText(r) };
+    if (!first) {
+      this.outputWrites.set(key, here);
+      return;
+    }
+    if (first.block === here.block && first.line === here.line) return;
+    this.warn(
+      `${here.name} wird schon in ${first.block === block ? '' : `„${first.block}“ `}Zeile ${first.line} unbedingt zugewiesen – die frühere Zuweisung wirkt nie`,
+      r.span,
+    );
   }
 
   private assignTo(dst: Val, e: Expr): void {
@@ -2091,6 +2167,7 @@ class CodeGen {
       this.fail(`${name} braucht IN := …, COUNT := … und OUT => …`, span);
     }
     const dst = this.arrayElem(outArg.out, 'OUT', span);
+    this.markWrite(dst.ref);
     if (!dst.writable) this.fail(`${refText(outArg.out)} kann nur gelesen werden`, outArg.span);
     const elemT = dst.arr.of;
     const size = sizeOf(elemT);
@@ -2167,6 +2244,7 @@ class CodeGen {
       this.fail('RD_SYS_T braucht OUT => Variable vom Typ DTL', out?.span ?? span);
     }
     if (!res.writable) this.fail(`${refText(out!)} kann nur gelesen werden`, out!.span);
+    this.markWrite(out!);
     this.b.emit({
       op: 'clock',
       dst: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => this.leafOp(res.place, i)),
@@ -2174,6 +2252,7 @@ class CodeGen {
   }
 
   private writableOf(res: Resolved, r: Ref): Val {
+    this.markWrite(r);
     if (res.k === 'slice') {
       this.fail(`Teilzugriff ${refText(r)} geht nur in einer Zuweisung`, r.span);
     }
@@ -2203,12 +2282,18 @@ class CodeGen {
       this.probe('cond', br.cond.span, cond);
       this.tempUse = mark;
       const jz = this.b.emit({ op: 'jz', cond, to: -1 });
+      this.condDepth++;
       this.stmts(br.body);
+      this.condDepth--;
       const last = n === s.branches.length - 1 && !s.else;
       if (!last) ends.push(this.b.emit({ op: 'jmp', to: -1 }));
       jz.to = this.b.pc;
     });
-    if (s.else) this.stmts(s.else);
+    if (s.else) {
+      this.condDepth++;
+      this.stmts(s.else);
+      this.condDepth--;
+    }
     for (const j of ends) j.to = this.b.pc;
   }
 
@@ -2261,12 +2346,18 @@ class CodeGen {
     const ends: Extract<Instr, { op: 'jmp' }>[] = [];
     s.items.forEach((item, n) => {
       for (const j of jumps[n]!) j.to = this.b.pc;
+      this.condDepth++;
       this.stmts(item.body);
+      this.condDepth--;
       // nach dem letzten Zweig ohne ELSE liegt das Ende direkt dahinter
       if (n < s.items.length - 1 || s.else) ends.push(this.b.emit({ op: 'jmp', to: -1 }));
     });
     toElse.to = this.b.pc;
-    if (s.else) this.stmts(s.else);
+    if (s.else) {
+      this.condDepth++;
+      this.stmts(s.else);
+      this.condDepth--;
+    }
     for (const j of ends) j.to = this.b.pc;
   }
 
@@ -2391,6 +2482,14 @@ class CodeGen {
       kind = entry.type.kind;
     }
     const i = this.instIndex(entry);
+    if (!this.mute && !this.intrinsics && this.where.block && this.where.part === 'code') {
+      this.calls.push({
+        from: this.where.block,
+        to: kind,
+        instance: entry.display,
+        line: span.start.line,
+      });
+    }
 
     const params = FB_INPUTS[kind];
     const outputs = FB_OUTPUTS[kind];
@@ -2457,7 +2556,44 @@ class CodeGen {
 
   // ---------- Namensauflösung ----------
 
+  /** Querverweis eintragen (nur im Code, nicht beim Einsetzen und nicht für FUP) */
+  private recordRef(r: Ref, res: Resolved): void {
+    const block = this.where.block;
+    if (this.mute || this.intrinsics || this.where.part !== 'code' || !block) return;
+    if (this.xrefOf.has(r)) return;
+    const local =
+      r.scope === 'local' || (r.scope === 'auto' && this.locals.has(r.name.toLowerCase()));
+    const head = r.scope === 'addr' ? r.name : local ? `#${r.name}` : `"${r.name}"`;
+    const symbol = [head, ...r.path].join('.');
+    const tag =
+      !local && r.scope !== 'addr' && !r.path.length && res.k === 'value'
+        ? this.tags.get(r.name)
+        : undefined;
+    const address = r.scope === 'addr' ? r.name : tag?.address;
+    const x: XRef = {
+      symbol,
+      ...(address ? { address } : {}),
+      block,
+      line: r.span.start.line,
+      col: r.span.start.col,
+      access: 'r',
+    };
+    this.xref.push(x);
+    this.xrefOf.set(r, x);
+  }
+
+  private markWrite(r: Ref): void {
+    const x = this.xrefOf.get(r);
+    if (x) x.access = 'w';
+  }
+
   private resolve(r: Ref, quiet = false): Resolved {
+    const res = this.resolveInner(r, quiet);
+    if (!quiet) this.recordRef(r, res);
+    return res;
+  }
+
+  private resolveInner(r: Ref, quiet: boolean): Resolved {
     const last = r.path[r.path.length - 1];
     if (last?.startsWith('%')) return this.slice(r, last, quiet);
     const res = this.resolveRef(r, quiet);

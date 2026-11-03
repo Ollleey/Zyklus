@@ -3616,3 +3616,56 @@ text.fup-live-num {
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
+
+/* ---------- Querverweise ---------- */
+
+.xref-views {
+  margin-bottom: 8px;
+  align-items: center;
+}
+.xref-filter {
+  margin-left: 8px;
+  font-size: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+}
+.xref-table tr.xref-first td {
+  border-top: 1px solid var(--line);
+}
+.xref-table td.xref-w {
+  color: var(--amber);
+}
+.xref-table td.xref-r {
+  color: var(--muted);
+}
+.xref-multi {
+  color: var(--amber);
+  font-size: 11px;
+}
+.call-tree,
+.call-tree ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 16px;
+  font-size: 13px;
+}
+.call-tree > li {
+  padding-left: 0;
+  margin-bottom: 6px;
+}
+.call-tree ul li::before {
+  content: '└ ';
+  color: var(--muted);
+}
+.assign-table td.assign-bit {
+  text-align: center;
+  width: 28px;
+  font-size: 12px;
+}
+.assign-table td.assign-used {
+  color: var(--amber);
+}
+.assign-table td.assign-tag {
+  color: var(--muted);
+}
