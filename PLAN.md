@@ -181,7 +181,7 @@ Was heute fehlt, im Vergleich zur Praxis:
 - Optional **GRAPH-light**: Schrittkette als Diagramm (Schritt, Transition, Aktionen N/S/R/D),
   abgesenkt auf CASE-Code – Level 10 neu lösbar.
 
-### M12 – Technologie und Kommunikation (erledigt, siehe CHANGELOG M12a–M12f; TSEND_C/TRCV_C statt PUT/GET)
+### M12 – Technologie und Kommunikation (erledigt, siehe CHANGELOG M12a–M12f, PUT/GET in M14c)
 
 - Technologieobjekte mit Konfigurationsdialog statt Selbstbau: **PID_Compact** (mit Selbstoptimierung
   als Spielmechanik), **High-Speed-Counter** auf DI 8 HF (Alternative zu OB40), **PWM-/PTO-Ausgang**

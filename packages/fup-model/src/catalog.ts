@@ -237,6 +237,25 @@ const SPECS: BoxSpec[] = [
     description:
       'Daten empfangen: solange EN_R = 1, landet eine angekommene Nachricht in DATA; NDR für einen Aufruf.',
   },
+  ...(['PUT', 'GET'] as const).map((type): BoxSpec => ({
+    type,
+    label: type,
+    kind: 'instance',
+    category: 'Kommunikation',
+    inputs: [B('REQ'), V('ID'), V('ADDR_1'), V(type === 'PUT' ? 'SD_1' : 'RD_1')],
+    outputs: [
+      B(type === 'PUT' ? 'DONE' : 'NDR', { optional: true }),
+      B('BUSY', { optional: true }),
+      B('ERROR', { optional: true }),
+      V('STATUS', { optional: true }),
+    ],
+    operandLabel: 'Instanz',
+    instanceType: type,
+    description:
+      type === 'PUT'
+        ? 'In die Partner-CPU schreiben: steigende Flanke an REQ schreibt SD_1 an die Merkeradresse ADDR_1 der Partner-CPU.'
+        : 'Aus der Partner-CPU lesen: steigende Flanke an REQ liest ADDR_1 der Partner-CPU nach RD_1.',
+  })),
   timer('TP', 'Impuls: Q ist für die Dauer PT 1 nach steigender Flanke an IN.'),
   timer('TON', 'Einschaltverzögerung: Q wird PT nach IN = 1 gesetzt.'),
   timer('TOF', 'Ausschaltverzögerung: Q fällt PT nach IN = 0 ab.'),

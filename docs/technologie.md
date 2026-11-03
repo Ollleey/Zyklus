@@ -121,6 +121,24 @@ Verbindungen legst du im Schaltschrank an der CPU an.
 In FUP und KOP stehen beide Boxen unter „Kommunikation“. Nach einem Neustart der CPU sind
 offene Aufträge verworfen.
 
+### PUT und GET
+
+Statt Nachrichten auszutauschen, kann eine CPU auch direkt in **Merker der Partner-CPU** schreiben
+bzw. daraus lesen – über dieselben Verbindungen (ID):
+
+```
+"Schreiben"(REQ := "Neu", ID := 1, ADDR_1 := %MW100, SD_1 := "Daten".Sollwert);  // Instanz-DB PUT
+"Lesen"(REQ := "Takt", ID := 1, ADDR_1 := %MW102, RD_1 := "Daten".Istwert);     // Instanz-DB GET
+```
+
+- **ADDR_1** ist eine Merkeradresse der **Partner-CPU** (Bit, Byte, Wort oder Doppelwort), SD_1
+  bzw. RD_1 eine elementare Variable gleicher Größe.
+- Steigende Flanke an REQ startet den Auftrag; nach der Übertragungszeit ist DONE (PUT) bzw.
+  NDR (GET) für einen Aufruf 1, bei GET steht der gelesene Wert dann in RD_1.
+- Die Partner-CPU muss dafür nichts programmieren; Schreiben und Lesen klappt auch in STOP,
+  nur ohne Spannung nicht.
+- STATUS und ERROR wie bei TSEND_C (16#80A3: keine Verbindung).
+
 ## Bedienpanel und Meldungen
 
 Manche Aufträge haben statt fester Taster ein **Bedienpanel**. Seine Elemente werden nicht

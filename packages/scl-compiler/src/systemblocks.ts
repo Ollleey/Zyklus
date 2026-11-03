@@ -30,6 +30,8 @@ const TYPED: Record<string, InstanceKind> = {
   // Kommunikation mit einer anderen CPU
   TSEND_C: 'TSEND',
   TRCV_C: 'TRCV',
+  PUT: 'PUT',
+  GET: 'GET',
   PROGRAM_ALARM: 'ALARM',
 };
 
@@ -98,6 +100,15 @@ export const FB_INPUTS: Record<InstanceKind, [string, DataType, boolean][]> = {
     ['EN_R', 'BOOL', true],
     ['ID', 'INT', true],
   ],
+  // ADDR_1 und SD_1/RD_1 behandelt der Compiler gesondert
+  PUT: [
+    ['REQ', 'BOOL', true],
+    ['ID', 'INT', true],
+  ],
+  GET: [
+    ['REQ', 'BOOL', true],
+    ['ID', 'INT', true],
+  ],
   ALARM: [
     ['SIG', 'BOOL', true],
     ['TEXT', 'STRING', true],
@@ -117,11 +128,21 @@ export const FB_OUTPUTS: Record<InstanceKind, Record<string, DataType>> = {
   F_TRIG: { Q: 'BOOL' },
   TSEND: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   TRCV: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
+  PUT: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
+  GET: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   ALARM: {},
 };
 
+/** Sonderparameter der Kommunikationsbausteine (keine gewöhnlichen Eingänge) */
+export const COMM_PARAMS: Partial<Record<InstanceKind, string[]>> = {
+  TSEND: ['DATA'],
+  TRCV: ['DATA'],
+  PUT: ['ADDR_1', 'SD_1'],
+  GET: ['ADDR_1', 'RD_1'],
+};
+
 /** Anweisungen mit Datenbereich DATA (Kommunikation) */
-export const COMM_KINDS: readonly InstanceKind[] = ['TSEND', 'TRCV'];
+export const COMM_KINDS: readonly InstanceKind[] = ['TSEND', 'TRCV', 'PUT', 'GET'];
 
 /**
  * Lesbare Elemente eines Instanz-DBs → Feld im Instanzzustand.

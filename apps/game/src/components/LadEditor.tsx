@@ -49,6 +49,8 @@ const LAD_BOXES = [
   'DIV',
   'TSEND_C',
   'TRCV_C',
+  'PUT',
+  'GET',
 ];
 
 const COILS: [CoilKind, string, string][] = [

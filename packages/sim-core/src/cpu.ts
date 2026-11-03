@@ -87,6 +87,9 @@ export interface CommJob {
   types: DataType[];
   at: number;
   delivered: boolean;
+  /** PUT/GET: Art und Merkeradresse in der Partner-CPU */
+  mode?: 'put' | 'get';
+  remote?: { area: 'M'; byte: number; bit: number; t: DataType };
 }
 
 export class Cpu {
@@ -135,6 +138,28 @@ export class Cpu {
       const m = this.inbox.get(id);
       if (m) this.inbox.delete(id);
       return m;
+    },
+    request: (inst, id, mode, remote, values) => {
+      if (!this.connections.has(id)) return false;
+      this.outbox.push({
+        inst,
+        id,
+        values,
+        types: [remote.t],
+        at: this.commNow,
+        delivered: false,
+        mode,
+        remote,
+      });
+      return true;
+    },
+    result: (inst) => {
+      const k = this.outbox.findIndex((j) => j.inst === inst);
+      if (k < 0) return undefined;
+      const job = this.outbox[k]!;
+      if (!job.delivered) return 'busy';
+      this.outbox.splice(k, 1);
+      return { values: job.values };
     },
   };
   /** anstehende Diagnoseereignisse (Drahtbruch, Lastspannung, Baugruppe) → ERROR-LED */

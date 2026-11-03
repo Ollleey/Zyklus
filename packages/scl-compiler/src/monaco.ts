@@ -61,6 +61,8 @@ export const SCL_FB_TYPES = [
   'F_TRIG',
   'TSEND_C',
   'TRCV_C',
+  'PUT',
+  'GET',
   'PID_Compact',
 ];
 

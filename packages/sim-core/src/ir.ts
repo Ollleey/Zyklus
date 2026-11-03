@@ -33,6 +33,9 @@ export type InstanceKind =
   /** Kommunikation: Daten senden (TSEND_C) bzw. empfangen (TRCV_C) */
   | 'TSEND'
   | 'TRCV'
+  /** Kommunikation: in den Speicher der Partner-CPU schreiben bzw. daraus lesen */
+  | 'PUT'
+  | 'GET'
   /** Meldung an das Bedienpanel (Program_Alarm) */
   | 'ALARM';
 
@@ -56,6 +59,8 @@ export const INSTANCE_FIELDS: Record<InstanceKind, Partial<Record<InstanceField,
   F_TRIG: { Q: 'BOOL' },
   TSEND: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   TRCV: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
+  PUT: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
+  GET: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   ALARM: {},
 };
 
@@ -154,7 +159,9 @@ export type Instr =
   | {
       op: 'comm';
       i: number;
-      kind: 'send' | 'recv';
+      /** put/get: `data[0]` ist SD_1 bzw. RD_1, `remote` die Merkeradresse der Partner-CPU */
+      kind: 'send' | 'recv' | 'put' | 'get';
+      remote?: { area: 'M'; byte: number; bit: number; t: DataType };
       en: Operand;
       id: Operand;
       data: Operand[];

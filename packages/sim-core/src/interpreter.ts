@@ -55,6 +55,16 @@ export interface CommPort {
   sendState(inst: number): 'busy' | 'done' | undefined;
   /** angekommene Nachricht für diese Verbindung abholen */
   receive(id: number): { values: Value[]; types: DataType[] } | undefined;
+  /** PUT/GET: Auftrag an die Partner-CPU; false: keine Verbindung */
+  request(
+    inst: number,
+    id: number,
+    mode: 'put' | 'get',
+    remote: { area: 'M'; byte: number; bit: number; t: DataType },
+    values: Value[],
+  ): boolean;
+  /** Stand eines PUT/GET-Auftrags; bei GET mit dem gelesenen Wert */
+  result(inst: number): 'busy' | { values: Value[] } | undefined;
 }
 
 export type ExecResult =
@@ -210,7 +220,35 @@ export function execute(ctx: ExecContext): ExecResult {
           const s = instances[ins.i]!;
           const en = bool(ins.en);
           const id = num(ins.id);
-          if (ins.kind === 'send') {
+          if (ins.kind === 'put' || ins.kind === 'get') {
+            if (ins.kind === 'put') s.DONE = false;
+            else s.NDR = false;
+            if (s.BUSY) {
+              const r = ctx.comm?.result(ins.i);
+              if (r !== 'busy') {
+                s.BUSY = false;
+                s.STATUS = COMM_STATUS.DONE;
+                if (ins.kind === 'put') s.DONE = true;
+                else {
+                  if (r) write(ins.data[0]!, r.values[0]!);
+                  s.NDR = true;
+                }
+              }
+            } else if (en && !s.m1) {
+              const values = ins.kind === 'put' ? [read(ins.data[0]!)] : [];
+              if (ctx.comm?.request(ins.i, id, ins.kind, ins.remote!, values)) {
+                s.BUSY = true;
+                s.ERROR = false;
+                s.STATUS = COMM_STATUS.SENDING;
+              } else {
+                s.ERROR = true;
+                s.STATUS = COMM_STATUS.NO_PARTNER;
+              }
+            } else if (!s.ERROR) {
+              s.STATUS = COMM_STATUS.IDLE;
+            }
+            s.m1 = en;
+          } else if (ins.kind === 'send') {
             s.DONE = false;
             if (s.BUSY) {
               if (ctx.comm?.sendState(ins.i) === 'done') {

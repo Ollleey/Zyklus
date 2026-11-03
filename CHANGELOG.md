@@ -1,5 +1,15 @@
 # Changelog
 
+## M14c – PUT und GET (2026-11-03)
+
+- Neue Systembausteine **PUT** und **GET** (Instanz-DB): Merker der Partner-CPU über eine
+  Verbindung schreiben bzw. lesen (ADDR_1 = Merkeradresse der Partner-CPU, SD_1/RD_1 gleicher
+  Größe), DONE/NDR für einen Aufruf, BUSY, ERROR, STATUS wie TSEND_C
+- Der Partner braucht kein Programm; Zugriff auch in STOP
+- Prüfung: ADDR_1 muss ein Merker sein, Größen müssen passen; FUP/KOP-Boxen unter
+  „Kommunikation“, Instanztypen und Editorvorschläge
+- 802 Tests
+
 ## M14b – GRAPH-light (2026-11-03)
 
 - Neue Sprache **GRAPH** für Funktionsbausteine: Schrittkette mit Schritten (Nummer, Name,

@@ -1,3 +1,4 @@
+import { sizeOfType } from '../address';
 import { Cpu } from '../cpu';
 import type { IrProgram } from '../ir';
 import { Simulation } from '../simulation';
@@ -685,7 +686,18 @@ export class LevelRun {
       for (const job of cpu.outbox) {
         if (job.delivered || t - job.at < commLatency(job.values.length)) continue;
         const b = this.cpus.get(this.partners.get(a)?.get(job.id) ?? '');
-        if (!b || !b.isPowered || b.inbox.has(job.id)) continue;
+        if (!b || !b.isPowered) continue;
+        if (job.mode && job.remote) {
+          // PUT/GET: Merker der Partner-CPU direkt schreiben bzw. lesen (auch in STOP)
+          const r = job.remote;
+          const size = sizeOfType(r.t);
+          const address = size === 'X' ? `%M${r.byte}.${r.bit}` : `%M${size}${r.byte}`;
+          if (job.mode === 'put') b.modify({ address, t: r.t }, job.values[0]!);
+          else job.values = [b.read(address, r.t)];
+          job.delivered = true;
+          continue;
+        }
+        if (b.inbox.has(job.id)) continue;
         b.inbox.set(job.id, { values: job.values, types: job.types });
         job.delivered = true;
       }

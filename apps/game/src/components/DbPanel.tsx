@@ -20,6 +20,8 @@ export const INSTANCE_TYPES = [
   'F_TRIG',
   'TSEND_C',
   'TRCV_C',
+  'PUT',
+  'GET',
 ];
 
 interface Props {

@@ -19,6 +19,7 @@ import {
   isRealType,
   normalize,
   parseAddress,
+  sizeOfType as accessSize,
   tiaTypeForSize,
   validateProgram,
   type Area,
@@ -54,6 +55,7 @@ import { parseBody, parseExpression, parseSource, parseTypeText } from './parser
 import { LIBRARY, libraryBlock, withLibrary } from './library';
 import {
   COMM_KINDS,
+  COMM_PARAMS,
   FB_INPUTS,
   FB_OUTPUTS,
   instanceMembers,
@@ -2618,7 +2620,7 @@ class CodeGen {
       if (
         a.e &&
         !params.some(([n]) => n === a.name) &&
-        !(a.name === 'DATA' && COMM_KINDS.includes(kind))
+        !(COMM_PARAMS[kind] ?? []).includes(a.name)
       ) {
         this.fail(
           `${kind} hat keinen Eingang ${a.name} (Eingänge: ${params.map(([n]) => n).join(', ')})`,
@@ -2669,6 +2671,40 @@ class CodeGen {
       case 'ALARM':
         this.b.emit({ op: 'alarm', i, sig: inputs.SIG!, text: inputs.TEXT! });
         break;
+      case 'PUT':
+      case 'GET': {
+        const local = kind === 'PUT' ? 'SD_1' : 'RD_1';
+        const addr = given.get('ADDR_1');
+        if (!addr?.e) this.fail(`Eingang ADDR_1 von ${kind} fehlt`, span);
+        const remote = this.gen(addr.e);
+        if (remote.o.k !== 'io' || remote.o.area !== 'M') {
+          this.fail(
+            `ADDR_1 von ${kind} muss eine Merkeradresse der Partner-CPU sein (z. B. %MW100)`,
+            addr.e.span,
+          );
+        }
+        const la = given.get(local);
+        if (!la?.e) this.fail(`Eingang ${local} von ${kind} fehlt`, span);
+        const { data, types } = this.commData(la.e, kind === 'GET', kind);
+        if (data.length !== 1) {
+          this.fail(`${local} von ${kind} muss eine elementare Variable sein`, la.e.span);
+        }
+        const r = remote.o as Extract<Operand, { k: 'io' }>;
+        if (accessSize(types[0]!) !== accessSize(r.t)) {
+          this.fail(`${local} (${types[0]}) und ADDR_1 (${r.t}) sind verschieden groß`, la.e.span);
+        }
+        this.b.emit({
+          op: 'comm',
+          i,
+          kind: kind === 'PUT' ? 'put' : 'get',
+          en: inputs.REQ!,
+          id: inputs.ID!,
+          data,
+          types,
+          remote: { area: 'M', byte: r.byte, bit: r.bit, t: types[0]! },
+        });
+        break;
+      }
       case 'TSEND':
       case 'TRCV': {
         const name = kind === 'TSEND' ? 'TSEND_C' : 'TRCV_C';

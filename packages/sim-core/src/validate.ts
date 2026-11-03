@@ -228,12 +228,21 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
         operand(ins.text, 'Text', 'STRING');
         break;
       case 'comm': {
-        instance(ins.i, [ins.kind === 'send' ? 'TSEND' : 'TRCV']);
-        operand(ins.en, ins.kind === 'send' ? 'REQ' : 'EN_R', 'BOOL');
+        instance(ins.i, [
+          ins.kind === 'send'
+            ? 'TSEND'
+            : ins.kind === 'recv'
+              ? 'TRCV'
+              : ins.kind === 'put'
+                ? 'PUT'
+                : 'GET',
+        ]);
+        operand(ins.en, ins.kind === 'recv' ? 'EN_R' : 'REQ', 'BOOL');
+        if ((ins.kind === 'put' || ins.kind === 'get') && !ins.remote) err('ADDR_1 fehlt');
         operand(ins.id, 'ID', 'INT');
         if (ins.data.length !== ins.types.length || !ins.data.length) err('DATA ist leer');
         ins.data.forEach((d, n) =>
-          ins.kind === 'send'
+          ins.kind === 'send' || ins.kind === 'put'
             ? operand(d, `DATA[${n}]`, ins.types[n])
             : target(d, `DATA[${n}]`, ins.types[n]),
         );

@@ -283,6 +283,56 @@ describe('CPU-CPU-Kommunikation (TSEND_C/TRCV_C)', () => {
     expect(a.readSlot('Daten.status')).toBe(0x7000);
   });
 
+  it('PUT schreibt, GET liest Merker der Partner-CPU', () => {
+    const a =
+      DB('Schreiben', 'PUT') +
+      DB('Lesen', 'GET') +
+      'DATA_BLOCK "W"\nVAR\nwert : Int;\nzurueck : Int;\nfertig : Bool;\nneu : Bool;\nEND_VAR\nBEGIN\nEND_DATA_BLOCK\n' +
+      'ORGANIZATION_BLOCK "Main"\nBEGIN\n"W".wert := 1234;\n' +
+      '"Schreiben"(REQ := "Ein", ID := 1, ADDR_1 := %MW100, SD_1 := "W".wert);\n' +
+      '"Lesen"(REQ := "Ein", ID := 1, ADDR_1 := %MW102, RD_1 := "W".zurueck);\n' +
+      'IF "Schreiben".DONE THEN "W".fertig := TRUE; END_IF;\nIF "Lesen".NDR THEN "W".neu := TRUE; END_IF;\nEND_ORGANIZATION_BLOCK';
+    const b = ob('%MW102 := 77;');
+    const s = solution(a, b);
+    const c = compileSolution(level, s);
+    expect(
+      [...c.cpus.values()].flatMap((r) =>
+        r.diagnostics.filter((d) => d.severity === 'error').map((d) => d.message),
+      ),
+    ).toEqual([]);
+    const test = {
+      id: 't',
+      name: { de: 't' },
+      durationMs: 300,
+      seeds: [1],
+      stimuli: { S1: [[100, true]] as [number, boolean][] },
+    };
+    const run = new LevelRun(level, s, c.programs, { test, seed: 1 });
+    run.runTo(300);
+    expect(run.cpus.get('cpu2')!.read('%MW100', 'INT')).toBe(1234);
+    const c1 = run.cpus.get('cpu1')!;
+    expect(c1.readSlot('W.zurueck')).toBe(77);
+    expect(c1.readSlot('W.fertig')).toBe(true);
+    expect(c1.readSlot('W.neu')).toBe(true);
+  });
+
+  it('PUT: ADDR_1 muss ein Merker gleicher Größe sein', () => {
+    const bad = (body: string) => {
+      const s = solution(DB('Schreiben', 'PUT') + ob(body), ob(''));
+      return [
+        ...compileSolution(level, s)
+          .cpus.get('cpu1')!
+          .diagnostics.map((d) => d.message),
+      ].join(' | ');
+    };
+    expect(bad('"Schreiben"(REQ := TRUE, ID := 1, ADDR_1 := %QW100, SD_1 := %MW0);')).toMatch(
+      /Merkeradresse/,
+    );
+    expect(bad('"Schreiben"(REQ := TRUE, ID := 1, ADDR_1 := %MD100, SD_1 := %MW0);')).toMatch(
+      /verschieden groß/,
+    );
+  });
+
   it('Fehler: keine Verbindung bzw. Datentypen passen nicht', () => {
     const sender =
       DB('Senden', 'TSEND_C') +
