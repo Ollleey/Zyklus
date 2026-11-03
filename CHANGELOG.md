@@ -1,5 +1,15 @@
 # Changelog
 
+## M14a – Teilprozessabbilder (TPA) (2026-11-03)
+
+- Baugruppen lassen sich einem **Teilprozessabbild** (TPA 1 … 4) zuordnen, Weck- und
+  Prozessalarm-OBs einem TPA (Ereignis, in der Quelle `…, TPA 1`, geprüft 1 … 31)
+- Mit TPA: OB1 aktualisiert nur Kanäle ohne TPA, ein Alarm-OB nur die Ein- und Ausgänge seines
+  TPA, Alarm-OBs ohne TPA keine Peripherie; ohne jede TPA-Zuordnung gilt die bisherige Spielregel
+  (alle Aufträge und Lösungen unverändert)
+- Handbuch „Geräte und Fehler“: Abschnitt Teilprozessabbilder
+- 797 Tests
+
 ## M13e – Englisch (2026-11-03)
 
 - **Englische Oberfläche**: vollständiger Katalog `en.json` (alle Schlüssel und Platzhalter wie

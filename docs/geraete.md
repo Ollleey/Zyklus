@@ -16,6 +16,25 @@ Baugruppe im Schaltschrank anklicken: die Eigenschaften stehen unter dem Schrank
 
 Beispiel: Taktmerker auf `%MB0` → `%M0.5` blinkt mit 1 Hz.
 
+## Teilprozessabbilder (TPA)
+
+Ohne Einstellung gilt die **Spielregel**: Ein Alarm-OB (Weck- oder Prozessalarm) liest vor dem
+Start alle Eingänge neu und schreibt danach alle Ausgänge.
+
+Sobald eine Baugruppe einem **Teilprozessabbild** (TPA 1 … 4, Eigenschaft „Prozessabbild“)
+zugeordnet ist, arbeitet die CPU wie eine echte:
+
+- OB1 aktualisiert nur die Kanäle **ohne** TPA (Prozessabbild von OB1 = TPA 0).
+- Ein Alarm-OB mit **TPA n** (im Ereignis des OB einstellen) liest vor dem Start die Eingänge von
+  TPA n und schreibt danach dessen Ausgänge.
+- Ein Alarm-OB ohne TPA liest und schreibt dann gar keine Peripherie – er arbeitet nur mit dem
+  Prozessabbild, das OB1 aktualisiert.
+
+So reagiert eine schnelle Teilaufgabe im Weckalarm mit eigener Ein-/Ausgabe, ohne auf den Zyklus
+von OB1 zu warten. Schreibt OB1 auf einen Ausgang in einem TPA, kommt das an der Klemme erst an,
+wenn der zugehörige Alarm-OB läuft. In der Quelle steht das TPA in der Ereigniszeile
+(`// Ereignis: Weckalarm, Takt 5 ms, Phase 0 ms, TPA 1`).
+
 ## Dezentrale Peripherie
 
 Ein **Interfacemodul (IM PN)** macht die Baugruppen rechts davon zu einer dezentralen Station –

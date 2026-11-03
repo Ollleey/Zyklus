@@ -420,5 +420,10 @@
   "guide.title": "Geführter Einstieg",
   "language.label": "Sprache",
   "mail.from": "Von",
-  "mail.subject": "Betreff"
+  "mail.subject": "Betreff",
+  "block.tpaNone": "kein TPA",
+  "block.tpaHint": "Teilprozessabbild: Der Alarm-OB liest vor dem Start die Eingänge seines TPA und schreibt danach dessen Ausgänge. Ohne TPA wirkt er nur über das Prozessabbild von OB1.",
+  "cabinet.tpa": "Prozessabbild",
+  "cabinet.tpaOb1": "OB1 (TPA 0)",
+  "cabinet.tpaHint": "Kanäle in einem Teilprozessabbild aktualisiert nur der Alarm-OB mit diesem TPA, nicht OB1. Sobald eine Baugruppe ein TPA hat, gilt das auch für Alarm-OBs ohne TPA: Sie lesen und schreiben keine Peripherie mehr."
 }

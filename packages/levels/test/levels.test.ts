@@ -78,7 +78,8 @@ function verify(level: Level, solution: Solution) {
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
     expect(LEVELS.map((l) => l.order)).toEqual([
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+      26, 27,
     ]);
   });
 
@@ -631,6 +632,14 @@ describe('Fehllösungen M12', () => {
     expect(failedTests('24-pumpstation', src)).toEqual(['station']);
   });
 
+  it('TPA: Ausgangsbaugruppe in TPA 1 schreibt OB1 nicht mehr (Level 14)', () => {
+    const board = BOARDS['14-impulse']!;
+    const ok = failedTests('14-impulse', refText('14-impulse'), board);
+    expect(ok).toEqual([]);
+    const withTpa = { ...board, config: { do1: { tpa: 1 } } };
+    expect(failedTests('14-impulse', refText('14-impulse'), withTpa).length).toBeGreaterThan(0);
+  });
+
   it('Level 24: ohne Meldung fehlt die Anzeige im Panel', () => {
     const src = refText('24-pumpstation').replace(/\t"Stoermeldung"\(.*\);\r?\n/, '');
     expect(failedTests('24-pumpstation', src)).toEqual(['motorschutz', 'station']);
@@ -685,9 +694,9 @@ describe('Meisterstück', () => {
   };
 
   it('ohne Drahtbrucherkennung läuft die Pumpe bei 32767 nicht – Störung fehlt', () => {
-    expect(failedTests(ref.replace('#stoerung := "Fuellstand" > 30000;', '#stoerung := FALSE;'))).toEqual(
-      ['drahtbruch'],
-    );
+    expect(
+      failedTests(ref.replace('#stoerung := "Fuellstand" > 30000;', '#stoerung := FALSE;')),
+    ).toEqual(['drahtbruch']);
   });
 
   it('falscher Messbereich (0–10 V) liefert Überlauf', () => {
@@ -696,9 +705,9 @@ describe('Meisterstück', () => {
   });
 
   it('Automatik-Schalter missachtet', () => {
-    expect(failedTests(ref.replace('IF NOT "P_Auto" OR #stoerung THEN', 'IF #stoerung THEN'))).toEqual([
-      'aus',
-    ]);
+    expect(
+      failedTests(ref.replace('IF NOT "P_Auto" OR #stoerung THEN', 'IF #stoerung THEN')),
+    ).toEqual(['aus']);
   });
 });
 

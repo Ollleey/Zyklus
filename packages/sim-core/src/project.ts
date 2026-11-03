@@ -44,8 +44,8 @@ export type CodeBlockKind = 'OB' | 'FB' | 'FC';
  * Weckalarm (OB30…OB38) im festen Takt oder Prozessalarm (OB40…OB47) an einer Eingangsflanke.
  */
 export type ObEvent =
-  | { kind: 'cyclic'; intervalMs: number; phaseMs?: number }
-  | { kind: 'process'; input: string; edge: 'rising' | 'falling' }
+  | { kind: 'cyclic'; intervalMs: number; phaseMs?: number; tpa?: number }
+  | { kind: 'process'; input: string; edge: 'rising' | 'falling'; tpa?: number }
   /** Anlauf: einmal nach jedem Neustart, vor dem ersten Zyklus von OB1 */
   | { kind: 'startup' }
   /** Fehler-OBs: Zykluszeitfehler, Diagnosealarm, Baugruppenausfall, Programmierfehler */

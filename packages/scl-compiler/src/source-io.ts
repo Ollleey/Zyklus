@@ -39,9 +39,10 @@ const BLOCK_HEADER: Record<CodeBlock['kind'], [string, string]> = {
 
 function eventText(e: ObEvent): string {
   if (isSimpleEvent(e)) return SIMPLE_EVENTS[e.kind];
+  const tpa = e.tpa ? `, TPA ${e.tpa}` : '';
   return e.kind === 'cyclic'
-    ? `Weckalarm, Takt ${e.intervalMs} ms, Phase ${e.phaseMs ?? 0} ms`
-    : `Prozessalarm, ${e.edge === 'rising' ? 'steigende' : 'fallende'} Flanke an ${e.input}`;
+    ? `Weckalarm, Takt ${e.intervalMs} ms, Phase ${e.phaseMs ?? 0} ms${tpa}`
+    : `Prozessalarm, ${e.edge === 'rising' ? 'steigende' : 'fallende'} Flanke an ${e.input}${tpa}`;
 }
 
 /** Liest die Ereignis-Zeile, die `projectToSource` in den Bausteinkopf schreibt. */
@@ -50,11 +51,21 @@ function parseEvent(header: string[]): ObEvent | undefined {
     for (const [kind, label] of Object.entries(SIMPLE_EVENTS)) {
       if (new RegExp(`//\\s*Ereignis:\\s*${label}\\s*$`).test(l)) return { kind } as ObEvent;
     }
-    const c = /\/\/\s*Ereignis:\s*Weckalarm, Takt (\d+) ms(?:, Phase (\d+) ms)?/.exec(l);
-    if (c) return { kind: 'cyclic', intervalMs: Number(c[1]), phaseMs: Number(c[2] ?? 0) };
-    const p = /\/\/\s*Ereignis:\s*Prozessalarm, (steigende|fallende) Flanke an (.+?)\s*$/.exec(l);
+    const tm = /, TPA (\d+)\s*$/.exec(l);
+    const tpa = tm ? { tpa: Number(tm[1]) } : {};
+    const line = tm ? l.slice(0, tm.index) : l;
+    const c = /\/\/\s*Ereignis:\s*Weckalarm, Takt (\d+) ms(?:, Phase (\d+) ms)?/.exec(line);
+    if (c) return { kind: 'cyclic', intervalMs: Number(c[1]), phaseMs: Number(c[2] ?? 0), ...tpa };
+    const p = /\/\/\s*Ereignis:\s*Prozessalarm, (steigende|fallende) Flanke an (.+?)\s*$/.exec(
+      line,
+    );
     if (p)
-      return { kind: 'process', edge: p[1] === 'steigende' ? 'rising' : 'falling', input: p[2]! };
+      return {
+        kind: 'process',
+        edge: p[1] === 'steigende' ? 'rising' : 'falling',
+        input: p[2]!,
+        ...tpa,
+      };
   }
   return undefined;
 }

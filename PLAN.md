@@ -155,7 +155,7 @@ Was heute fehlt, im Vergleich zur Praxis:
   sonst STOP nötig; Istwerte bleiben erhalten oder werden zurückgesetzt (bewusste Wahl).
 - Schrittbetrieb pro Zyklus und Haltepunkte in SCL (Testpunkt, nur Simulator).
 
-### M10 – Gerätekonfiguration und Fehlerbehandlung (erledigt, siehe CHANGELOG M10a–M10d; ohne TPA)
+### M10 – Gerätekonfiguration und Fehlerbehandlung (erledigt, siehe CHANGELOG M10a–M10d, TPA in M14a)
 
 - **Gerätesicht**: Baugruppe anklicken → Eigenschaften: Anfangsadresse ändern, **Eingangsverzögerung**
   (0,05 … 20 ms – Hardwareentprellung als Alternative zum Programm), Diagnose freigeben

@@ -807,6 +807,24 @@ function EventEditor({ event, onChange }: { event: ObEvent; onChange: (e: ObEven
           </label>
         </>
       )}
+      <label title={t('block.tpaHint')}>
+        TPA{' '}
+        <select
+          value={event.tpa ?? 0}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            const { tpa: _, ...rest } = event;
+            onChange(v ? { ...rest, tpa: v } : rest);
+          }}
+        >
+          <option value={0}>{t('block.tpaNone')}</option>
+          {[1, 2, 3, 4].map((n) => (
+            <option key={n} value={n}>
+              TPA {n}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

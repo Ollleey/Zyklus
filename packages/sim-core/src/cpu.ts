@@ -20,6 +20,12 @@ export interface CpuConfig {
   systemByte?: number;
   /** Taktmerkerbyte: Bit 0 10 Hz, 1 5 Hz, 2 2,5 Hz, 3 2 Hz, 4 1,25 Hz, 5 1 Hz, 6 0,625 Hz, 7 0,5 Hz */
   clockByte?: number;
+  /**
+   * Teilprozessabbilder: Byte → TPA (1…31) je Bereich. Fehlt die Angabe, gilt die Spielregel
+   * ohne TPA (Alarm-OBs aktualisieren das ganze Prozessabbild). Sonst aktualisiert OB1 nur die
+   * Bytes ohne TPA, ein Alarm-OB nur die seines TPA, Alarm-OBs ohne TPA gar keine.
+   */
+  partitions?: { I: Record<number, number>; Q: Record<number, number> };
 }
 
 /** Periodendauer der Taktmerker in ms (Bit 0 … 7) */
@@ -211,15 +217,32 @@ export class Cpu {
    * aktualisiert) und seine Ausgänge wirken sofort.
    */
   private runTask(task: IrTask, now: number): void {
-    this.pae.copyFrom(this.inputs);
-    if (!this.runCode(now, task.start, task.end)) return;
-    this.writeOutputs();
+    const parts = this.config.partitions;
+    if (!parts) {
+      this.pae.copyFrom(this.inputs);
+      if (!this.runCode(now, task.start, task.end)) return;
+      this.writeOutputs();
+    } else {
+      const tpa = task.tpa ?? 0;
+      if (tpa) this.pae.copyBytesFrom(this.inputs, (b) => parts.I[b] === tpa);
+      if (!this.runCode(now, task.start, task.end)) return;
+      if (tpa) this.writeOutputs(tpa);
+    }
     this.metrics.interrupts++;
   }
 
-  /** PAA an die Ausgangsklemmen, dann geforcte Ausgänge */
-  private writeOutputs(): void {
-    this.outputs.copyFrom(this.paa);
+  /** Prozessabbild der Eingänge für OB1: alles bzw. mit TPA nur die Bytes ohne TPA */
+  private readInputs(): void {
+    const parts = this.config.partitions;
+    if (parts) this.pae.copyBytesFrom(this.inputs, (b) => !parts.I[b]);
+    else this.pae.copyFrom(this.inputs);
+  }
+
+  /** PAA an die Ausgangsklemmen (mit TPA nur dessen Bytes, 0 = OB1), dann geforcte Ausgänge */
+  private writeOutputs(tpa = 0): void {
+    const parts = this.config.partitions;
+    if (parts) this.outputs.copyBytesFrom(this.paa, (b) => (parts.Q[b] ?? 0) === tpa);
+    else this.outputs.copyFrom(this.paa);
     this.applyOutputForces();
   }
 
@@ -460,7 +483,7 @@ export class Cpu {
     this.applyInputForces();
     if (this.mode !== 'RUN') return;
     if (!this.started && !this.startup(now)) return;
-    this.pae.copyFrom(this.inputs);
+    this.readInputs();
     this.writeSystemMemory(now);
     const before = this.overrun;
     const ok = this.runCode(now);

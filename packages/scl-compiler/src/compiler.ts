@@ -1430,6 +1430,7 @@ class CodeGen {
         end: 0,
         intervalMs: ev.intervalMs,
         phaseMs: phase,
+        ...this.tpaOf(ev.tpa),
       };
     }
     const text = unquote(ev.input.trim());
@@ -1455,7 +1456,17 @@ class CodeGen {
       end: 0,
       input: { byte: op.byte, bit: op.bit },
       edge: ev.edge,
+      ...this.tpaOf(ev.tpa),
     };
+  }
+
+  /** Teilprozessabbild eines Alarm-OBs prüfen (1…31, 0 bzw. fehlend = keins) */
+  private tpaOf(tpa: number | undefined): { tpa?: number } {
+    if (tpa === undefined || tpa === 0) return {};
+    if (!Number.isInteger(tpa) || tpa < 1 || tpa > 31) {
+      this.fail('Teilprozessabbild muss TPA 1 … 31 sein', NO_SPAN);
+    }
+    return { tpa };
   }
 
   // ---------- Eigene FB/FC (werden an der Aufrufstelle eingesetzt) ----------

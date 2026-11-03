@@ -844,6 +844,22 @@ function ModuleInspector({
           </select>
         </label>
       )}
+      {kinds.length > 0 && !isCpu && (
+        <label className="inspector-field" title={t('cabinet.tpaHint')}>
+          {t('cabinet.tpa')}
+          <select
+            value={cfg.tpa ?? 0}
+            onChange={(e) => onConfig({ tpa: Number(e.target.value) || undefined })}
+          >
+            <option value={0}>{t('cabinet.tpaOb1')}</option>
+            {[1, 2, 3, 4].map((n) => (
+              <option key={n} value={n}>
+                TPA {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {mt.alarms && (
         <label className="inspector-field" title={t('cabinet.hscHint')}>
           <input

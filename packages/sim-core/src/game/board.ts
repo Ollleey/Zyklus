@@ -96,6 +96,34 @@ export interface ModuleConfig {
   controller?: string;
   /** nur Interfacemodul: Aktualisierungszeit in ms (1…16, Standard 4) */
   updateTime?: number;
+  /** Teilprozessabbild der Kanäle (1…31; fehlt: OB1-Prozessabbild) */
+  tpa?: number;
+}
+
+/**
+ * Teilprozessabbilder einer CPU aus der Baugruppenkonfiguration: Byte → TPA je Bereich.
+ * undefined, wenn keine Baugruppe dieser CPU einem TPA zugeordnet ist (Spielregel ohne TPA).
+ */
+export function cpuPartitions(
+  solution: Pick<Solution, 'config' | 'modules'>,
+  analysis: Pick<BoardAnalysis, 'cpuOf' | 'channelAddress'>,
+  cpu: string,
+): { I: Record<number, number>; Q: Record<number, number> } | undefined {
+  const out = { I: {} as Record<number, number>, Q: {} as Record<number, number> };
+  let any = false;
+  for (const m of solution.modules) {
+    const tpa = solution.config?.[m.id]?.tpa;
+    if (!tpa || analysis.cpuOf.get(m.id) !== cpu) continue;
+    for (const [key, addr] of analysis.channelAddress) {
+      if (!key.startsWith(`${m.id}:`)) continue;
+      const a = parseAddress(addr);
+      if (a.area !== 'I' && a.area !== 'Q') continue;
+      const bytes = a.size === 'X' || a.size === 'B' ? 1 : a.size === 'W' ? 2 : 4;
+      for (let b = a.byte; b < a.byte + bytes; b++) out[a.area][b] = tpa;
+      any = true;
+    }
+  }
+  return any ? out : undefined;
 }
 
 /**

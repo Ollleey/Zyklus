@@ -2,7 +2,13 @@ import { Cpu } from '../cpu';
 import type { IrProgram } from '../ir';
 import { Simulation } from '../simulation';
 import type { Value } from '../types';
-import { analyzeBoard, type BoardAnalysis, type PulseConfig, type Solution } from './board';
+import {
+  analyzeBoard,
+  cpuPartitions,
+  type BoardAnalysis,
+  type PulseConfig,
+  type Solution,
+} from './board';
 import {
   probeKey,
   type Device,
@@ -98,6 +104,7 @@ export class LevelRun {
             maxOpsPerCycle: t.cpu!.maxOpsPerCycle,
             systemByte: solution.config?.[m.id]?.systemByte,
             clockByte: solution.config?.[m.id]?.clockByte,
+            partitions: cpuPartitions(solution, this.analysis, m.id),
           },
           program,
         ),

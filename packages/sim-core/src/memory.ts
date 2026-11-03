@@ -117,4 +117,10 @@ export class ByteArea {
   copyFrom(other: ByteArea): void {
     this.bytes.set(other.bytes.subarray(0, this.bytes.length));
   }
+
+  /** nur die Bytes, für die `pick` zutrifft (Teilprozessabbild) */
+  copyBytesFrom(other: ByteArea, pick: (byte: number) => boolean): void {
+    const n = Math.min(this.bytes.length, other.bytes.length);
+    for (let b = 0; b < n; b++) if (pick(b)) this.bytes[b] = other.bytes[b]!;
+  }
 }

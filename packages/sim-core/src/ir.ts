@@ -213,6 +213,8 @@ export interface IrTask {
   edge?: 'rising' | 'falling';
   /** OB82/OB86: Slot der Startinformation Event_Class (16#39 kommend, 16#38 gehend) */
   eventClass?: number;
+  /** Weck-/Prozessalarm: zugeordnetes Teilprozessabbild (1…31) */
+  tpa?: number;
 }
 
 export interface IrProgram {
