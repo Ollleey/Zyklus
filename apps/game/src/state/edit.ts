@@ -6,6 +6,7 @@ import {
   syncDeviceTags,
   type AnalogRange,
   type Level,
+  type ModuleConfig,
   type PlcProject,
   type Solution,
 } from '@zyklus/sim-core';
@@ -73,6 +74,19 @@ export function disconnect(level: Level, s: Solution, device: string): Solution 
 }
 
 /** Messbereich eines Analogkanals setzen (Modul-Inspektor) */
+/** Einstellungen einer Baugruppe ändern; `undefined` entfernt einen Eintrag */
+export function setModuleConfig(
+  s: Solution,
+  moduleId: string,
+  patch: Partial<ModuleConfig>,
+): Solution {
+  const next: ModuleConfig = { ...s.config?.[moduleId], ...patch };
+  for (const k of Object.keys(next) as (keyof ModuleConfig)[]) {
+    if (next[k] === undefined) delete next[k];
+  }
+  return { ...s, config: { ...s.config, [moduleId]: next } };
+}
+
 export function setChannelRange(
   s: Solution,
   moduleId: string,

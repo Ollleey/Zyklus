@@ -42,7 +42,24 @@ export interface Solution {
 export interface ModuleConfig {
   /** Messbereich je Kanalnummer */
   ranges?: Record<number, AnalogRange>;
+  /** Anfangsadresse je Kanalart (Byte bei DI/DO, Byteadresse des ersten Worts bei AI/AO) */
+  start?: Partial<Record<'di' | 'do' | 'ai' | 'ao', number>>;
+  /** Eingangsverzögerung der Digitaleingänge in ms (Standard 0,05 = keine spürbare) */
+  inputDelay?: number;
+  /** Ausgänge bei CPU-STOP: abschalten (Standard), letzten Wert halten oder Ersatzwert */
+  onStop?: 'off' | 'hold' | 'substitute';
+  /** Ersatzwert je Kanalnummer (bei `onStop: 'substitute'`) */
+  substitute?: Record<number, boolean | number>;
+  /** Diagnose freigegeben (Drahtbruch, fehlende Lastspannung) */
+  diagnostics?: boolean;
+  /** nur CPU: Systemmerkerbyte (FirstScan, DiagStatusUpdate, AlwaysTRUE, AlwaysFALSE) */
+  systemByte?: number;
+  /** nur CPU: Taktmerkerbyte (Bit 0 = 10 Hz … Bit 7 = 0,5 Hz) */
+  clockByte?: number;
 }
+
+/** Wählbare Eingangsverzögerungen in ms wie bei S7-1500-Digitaleingängen */
+export const INPUT_DELAYS = [0.05, 0.1, 0.4, 0.8, 1.6, 3.2, 12.8, 20] as const;
 
 /** Eingestellter Messbereich eines Analogkanals (Standard: erster wählbarer Bereich) */
 export function channelRange(
@@ -77,6 +94,7 @@ export type BoardIssueCode =
   | 'wall'
   | 'coupler'
   | 'range-mismatch'
+  | 'address'
   | 'unwired';
 
 export interface BoardIssue {
@@ -91,6 +109,9 @@ export interface BoardIssue {
 /** Wohin ein Feldgerät elektrisch führt. */
 export interface Binding {
   cpu: string;
+  /** Baugruppe und Kanal */
+  module: string;
+  channel: number;
   address: string;
   t: DataType;
   /** über einen Relaisausgang angeschlossen: Schaltverzögerung in ms */
@@ -183,11 +204,40 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
   const wr = wallRange(level.board);
   let pastWall = false;
   const couplers: { module: string; cpu: string }[] = [];
+  /** belegte Bytes je CPU und Bereich (für die Prüfung geänderter Anfangsadressen) */
+  const usedBytes = new Map<string, string>();
   /** Adressen je Kanalgruppe: Digital byteweise, Analog wortweise (Relais zählen als DO) */
   const assign = (id: string, t: ModuleType) => {
     let ch = 0;
     for (const g of ioGroups(t)) {
       const k = g.kind.toLowerCase() as 'di' | 'do' | 'ai' | 'ao';
+      const size = k === 'di' || k === 'do' ? Math.ceil(g.count / 8) : g.count * 2;
+      const own = solution.config?.[id]?.start?.[k];
+      if (own !== undefined) {
+        if (!Number.isInteger(own) || own < 0 || ((k === 'ai' || k === 'ao') && own % 2)) {
+          err({
+            code: 'address',
+            message: `${t.name.de} ${id}: Anfangsadresse ${own} ungültig (Analog: gerade Byteadresse)`,
+            module: id,
+          });
+        } else {
+          counters[k] = own;
+        }
+      }
+      const area = k === 'di' || k === 'ai' ? 'I' : 'Q';
+      for (let b = counters[k]; b < counters[k] + size; b++) {
+        const key = `${cpu}|${area}|${b}`;
+        const other = usedBytes.get(key);
+        if (other && other !== id) {
+          err({
+            code: 'address',
+            message: `Adressen von ${id} überschneiden sich mit ${other} (%${area}B${b})`,
+            module: id,
+          });
+          break;
+        }
+        usedBytes.set(key, id);
+      }
       for (let i = 0; i < g.count; i++, ch++) {
         const addr =
           k === 'di' || k === 'do'
@@ -355,6 +405,8 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
     if (cpuId && address && !bindings.has(dev.id)) {
       bindings.set(dev.id, {
         cpu: cpuId,
+        module: mod.id,
+        channel: w.channel,
         address,
         t: dev.kind === 'DI' || dev.kind === 'DO' ? 'BOOL' : 'INT',
         delay: t.delay,

@@ -5,12 +5,15 @@ import {
   channelInfo,
   channelKindAt,
   channelRange,
+  INPUT_DELAYS,
+  ioGroups,
   tr,
   wallRange,
   type AnalogRange,
   type BoardAnalysis,
   type Device,
   type Level,
+  type ModuleConfig,
   type Solution,
 } from '@zyklus/sim-core';
 import { t } from '../i18n';
@@ -21,6 +24,7 @@ import {
   placeModule,
   removeModule,
   setChannelRange,
+  setModuleConfig,
 } from '../state/edit';
 import { DeviceSymbol, signalLabel } from './cabinet/Devices';
 import { G, colX, cpuFrontWidth, ioPanel, layout, terminalPos } from './cabinet/geometry';
@@ -630,6 +634,7 @@ export function Cabinet({
           solution={solution}
           moduleId={selectedModule.id}
           onRange={(ch, range) => onChange(setChannelRange(solution, selectedModule.id, ch, range))}
+          onConfig={(patch) => onChange(setModuleConfig(solution, selectedModule.id, patch))}
         />
       )}
       <div className="cabinet-info">
@@ -657,29 +662,125 @@ export function Cabinet({
   );
 }
 
-/** Eigenschaften der gewählten Baugruppe: Messbereich je Analogkanal */
+/** Eigenschaften der gewählten Baugruppe wie in der Gerätesicht von TIA */
 function ModuleInspector({
   solution,
   moduleId,
   onRange,
+  onConfig,
 }: {
   solution: Solution;
   moduleId: string;
   onRange: (ch: number, range: AnalogRange) => void;
+  onConfig: (patch: Partial<ModuleConfig>) => void;
 }) {
   const m = solution.modules.find((x) => x.id === moduleId);
   const mt = m ? MODULE_TYPES[m.type] : undefined;
   if (!m || !mt) return null;
-  const channels = Array.from({ length: mt.channels }, (_, ch) => ch).filter(
-    (ch) => (channelInfo(mt, ch)?.group.ranges?.length ?? 0) > 0,
-  );
-  if (!channels.length) return null;
+  const cfg = solution.config?.[m.id] ?? {};
+  const kinds = [
+    ...new Set(ioGroups(mt).map((g) => g.kind.toLowerCase() as 'di' | 'do' | 'ai' | 'ao')),
+  ];
+  const all = Array.from({ length: mt.channels }, (_, ch) => ch);
+  const analogChannels = all.filter((ch) => (channelInfo(mt, ch)?.group.ranges?.length ?? 0) > 0);
+  const outChannels = all.filter((ch) => {
+    const k = channelInfo(mt, ch)?.group.kind;
+    return k === 'DO' || k === 'AO';
+  });
+  const num = (v: string) =>
+    v.trim() === '' ? undefined : Math.max(0, Math.round(Number(v) || 0));
+  const prefix = (k: string) =>
+    k === 'di' ? '%IB' : k === 'do' ? '%QB' : k === 'ai' ? '%IW' : '%QW';
+  const isCpu = mt.kind === 'cpu';
+  if (!kinds.length && !isCpu) return null;
   return (
     <div className="inspector" role="group" aria-label={t('cabinet.inspector')}>
       <span className="inspector-title">
-        {tr(mt.name)} {m.id}: {t('cabinet.range')}
+        {tr(mt.name)} {m.id}
       </span>
-      {channels.map((ch) => {
+      {kinds.map((k) => (
+        <label key={k} className="inspector-field" title={t('cabinet.startHint')}>
+          {t('cabinet.start')} {k.toUpperCase()} {prefix(k)}
+          <input
+            type="number"
+            min={0}
+            step={k === 'ai' || k === 'ao' ? 2 : 1}
+            className="inspector-num"
+            placeholder="auto"
+            value={cfg.start?.[k] ?? ''}
+            onChange={(e) => {
+              const start = { ...cfg.start, [k]: num(e.target.value) };
+              if (start[k] === undefined) delete start[k];
+              onConfig({ start });
+            }}
+          />
+        </label>
+      ))}
+      {kinds.includes('di') && (
+        <label className="inspector-field" title={t('cabinet.delayHint')}>
+          {t('cabinet.delay')}
+          <select
+            value={cfg.inputDelay ?? 0.05}
+            onChange={(e) => onConfig({ inputDelay: Number(e.target.value) })}
+          >
+            {INPUT_DELAYS.map((d) => (
+              <option key={d} value={d}>
+                {String(d).replace('.', ',')} ms
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {outChannels.length > 0 && (
+        <label className="inspector-field">
+          {t('cabinet.onStop')}
+          <select
+            value={cfg.onStop ?? 'off'}
+            onChange={(e) => onConfig({ onStop: e.target.value as ModuleConfig['onStop'] })}
+          >
+            <option value="off">{t('cabinet.onStop.off')}</option>
+            <option value="hold">{t('cabinet.onStop.hold')}</option>
+            <option value="substitute">{t('cabinet.onStop.substitute')}</option>
+          </select>
+        </label>
+      )}
+      {cfg.onStop === 'substitute' &&
+        outChannels.map((ch) => {
+          const info = channelInfo(mt, ch)!;
+          const v = cfg.substitute?.[ch];
+          const set = (x: boolean | number) =>
+            onConfig({ substitute: { ...cfg.substitute, [ch]: x } });
+          return (
+            <label key={ch} className="inspector-field">
+              {info.group.kind} {info.index}
+              {info.group.kind === 'DO' ? (
+                <input
+                  type="checkbox"
+                  checked={v === true}
+                  onChange={(e) => set(e.target.checked)}
+                />
+              ) : (
+                <input
+                  type="number"
+                  className="inspector-num"
+                  value={typeof v === 'number' ? v : 0}
+                  onChange={(e) => set(Math.round(Number(e.target.value) || 0))}
+                />
+              )}
+            </label>
+          );
+        })}
+      {!isCpu && (
+        <label className="inspector-field" title={t('cabinet.diagHint')}>
+          <input
+            type="checkbox"
+            checked={!!cfg.diagnostics}
+            onChange={(e) => onConfig({ diagnostics: e.target.checked })}
+          />
+          {t('cabinet.diag')}
+        </label>
+      )}
+      {analogChannels.map((ch) => {
         const info = channelInfo(mt, ch)!;
         const wire = solution.wires.find((w) => w.module === m.id && w.channel === ch);
         return (
@@ -700,6 +801,32 @@ function ModuleInspector({
           </label>
         );
       })}
+      {isCpu &&
+        (
+          [
+            ['systemByte', t('cabinet.systemByte'), t('cabinet.systemHint')],
+            ['clockByte', t('cabinet.clockByte'), t('cabinet.clockHint')],
+          ] as const
+        ).map(([key, text, hint]) => (
+          <label key={key} className="inspector-field" title={hint}>
+            <input
+              type="checkbox"
+              checked={cfg[key] !== undefined}
+              onChange={(e) =>
+                onConfig({ [key]: e.target.checked ? (key === 'systemByte' ? 1 : 0) : undefined })
+              }
+            />
+            {text} %MB
+            <input
+              type="number"
+              min={0}
+              className="inspector-num"
+              disabled={cfg[key] === undefined}
+              value={cfg[key] ?? ''}
+              onChange={(e) => onConfig({ [key]: num(e.target.value) ?? 0 })}
+            />
+          </label>
+        ))}
     </div>
   );
 }

@@ -115,8 +115,8 @@ describe('Schaltschrank', () => {
   it('vergibt Adressen wie TIA und bindet Geräte', () => {
     const a = analyzeBoard(LEVEL, SOLUTION);
     expect(a.ok).toBe(true);
-    expect(a.bindings.get('S2')).toEqual({ cpu: 'cpu', address: '%I0.1', t: 'BOOL' });
-    expect(a.bindings.get('M1')).toEqual({ cpu: 'cpu', address: '%Q0.0', t: 'BOOL' });
+    expect(a.bindings.get('S2')).toMatchObject({ cpu: 'cpu', module: 'di', channel: 1, address: '%I0.1', t: 'BOOL' });
+    expect(a.bindings.get('M1')).toMatchObject({ cpu: 'cpu', address: '%Q0.0', t: 'BOOL' });
     expect(a.cost).toBe(4 + 2 + 2);
   });
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## M10a – Gerätekonfiguration (2026-11-03)
+
+- Eigenschaften der gewählten Baugruppe im Schaltschrank (wie die Gerätesicht in TIA):
+  - **Anfangsadresse** je Kanalart (DI/DO byteweise, AI/AO als gerade Byteadresse); leer =
+    automatisch; Überschneidungen werden als Aufbaufehler gemeldet
+  - **Eingangsverzögerung** der Digitaleingänge 0,05 … 20 ms: ein Pegelwechsel gilt erst, wenn er
+    so lange ansteht – Hardwareentprellung (Auftrag 5 lässt sich damit ohne Entprellung im
+    Programm lösen)
+  - **Ausgänge bei STOP**: abschalten, letzten Wert halten oder Ersatzwert je Kanal
+  - **Diagnose** freigeben (wirkt ab M10b)
+  - CPU: **Systemmerker** (FirstScan, DiagStatusUpdate, AlwaysTRUE, AlwaysFALSE) und
+    **Taktmerker** (10 Hz … 0,5 Hz, z. B. `%M0.5` = 1 Hz) auf ein frei wählbares Merkerbyte
+- Standardwerte ändern nichts am bisherigen Verhalten; alle Aufträge und Lösungen bleiben gültig
+- 711 Tests
+
 ## M9f – Haltepunkte, Handbuch „Online-Funktionen“ (2026-11-03)
 
 - **Haltepunkte** im SCL-Editor: Klick in den linken Rand setzt bzw. löscht einen roten Punkt.

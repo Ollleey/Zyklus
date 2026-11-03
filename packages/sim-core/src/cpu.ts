@@ -16,7 +16,14 @@ export interface CpuConfig {
   mBytes?: number;
   /** Versatz des ersten Zyklus in ms (Standard 0) */
   phaseMs?: number;
+  /** Systemmerkerbyte: Bit 0 FirstScan, 1 DiagStatusUpdate, 2 AlwaysTRUE, 3 AlwaysFALSE */
+  systemByte?: number;
+  /** Taktmerkerbyte: Bit 0 10 Hz, 1 5 Hz, 2 2,5 Hz, 3 2 Hz, 4 1,25 Hz, 5 1 Hz, 6 0,625 Hz, 7 0,5 Hz */
+  clockByte?: number;
 }
+
+/** Periodendauer der Taktmerker in ms (Bit 0 … 7) */
+export const CLOCK_PERIODS = [100, 200, 400, 500, 800, 1000, 1600, 2000] as const;
 
 export type CpuMode = 'RUN' | 'STOP';
 
@@ -197,12 +204,37 @@ export class Cpu {
     this.area(a.area, 'image').write(type, a.byte, a.bit, value);
   }
 
+  /** erster Zyklus nach dem Anlauf (Systemmerker FirstScan) */
+  private firstScan = true;
+
+  /** System- und Taktmerker wie in den CPU-Eigenschaften (vor jedem Zyklus von OB1) */
+  private writeSystemMemory(now: number): void {
+    const { systemByte, clockByte } = this.config;
+    if (clockByte !== undefined && this.m.fits('BYTE', clockByte)) {
+      let v = 0;
+      CLOCK_PERIODS.forEach((p, bit) => {
+        if (now % p < p / 2) v |= 1 << bit;
+      });
+      this.m.write('BYTE', clockByte, 0, v);
+    }
+    if (systemByte !== undefined && this.m.fits('BYTE', systemByte)) {
+      const v = (this.firstScan ? 1 : 0) | (this.diagChanged ? 2 : 0) | 4;
+      this.m.write('BYTE', systemByte, 0, v);
+    }
+    this.firstScan = false;
+    this.diagChanged = false;
+  }
+
+  /** Diagnosezustand hat sich seit dem letzten Zyklus geändert (Systemmerker DiagStatusUpdate) */
+  diagChanged = false;
+
   /**
    * Anlauf: Anlauf-OBs (OB100) einmal ausführen. **Spielregel:** Das PAE ist schon aktuell,
    * Ausgänge wirken erst mit dem ersten Zyklus. false, wenn die CPU dabei in STOP geht.
    */
   private startup(now: number): boolean {
     this.started = true;
+    this.firstScan = true;
     for (const task of this.program.tasks ?? []) {
       if (task.kind !== 'startup') continue;
       this.pae.copyFrom(this.inputs);
@@ -267,6 +299,7 @@ export class Cpu {
     if (this.mode !== 'RUN') return;
     if (!this.started && !this.startup(now)) return;
     this.pae.copyFrom(this.inputs);
+    this.writeSystemMemory(now);
     const ok = this.runCode(now);
     this.metrics.cycles++;
     if (ok) this.writeOutputs();

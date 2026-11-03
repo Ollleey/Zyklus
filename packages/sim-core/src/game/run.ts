@@ -56,7 +56,7 @@ export class LevelRun {
 
   constructor(
     readonly level: Level,
-    solution: Solution,
+    readonly solution: Solution,
     programs: Map<string, IrProgram>,
     readonly opts: RunOptions = {},
   ) {
@@ -77,7 +77,13 @@ export class LevelRun {
       this.cpus.set(
         m.id,
         new Cpu(
-          { name: m.id, cycleMs: t.cpu!.cycleMs, maxOpsPerCycle: t.cpu!.maxOpsPerCycle },
+          {
+            name: m.id,
+            cycleMs: t.cpu!.cycleMs,
+            maxOpsPerCycle: t.cpu!.maxOpsPerCycle,
+            systemByte: solution.config?.[m.id]?.systemByte,
+            clockByte: solution.config?.[m.id]?.clockByte,
+          },
           program,
         ),
       );
@@ -157,12 +163,54 @@ export class LevelRun {
     return this.commanded(d);
   }
 
+  /** letzter Ausgangswert je Gerät, solange die CPU in RUN war („letzten Wert halten“) */
+  private readonly lastRun = new Map<string, Value>();
+
   private commanded(d: Device): Value {
     const b = this.analysis.bindings.get(d.id);
     if (!b) return d.kind === 'AO' ? 0 : false;
     // Stellglied mit anderer Signalart als der Ausgang: kommt nichts Brauchbares an
     if (b.mismatch && d.kind === 'AO') return 0;
-    return this.cpus.get(b.cpu)!.read(b.address, b.t);
+    const cpu = this.cpus.get(b.cpu)!;
+    const v = cpu.read(b.address, b.t);
+    // Verhalten der Ausgangsbaugruppe bei CPU-STOP (ohne Spannung ist alles aus)
+    const cfg = this.solution.config?.[b.module];
+    if (cpu.mode === 'STOP' && cpu.isPowered && cfg?.onStop && cfg.onStop !== 'off') {
+      if (cfg.onStop === 'hold') return this.lastRun.get(d.id) ?? v;
+      const s = cfg.substitute?.[b.channel];
+      return s === undefined ? (d.kind === 'AO' ? 0 : false) : s;
+    }
+    if (cpu.mode === 'RUN') this.lastRun.set(d.id, v);
+    return v;
+  }
+
+  /** Eingangsverzögerung: Zustand je Digitaleingang (stabiler Wert, neuer Wert seit) */
+  private readonly delays = new Map<
+    string,
+    { stable: boolean | number; cand: boolean | number; since: number }
+  >();
+
+  /** Digitaleingang durch die Eingangsverzögerung der Baugruppe (Hardwareentprellung) */
+  private delayed(d: Device, v: boolean | number, t: number): boolean | number {
+    const b = this.analysis.bindings.get(d.id);
+    const ms = Math.round(this.solution.config?.[b?.module ?? '']?.inputDelay ?? 0);
+    if (!b || ms < 1) return v;
+    let s = this.delays.get(d.id);
+    if (!s) {
+      s = { stable: v, cand: v, since: t };
+      this.delays.set(d.id, s);
+      return v;
+    }
+    if (v === s.stable) {
+      s.cand = v;
+      return v;
+    }
+    if (v !== s.cand) {
+      s.cand = v;
+      s.since = t;
+    }
+    if (t - s.since >= ms) s.stable = v;
+    return s.stable;
   }
 
   tick(): void {
@@ -320,7 +368,7 @@ export class LevelRun {
     for (const d of this.devices) {
       let v: boolean | number;
       if (d.kind === 'DI') {
-        v = this.inputValue(d, t);
+        v = this.delayed(d, this.inputValue(d, t), t);
       } else if (d.kind === 'AI') {
         const clean = toRaw(this.analogPhysical(d, t), d.analog!);
         const fault = faultAt(this.opts.test?.faults?.[d.id], t) ?? this.plant?.fault?.(d.id);

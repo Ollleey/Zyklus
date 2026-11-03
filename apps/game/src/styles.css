@@ -3694,3 +3694,11 @@ text.fup-live-num {
   color: #e5484d;
   font-size: 12px;
 }
+.inspector-num {
+  width: 56px;
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 1px 4px;
+}
