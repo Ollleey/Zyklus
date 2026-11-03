@@ -130,3 +130,26 @@ describe('Diagnosealarm OB82, Diagnosepuffer, RUNTIME', () => {
     expect(c.readSlot('D.rt')).toBeCloseTo(0.01, 6);
   });
 });
+
+describe('Startinformation Event_Class', () => {
+  it('OB86 unterscheidet kommend und gehend', () => {
+    const c = cpu([
+      ob('Main', '"Motor" := NOT "D".laeufe.%X0;'),
+      DATA,
+      ob(
+        'Ausfall',
+        'IF #Event_Class = 16#39 THEN "D".laeufe := 1; ELSE "D".laeufe := 0; END_IF;',
+        { kind: 'rackFailure' },
+        86,
+      ),
+    ]);
+    c.scan(0);
+    expect(c.read('%Q0.0')).toBe(true);
+    c.rackEvent(5, 'ai1', 'Baugruppe ai1', true);
+    c.scan(10);
+    expect(c.read('%Q0.0')).toBe(false);
+    c.rackEvent(15, 'ai1', 'Baugruppe ai1', false);
+    c.scan(20);
+    expect(c.read('%Q0.0')).toBe(true);
+  });
+});

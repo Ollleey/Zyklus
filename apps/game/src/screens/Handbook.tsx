@@ -5,6 +5,7 @@ import semantik from '../../../../docs/semantik.md?raw';
 import scl from '../../../../docs/scl.md?raw';
 import fup from '../../../../docs/fup.md?raw';
 import online from '../../../../docs/online.md?raw';
+import geraete from '../../../../docs/geraete.md?raw';
 import { t } from '../i18n';
 import { Markdown } from '../ui/Markdown';
 
@@ -52,6 +53,7 @@ const PAGES = [
   { id: 'fup', title: 'FUP' },
   { id: 'boxes', title: 'FUP-Boxen' },
   { id: 'online', title: 'Online-Funktionen' },
+  { id: 'geraete', title: 'Geräte und Fehler' },
 ] as const;
 
 type PageId = (typeof PAGES)[number]['id'];
@@ -87,6 +89,7 @@ export function Handbook({ onBack }: { onBack: () => void }) {
           {page === 'fup' && <Markdown text={fup} joinLines />}
           {page === 'boxes' && <Boxes />}
           {page === 'online' && <Markdown text={online} joinLines />}
+          {page === 'geraete' && <Markdown text={geraete} joinLines />}
           <footer className="paper-foot">
             {t('handbook.title')}, Seite {PAGES.findIndex((p) => p.id === page) + 1}:{' '}
             {PAGES.find((p) => p.id === page)!.title}

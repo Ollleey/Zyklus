@@ -325,7 +325,11 @@ export class Cpu {
     this.diagChanged = true;
     this.log(time, 'diag', `${coming ? 'kommend' : 'gehend'}: ${text}`);
     const t = this.task(kind);
-    if (t && this.mode === 'RUN' && this.started) this.runTask(t, time);
+    if (t && this.mode === 'RUN' && this.started) {
+      // Startinformation wie in TIA: Event_Class 16#39 kommend, 16#38 gehend
+      if (t.eventClass !== undefined) this.slots[t.eventClass] = coming ? 0x39 : 0x38;
+      this.runTask(t, time);
+    }
   }
 
   private runCode(now: number, start?: number, end?: number): boolean {

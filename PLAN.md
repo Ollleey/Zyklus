@@ -155,7 +155,7 @@ Was heute fehlt, im Vergleich zur Praxis:
   sonst STOP nötig; Istwerte bleiben erhalten oder werden zurückgesetzt (bewusste Wahl).
 - Schrittbetrieb pro Zyklus und Haltepunkte in SCL (Testpunkt, nur Simulator).
 
-### M10 – Gerätekonfiguration und Fehlerbehandlung
+### M10 – Gerätekonfiguration und Fehlerbehandlung (erledigt, siehe CHANGELOG M10a–M10d; ohne TPA)
 
 - **Gerätesicht**: Baugruppe anklicken → Eigenschaften: Anfangsadresse ändern, **Eingangsverzögerung**
   (0,05 … 20 ms – Hardwareentprellung als Alternative zum Programm), Diagnose freigeben
@@ -168,8 +168,8 @@ Was heute fehlt, im Vergleich zur Praxis:
 - **Diagnosepuffer** mit Zeitstempel und Klartext; CPU-LEDs RUN/ERROR/MAINT; **RUN/STOP-Schalter**
   und Neustart im Simulator.
 - Störungsszenarien in Testfällen: Lastspannung weg, Baugruppe gezogen, Drahtbruch erst zur Laufzeit.
-- Level 18–19: Anlage muss bei Drahtbruch geordnet weiterlaufen (OB82 + Ersatzwert), Zykluszeit-
-  überwachung mit OB80 und Lastverteilung auf Weckalarm.
+- Level 20–21: Anlage muss bei Drahtbruch bzw. Baugruppenausfall geordnet weiterlaufen (OB86 +
+  Ersatzbetrieb), Mittelwert ohne Zykluszeitfehler (Lastverteilung bzw. laufende Summe, OB80).
 
 ### M11 – KOP und eigene Bausteine in FUP/KOP
 

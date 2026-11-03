@@ -862,5 +862,72 @@
         "channel": 0
       }
     ]
+  },
+  "20-kuehlpumpe": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "ai1",
+        "type": "ai2",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do8",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "ai1",
+        "channel": 0
+      },
+      {
+        "device": "M1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "H1",
+        "module": "do1",
+        "channel": 1
+      }
+    ]
+  },
+  "21-ruhige-anzeige": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-mittel",
+        "x": 0
+      },
+      {
+        "id": "ai1",
+        "type": "ai2",
+        "x": 7
+      },
+      {
+        "id": "ao1",
+        "type": "ao2",
+        "x": 8
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "ai1",
+        "channel": 0
+      },
+      {
+        "device": "A1",
+        "module": "ao1",
+        "channel": 0
+      }
+    ]
   }
 }

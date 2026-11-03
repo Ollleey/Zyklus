@@ -1,0 +1,164 @@
+{
+  "id": "20-kuehlpumpe",
+  "order": 20,
+  "title": {
+    "de": "Kühlpumpe mit Ersatzbetrieb"
+  },
+  "customer": {
+    "de": "Gießerei Haselbach"
+  },
+  "mail": {
+    "from": {
+      "de": "Jonas Haselbach <j.haselbach@haselbach-guss.example>"
+    },
+    "subject": {
+      "de": "Kokille überhitzt, weil die Messung weg war"
+    },
+    "body": {
+      "de": "Hallo,\n\nunsere Kokillenkühlung schaltet die Pumpe nach der Wassertemperatur. Letzte Woche ist die Messbaugruppe ausgefallen – die Steuerung hat dann 0 °C gelesen, die Pumpe abgeschaltet und die Kokille ist überhitzt. Bei einem Drahtbruch am Fühler passiert dasselbe in Grün.\n\nWenn die Messung nicht stimmt, soll die Pumpe einfach durchlaufen und eine Störleuchte angehen. Kommt die Messung zurück, geht es normal weiter. Und bitte nicht in STOP gehen – das wäre das Schlimmste.\n\nGruß\nJonas Haselbach"
+    }
+  },
+  "datasheet": {
+    "de": "# Kokillenkühlung K3\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Wassertemperatur 0 … 100 °C (Rohwert 0 … 27648) |\n| M1 | DO | Kühlpumpe |\n| H1 | DO | Störleuchte „Messung gestört“ |\n\n## Funktion\n\n1. Normalbetrieb: Pumpe **ein ab 60 °C**, **aus unter 50 °C**, dazwischen bleibt der Zustand.\n2. **Messung gestört** – Drahtbruch (Rohwert 32767) oder **Messbaugruppe ausgefallen**: Pumpe läuft dauernd (Ersatzbetrieb), H1 leuchtet.\n3. Ist die Messung wieder in Ordnung, gilt sofort wieder der Normalbetrieb, H1 geht aus.\n4. Die CPU darf in keinem Fall in STOP gehen.\n\n## Zeitverhalten\n\nToleranz ± 50 ms je Schaltflanke.\n\n## Hinweise\n\n- Eine ausgefallene Baugruppe liefert 0 – das sieht aus wie 0 °C. Den Ausfall meldet nur der **Baugruppenausfall-OB (OB86)**: `#Event_Class = 16#39` kommend, `16#38` gehend.\n- Drahtbruch lässt sich am Rohwert erkennen oder über die **Diagnose** der Baugruppe und den **Diagnosealarm-OB (OB82)**.\n- Fehlt ein Fehler-OB, bleibt die CPU bei Baugruppenausfall in RUN – sie merkt es aber auch nicht."
+  },
+  "board": {
+    "width": 18,
+    "ductCapacity": 4
+  },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "ai4", "do4", "do8"],
+  "toleranceMs": 50,
+  "par": {
+    "cost": 9,
+    "energy": 8788,
+    "size": 10
+  },
+  "plant": {
+    "type": "panel"
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Temperatur",
+      "name": {
+        "de": "Temperaturfühler (B1)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "°C",
+        "min": 0,
+        "max": 100,
+        "noise": 60
+      }
+    },
+    {
+      "id": "M1",
+      "tag": "Kuehlpumpe",
+      "name": {
+        "de": "Kühlpumpe (M1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    },
+    {
+      "id": "H1",
+      "tag": "Stoerung",
+      "name": {
+        "de": "Störleuchte (H1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "normal",
+      "name": {
+        "de": "Normalbetrieb mit Hysterese"
+      },
+      "durationMs": 4000,
+      "seeds": [1, 2],
+      "stimuli": {
+        "B1": [
+          [0, 40],
+          [999, 40],
+          [1000, 70],
+          [1999, 70],
+          [2000, 55],
+          [2999, 55],
+          [3000, 40]
+        ]
+      },
+      "expect": {
+        "M1": [
+          [1000, true],
+          [3000, false]
+        ],
+        "H1": [[0, false]]
+      }
+    },
+    {
+      "id": "drahtbruch",
+      "name": {
+        "de": "Drahtbruch am Fühler"
+      },
+      "durationMs": 4000,
+      "seeds": [3],
+      "stimuli": {
+        "B1": [
+          [0, 40],
+          [1500, 45]
+        ]
+      },
+      "faults": {
+        "B1": [[1000, 2500, "break"]]
+      },
+      "expect": {
+        "M1": [
+          [1000, true],
+          [2500, false]
+        ],
+        "H1": [
+          [1000, true],
+          [2500, false]
+        ]
+      }
+    },
+    {
+      "id": "baugruppe",
+      "name": {
+        "de": "Messbaugruppe fällt aus"
+      },
+      "durationMs": 4000,
+      "seeds": [4],
+      "stimuli": {
+        "B1": [
+          [0, 70],
+          [1999, 70],
+          [2000, 40]
+        ]
+      },
+      "moduleFaults": [
+        {
+          "device": "B1",
+          "kind": "pulled",
+          "from": 1000,
+          "to": 3000
+        }
+      ],
+      "expect": {
+        "M1": [
+          [0, true],
+          [3000, false]
+        ],
+        "H1": [
+          [1000, true],
+          [3000, false]
+        ]
+      }
+    }
+  ]
+}

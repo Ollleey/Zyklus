@@ -1,0 +1,30 @@
+DATA_BLOCK "Filter"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR 
+      Werte : Array[0..799] of Int;   // Ringpuffer der letzten 800 Messwerte
+      Summe : DInt;
+      Pos : Int;
+      Anzahl : Int;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Summe laufend fortschreiben: neuer Wert dazu, ältester ab – ein paar Befehle je Zyklus
+	"Filter".Summe := "Filter".Summe - "Filter".Werte["Filter".Pos] + "Durchfluss";
+	"Filter".Werte["Filter".Pos] := "Durchfluss";
+	"Filter".Pos := ("Filter".Pos + 1) MOD 800;
+	IF "Filter".Anzahl < 800 THEN
+	    "Filter".Anzahl := "Filter".Anzahl + 1;
+	END_IF;
+	"Anzeige" := DINT_TO_INT("Filter".Summe / "Filter".Anzahl);
+END_ORGANIZATION_BLOCK

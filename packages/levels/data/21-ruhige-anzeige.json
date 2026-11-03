@@ -1,0 +1,138 @@
+{
+  "id": "21-ruhige-anzeige",
+  "order": 21,
+  "title": {
+    "de": "Ruhige Anzeige ohne Zykluszeitfehler"
+  },
+  "customer": {
+    "de": "Molkerei Steinberger"
+  },
+  "mail": {
+    "from": {
+      "de": "Petra Steinberger <p.steinberger@molkerei-steinberger.example>"
+    },
+    "subject": {
+      "de": "Die neue Mittelwertbildung legt die Steuerung lahm"
+    },
+    "body": {
+      "de": "Hallo,\n\nder Durchflussmesser an der Abfüllung rauscht stark. Unser Werkstudent hat einen gleitenden Mittelwert über die letzten vier Sekunden programmiert – die Anzeige ist ruhig, aber nach ein paar Sekunden geht die CPU mit „Zykluszeitüberschreitung“ in STOP.\n\nBitte so lösen, dass die Anzeige ruhig bleibt, einem Sprung aber nach spätestens viereinhalb Sekunden folgt – und die Steuerung durchläuft.\n\nViele Grüße\nPetra Steinberger"
+    }
+  },
+  "datasheet": {
+    "de": "# Abfüllung L2 – Durchflussanzeige\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| B1 | AI | Durchfluss 0 … 100 m³/h, **stark verrauscht** |\n| A1 | AO | Anzeige 0 … 100 m³/h (gleicher Rohwertbereich wie B1) |\n\n## Funktion\n\n1. A1 zeigt den **gleitenden Mittelwert der letzten 800 Messwerte** (bei 5 ms Zyklus: 4 s).\n2. Abweichung vom wahren Durchfluss höchstens **± 800** Rohwerteinheiten, sobald das Fenster gefüllt ist (ab 4,5 s nach Start bzw. nach einem Sprung).\n3. Die CPU darf nicht in STOP gehen.\n\n## Hinweise\n\n- Die mittlere CPU schafft **2000 Befehle je Zyklus**. Eine Schleife über 800 Werte in jedem Zyklus braucht ein Mehrfaches davon.\n- Ein gleitender Mittelwert lässt sich laufend fortschreiben: neuen Wert zur Summe, ältesten ab. Alternativ die Arbeit auf mehrere Zyklen verteilen.\n- 800 Werte belegen 1600 Byte – mehr, als die kleine CPU an Arbeitsspeicher hat.\n- Ein **Zykluszeitfehler-OB (OB80)** toleriert eine einzelne Überschreitung, aber keine dauernde."
+  },
+  "board": {
+    "width": 18,
+    "ductCapacity": 4
+  },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "ai2", "ao2"],
+  "toleranceMs": 0,
+  "par": {
+    "cost": 14,
+    "energy": 57067,
+    "size": 6
+  },
+  "plant": {
+    "type": "flow",
+    "params": {
+      "sensor": "B1",
+      "display": "A1"
+    }
+  },
+  "devices": [
+    {
+      "id": "B1",
+      "tag": "Durchfluss",
+      "name": {
+        "de": "Durchflussmesser (B1)"
+      },
+      "kind": "AI",
+      "side": "left",
+      "role": "sensor",
+      "analog": {
+        "unit": "m³/h",
+        "min": 0,
+        "max": 100,
+        "noise": 4000
+      }
+    },
+    {
+      "id": "A1",
+      "tag": "Anzeige",
+      "name": {
+        "de": "Anzeige (A1)"
+      },
+      "kind": "AO",
+      "side": "right",
+      "role": "actuator",
+      "analog": {
+        "unit": "m³/h",
+        "min": 0,
+        "max": 100
+      }
+    }
+  ],
+  "tests": [
+    {
+      "id": "konstant",
+      "name": {
+        "de": "Konstanter Durchfluss"
+      },
+      "durationMs": 9000,
+      "seeds": [1, 2],
+      "stimuli": {
+        "B1": [[0, 50]]
+      },
+      "checks": [
+        {
+          "kind": "track",
+          "name": {
+            "de": "Anzeige ruhig (±800)"
+          },
+          "signal": "A1",
+          "reference": "true.B1",
+          "tolerance": 800,
+          "from": 4500
+        }
+      ]
+    },
+    {
+      "id": "sprung",
+      "name": {
+        "de": "Durchfluss springt"
+      },
+      "durationMs": 14000,
+      "seeds": [3],
+      "stimuli": {
+        "B1": [
+          [0, 30],
+          [4999, 30],
+          [5000, 60]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "track",
+          "name": {
+            "de": "vor dem Sprung (±800)"
+          },
+          "signal": "A1",
+          "reference": "true.B1",
+          "tolerance": 800,
+          "from": 4500,
+          "to": 5000
+        },
+        {
+          "kind": "track",
+          "name": {
+            "de": "4,5 s nach dem Sprung (±800)"
+          },
+          "signal": "A1",
+          "reference": "true.B1",
+          "tolerance": 800,
+          "from": 9500
+        }
+      ]
+    }
+  ]
+}

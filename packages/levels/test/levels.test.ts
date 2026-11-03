@@ -78,7 +78,7 @@ function verify(level: Level, solution: Solution) {
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
     expect(LEVELS.map((l) => l.order)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
     ]);
   });
 
@@ -550,5 +550,39 @@ describe('Haltepunkte', () => {
     run.runTo(20_000);
     expect(run.breakHit).toBeNull();
     expect(run.done).toBe(true);
+  });
+});
+
+describe('Fehllösungen M10', () => {
+  const fails = (id: string, src: string) => {
+    const level = levelById(id)!;
+    const v = verify(level, solutionFor(level, src));
+    expect(v.passed).toBe(false);
+    return v;
+  };
+  const refText = (id: string) => readFileSync(join(DATA, `${id}.scl`), 'utf8');
+
+  it('Level 20: ohne OB86 kühlt die Pumpe bei ausgefallener Baugruppe nicht', () => {
+    const src = refText('20-kuehlpumpe').replace(
+      /ORGANIZATION_BLOCK "Ausfall"[\s\S]*?END_ORGANIZATION_BLOCK/,
+      '',
+    );
+    const v = fails('20-kuehlpumpe', src);
+    expect([...new Set(v.runs.filter((r) => !r.passed).map((r) => r.testId))]).toEqual([
+      'baugruppe',
+    ]);
+  });
+
+  it('Level 21: Schleife über alle 800 Werte → Zykluszeitüberschreitung', () => {
+    const src = ob(
+      `"Filter".Werte["Filter".Pos] := "Durchfluss";
+"Filter".Pos := ("Filter".Pos + 1) MOD 800;
+#s := 0;
+FOR #i := 0 TO 799 DO #s := #s + "Filter".Werte[#i]; END_FOR;
+"Anzeige" := DINT_TO_INT(#s / 800);`,
+      `DATA_BLOCK "Filter"\nVAR\n  Werte : Array[0..799] of Int;\n  Pos : Int;\nEND_VAR\nBEGIN\nEND_DATA_BLOCK`,
+    ).replace('BEGIN\n"Filter"', 'VAR_TEMP\n  s : DInt;\n  i : Int;\nEND_VAR\nBEGIN\n"Filter"');
+    const v = fails('21-ruhige-anzeige', src);
+    expect(v.runs[0]!.stop).toMatch(/Zykluszeitüberschreitung/);
   });
 });

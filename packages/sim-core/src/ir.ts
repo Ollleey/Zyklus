@@ -167,6 +167,8 @@ export interface IrTask {
   phaseMs?: number;
   input?: { byte: number; bit: number };
   edge?: 'rising' | 'falling';
+  /** OB82/OB86: Slot der Startinformation Event_Class (16#39 kommend, 16#38 gehend) */
+  eventClass?: number;
 }
 
 export interface IrProgram {

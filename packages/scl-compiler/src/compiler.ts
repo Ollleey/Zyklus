@@ -574,6 +574,8 @@ class CodeGen {
   readonly xref: XRef[] = [];
   readonly calls: CallRef[] = [];
   private readonly xrefOf = new WeakMap<Ref, XRef>();
+  /** Startinformation der Diagnose-/Ausfall-OBs: OB-Name → Slot von #Event_Class */
+  private readonly eventInfo = new Map<string, Operand>();
   /** GET_ERR_ID wird verwendet (lokale Fehlerbehandlung) */
   private localErrors = false;
   /** Verschachtelung in IF/CASE/Schleifen (0 = unbedingte Anweisung) */
@@ -1244,6 +1246,24 @@ class CodeGen {
     this.locals = new Map();
     this.returns = [];
     this.blockKind = u.kind;
+    const info = this.eventInfo.get(u.name.toLowerCase());
+    if (info) {
+      const decl: Decl = {
+        section: 'Input',
+        name: 'Event_Class',
+        typeName: 'Byte',
+        typeSpan: NO_SPAN,
+        span: NO_SPAN,
+      };
+      this.locals.set('event_class', {
+        k: 'var',
+        name: 'Event_Class',
+        t: 'BYTE',
+        op: info,
+        decl,
+        used: true,
+      });
+    }
     for (const d of u.decls) {
       this.where = this.declWhere(u.name, d);
       this.guard(() => this.declareLocal(u, d));
@@ -1324,6 +1344,18 @@ class CodeGen {
           : `${label}-OBs haben die Nummern ${lo} … ${hi} (ist ${ob.number})`,
         NO_SPAN,
       );
+    }
+    if (ev.kind === 'diagnostic' || ev.kind === 'rackFailure') {
+      // Startinformation #Event_Class (nur lesbar im OB)
+      const op = this.newSlot(`${ob.name}.Event_Class`, 'BYTE');
+      this.eventInfo.set(ob.name.toLowerCase(), op);
+      return {
+        kind: ev.kind,
+        name: ob.name,
+        start: 0,
+        end: 0,
+        eventClass: (op as { i: number }).i,
+      };
     }
     if (isSimpleEvent(ev)) return { kind: ev.kind, name: ob.name, start: 0, end: 0 };
     if (ev.kind === 'cyclic') {

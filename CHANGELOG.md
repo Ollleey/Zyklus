@@ -1,5 +1,19 @@
 # Changelog
 
+## M10d – Aufträge 20–21, Startinformation, Handbuch (2026-11-03)
+
+- **Startinformation** in OB82 und OB86: `#Event_Class` (16#39 kommend, 16#38 gehend)
+- **Auftrag 20 „Kühlpumpe mit Ersatzbetrieb“**: bei Drahtbruch oder ausgefallener Messbaugruppe
+  läuft die Pumpe weiter und die Störleuchte geht an – den Ausfall der Baugruppe meldet nur OB86
+  (die Eingänge liefern dann 0 wie ein gültiger Messwert)
+- **Auftrag 21 „Ruhige Anzeige ohne Zykluszeitfehler“**: gleitender Mittelwert über 800 Werte;
+  eine Schleife über alle Werte je Zyklus sprengt das Befehlsbudget, die laufende Summe nicht;
+  das Feld braucht den Arbeitsspeicher der mittleren CPU
+- Handbuch: neue Seite **„Geräte und Fehler“** (Gerätekonfiguration, Fehler-OBs, lokale
+  Fehlerbehandlung, RUNTIME, Diagnosepuffer, Störungen)
+- M10 damit abgeschlossen; nicht umgesetzt: Teilprozessabbilder (TPA) für Alarm-OBs
+- 727 Tests
+
 ## M10c – Baugruppenstörungen (2026-11-03)
 
 - Testfälle können Störungen vorgeben: `moduleFaults: [{ device, kind, from, to }]` – die

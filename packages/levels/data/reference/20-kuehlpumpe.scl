@@ -1,0 +1,47 @@
+DATA_BLOCK "Kuehlung"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR 
+      Ausfall : Bool;   // Messbaugruppe ausgefallen (OB86)
+      Pumpe : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Ausfall"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+// Ereignis: Baugruppenausfall
+
+BEGIN
+	"Kuehlung".Ausfall := #Event_Class = 16#39;
+END_ORGANIZATION_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP 
+      gestoert : Bool;
+      grad : Real;
+   END_VAR
+
+BEGIN
+	// Drahtbruch = 32767; Ausfall der Baugruppe kennt nur OB86
+	#gestoert := "Kuehlung".Ausfall OR "Temperatur" > 32511;
+	IF #gestoert THEN
+	    "Kuehlung".Pumpe := TRUE;
+	ELSE
+	    #grad := INT_TO_REAL("Temperatur") * 100.0 / 27648.0;
+	    IF #grad >= 60.0 THEN
+	        "Kuehlung".Pumpe := TRUE;
+	    ELSIF #grad < 50.0 THEN
+	        "Kuehlung".Pumpe := FALSE;
+	    END_IF;
+	END_IF;
+	"Kuehlpumpe" := "Kuehlung".Pumpe;
+	"Stoerung" := #gestoert;
+END_ORGANIZATION_BLOCK
