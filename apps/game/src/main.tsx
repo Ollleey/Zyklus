@@ -10,7 +10,6 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import { platform, setPlatform } from '@zyklus/platform';
 import { applyTheme } from './theme';
-import './monaco-setup';
 import './styles.css';
 
 applyTheme();

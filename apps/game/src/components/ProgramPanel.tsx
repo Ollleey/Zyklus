@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import {
   MAIN_OB,
   isUnchangedLibraryBlock,
@@ -19,7 +19,7 @@ import {
 import { formatDiagnostic, type ProjectDiagnostic } from '@zyklus/scl-compiler';
 import type { CpuCompileResult } from '@zyklus/levels';
 import { msg, t, tx } from '../i18n';
-import { setCompletionSymbols } from '../monaco-setup';
+import { setCompletionSymbols } from '../completion';
 import { formatValue, useBoolFormat } from '../state/prefs';
 import { updateProject } from '../state/edit';
 import {
@@ -40,7 +40,8 @@ import { LibraryDialog } from './LibraryDialog';
 import { GraphEditor } from './GraphEditor';
 import { DbPanel, INSTANCE_TYPES, udtNames } from './DbPanel';
 import { FupEditor, libraryFor } from './FupEditor';
-import { SclEditor } from './SclEditor';
+// SCL-Editor (Monaco) erst laden, wenn er gebraucht wird
+const SclEditor = lazy(() => import('./SclEditor').then((m) => ({ default: m.SclEditor })));
 import { TagTable } from './TagTable';
 import { ELEMENTARY_TYPES, VarTable } from './VarTable';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
@@ -618,59 +619,64 @@ export function ProgramPanel({
               live={liveOperand}
             />
           ) : (
-            <SclEditor
-              live={
-                watch &&
-                ((line) => {
-                  const code = line.replace(/\/\/.*$/, '');
-                  const parts: string[] = [];
-                  const seen = new Set<string>();
-                  for (const m of code.matchAll(REF_RE)) {
-                    const [all, name, member, local] = m;
-                    if (seen.has(all) || parts.length >= 4) continue;
-                    seen.add(all);
-                    const isDb =
-                      !!member ||
-                      project.blocks.some(
-                        (b) =>
-                          b.name === name && b.kind !== 'OB' && b.kind !== 'FB' && b.kind !== 'FC',
+            <Suspense fallback={<div className="muted editor-loading">…</div>}>
+              <SclEditor
+                live={
+                  watch &&
+                  ((line) => {
+                    const code = line.replace(/\/\/.*$/, '');
+                    const parts: string[] = [];
+                    const seen = new Set<string>();
+                    for (const m of code.matchAll(REF_RE)) {
+                      const [all, name, member, local] = m;
+                      if (seen.has(all) || parts.length >= 4) continue;
+                      seen.add(all);
+                      const isDb =
+                        !!member ||
+                        project.blocks.some(
+                          (b) =>
+                            b.name === name &&
+                            b.kind !== 'OB' &&
+                            b.kind !== 'FB' &&
+                            b.kind !== 'FC',
+                        );
+                      const v = local
+                        ? block.kind === 'OB'
+                          ? watch(cpuId, {
+                              local,
+                              block: block.name === MAIN_OB ? undefined : block.name,
+                            })
+                          : undefined
+                        : isDb && member
+                          ? watch(cpuId, { db: name, member })
+                          : watch(cpuId, { tag: name });
+                      if (v === undefined) continue;
+                      parts.push(
+                        `${local ? `#${local}` : member ? `${name}.${member}` : name} = ${formatValue(v, boolFormat, typeof v === 'number' && !Number.isInteger(v) ? 2 : 0)}`,
                       );
-                    const v = local
-                      ? block.kind === 'OB'
-                        ? watch(cpuId, {
-                            local,
-                            block: block.name === MAIN_OB ? undefined : block.name,
-                          })
-                        : undefined
-                      : isDb && member
-                        ? watch(cpuId, { db: name, member })
-                        : watch(cpuId, { tag: name });
-                    if (v === undefined) continue;
-                    parts.push(
-                      `${local ? `#${local}` : member ? `${name}.${member}` : name} = ${formatValue(v, boolFormat, typeof v === 'number' && !Number.isInteger(v) ? 2 : 0)}`,
-                    );
-                  }
-                  return parts.length ? parts.join('   ') : undefined;
-                })
-              }
-              conditions={conditionsOf(result?.program?.probes, probes?.(cpuId), block.name)}
-              breakpoints={breakpoints?.lines(cpuId, block.name)}
-              onToggleBreakpoint={
-                breakpoints && ((line) => breakpoints.toggle(cpuId, block.name, line))
-              }
-              hitLine={
-                breakpoints?.hit?.cpu === cpuId && breakpoints.hit.block === block.name
-                  ? breakpoints.hit.line
-                  : undefined
-              }
-              key={block.name}
-              value={block.source}
-              onChange={(source) => changeBlock((b) => ({ ...b, source }))}
-              diagnostics={diagnostics.filter(
-                (d) => d.location.part === 'code' && d.location.block === block.name,
-              )}
-              jump={jump}
-            />
+                    }
+                    return parts.length ? parts.join('   ') : undefined;
+                  })
+                }
+                conditions={conditionsOf(result?.program?.probes, probes?.(cpuId), block.name)}
+                breakpoints={breakpoints?.lines(cpuId, block.name)}
+                onToggleBreakpoint={
+                  breakpoints && ((line) => breakpoints.toggle(cpuId, block.name, line))
+                }
+                hitLine={
+                  breakpoints?.hit?.cpu === cpuId && breakpoints.hit.block === block.name
+                    ? breakpoints.hit.line
+                    : undefined
+                }
+                key={block.name}
+                value={block.source}
+                onChange={(source) => changeBlock((b) => ({ ...b, source }))}
+                diagnostics={diagnostics.filter(
+                  (d) => d.location.part === 'code' && d.location.block === block.name,
+                )}
+                jump={jump}
+              />
+            </Suspense>
           )}
         </div>
       )}

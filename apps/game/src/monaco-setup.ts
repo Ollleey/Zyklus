@@ -3,6 +3,7 @@ import * as monaco from 'monaco-editor';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { loader } from '@monaco-editor/react';
 import { TOKENS } from './theme';
+import { completionSymbols } from './completion';
 import {
   KEYWORDS,
   SCL_FB_TYPES,
@@ -61,14 +62,7 @@ monaco.editor.defineTheme('zyklus', {
   },
 });
 
-/** Namen, die die Autovervollständigung zusätzlich anbietet (Variablen, DBs). */
-let symbols: { label: string; detail: string; insert: string }[] = [];
-
-export function setCompletionSymbols(
-  list: { label: string; detail: string; insert: string }[],
-): void {
-  symbols = list;
-}
+export { setCompletionSymbols } from './completion';
 
 monaco.languages.registerCompletionItemProvider(SCL_LANGUAGE_ID, {
   triggerCharacters: ['"', '#', '.'],
@@ -85,7 +79,7 @@ monaco.languages.registerCompletionItemProvider(SCL_LANGUAGE_ID, {
       ...KEYWORDS.map((k) => ({ label: k, kind: K.Keyword, insertText: k, range })),
       ...SCL_FUNCTIONS.map((f) => ({ label: f, kind: K.Function, insertText: f, range })),
       ...SCL_FB_TYPES.map((f) => ({ label: f, kind: K.Class, insertText: f, range })),
-      ...symbols.map((s) => ({
+      ...completionSymbols().map((s) => ({
         label: s.label,
         detail: s.detail,
         kind: K.Variable,

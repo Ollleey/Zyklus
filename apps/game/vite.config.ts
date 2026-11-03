@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   // Desktop-Build getrennt vom Web-Build, damit beide nebeneinander bestehen
-  build: { outDir: mode === 'desktop' ? 'dist-desktop' : 'dist' },
+  build: {
+    outDir: mode === 'desktop' ? 'dist-desktop' : 'dist',
+    // Monaco (SCL-Editor) ist ein großer, zusammenhängender Block; er wird erst beim ersten
+    // Öffnen des SCL-Editors nachgeladen. Die übrigen Teile bleiben unter 500 kB.
+    chunkSizeWarningLimit: 3000,
+  },
   server: { port: 5173, strictPort: true },
 }));
