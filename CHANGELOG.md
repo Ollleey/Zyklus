@@ -1,5 +1,19 @@
 # Changelog
 
+## M11b – KOP-Editor (2026-11-03)
+
+- Sprachwahl je Baustein **SCL / FUP / KOP**; FUP → KOP wird umgewandelt, wo darstellbar (sonst
+  Hinweis mit Grund), KOP → FUP immer
+- **KOP-Editor**: linke und rechte Stromschiene, Elemente in Reihe, Parallelzweige, Spulen rechts;
+  Werkzeugleiste fügt hinter der Auswahl ein: Schließer, Öffner, P-/N-Kontakt, Parallelzweig,
+  Boxen (Zeiten mit Instanz-DB, Zähler, Vergleicher, MOVE, Arithmetik), Spulen `( )`, `(/)`, `(S)`,
+  `(R)`, `(P)`, `(N)`; Netzwerktitel und -kommentar; Meldungen am Element
+- Beobachten in KOP: Kontakte und Spulen grün (1) bzw. blau (0)
+- **Fehler behoben**: die FUP-Absenkung klammerte `(a) OR (b)` vor einem UND nicht – betraf
+  ODER-Boxen, deren Ausgang in ein UND lief (Rangfolge falsch)
+- Auftrag 1 als KOP-Lösung: besteht, gleiche Verläufe wie SCL
+- 734 Tests
+
 ## M11a – KOP-Modell (2026-11-03)
 
 - Sprache **KOP** (Kontaktplan) für Codebausteine: je Netzwerk ein Strompfad aus Schließern,

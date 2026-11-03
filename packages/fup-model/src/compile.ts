@@ -33,6 +33,7 @@ export function compilePlcProject(
   let size = 0;
   let networks = 0;
   let lang: 'SCL' | 'FUP' | 'KOP' = 'SCL';
+  const kopBlocks = new Set<string>();
 
   const blocks = project.blocks.map((b) => {
     if (b.kind !== 'OB' && b.kind !== 'FB' && b.kind !== 'FC') return b;
@@ -55,6 +56,7 @@ export function compilePlcProject(
     networks += body.networks.length;
     const lowered = lowerFupBlock({ ...code, fup: body }, project);
     origins.set(code.name, lowered.lines);
+    if (code.lang === 'KOP') kopBlocks.add(code.name);
     extra.push(...lowered.diagnostics);
     return lowered.block;
   });
@@ -72,6 +74,15 @@ export function compilePlcProject(
     if (loweringFailed && d.severity === 'error') continue;
     const o = map[d.start.line - 1];
     diagnostics.push({ ...d, location: { ...d.location, network: o?.network, box: o?.box } });
+  }
+  // KOP: Meldungen ohne FUP-Pinnamen (Kontakte und Spulen sind dort Boxen)
+  for (const d of diagnostics) {
+    if (!d.location.block || !kopBlocks.has(d.location.block)) continue;
+    d.message = d.message
+      .replace(/^Eingang IN\d+ ist offen$/, 'Operand am Kontakt fehlt')
+      .replace(/^Operand über der Box fehlt$/, 'Operand fehlt')
+      .replace(/^Eingang CLK ist offen$/, 'Operand am Flankenkontakt fehlt');
+    if (d.location.box) d.location = { ...d.location, box: d.location.box.replace(/~.*$/, '') };
   }
   const ok = r.ok && !loweringFailed;
   return { ...r, ok, program: ok ? r.program : undefined, diagnostics, size, lang, networks };

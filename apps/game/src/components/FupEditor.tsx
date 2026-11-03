@@ -47,7 +47,7 @@ function pinPos(b: FupBox, pin: string, side: 'in' | 'out'): { x: number; y: num
 }
 
 /** Name eines neuen Instanz-DBs wie in TIA („IEC_Timer_0_DB“, „R_TRIG_DB“). */
-function newInstanceName(blocks: Block[], type: string): string {
+export function newInstanceName(blocks: Block[], type: string): string {
   const spec = boxSpec(type);
   const base =
     spec.instanceType === 'IEC_TIMER'
@@ -66,7 +66,7 @@ function newInstanceName(blocks: Block[], type: string): string {
   for (let n = 0; ; n++) if (!taken.has(`${base}_${n}_DB`.toLowerCase())) return `${base}_${n}_DB`;
 }
 
-function nextDbNumber(blocks: Block[]): number {
+export function nextDbNumber(blocks: Block[]): number {
   const used = new Set(
     blocks.filter((b) => b.kind === 'DB' || b.kind === 'IDB').map((b) => b.number),
   );

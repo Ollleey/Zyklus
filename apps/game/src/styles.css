@@ -3732,3 +3732,180 @@ text.fup-live-num {
   display: inline-flex;
   gap: 6px;
 }
+
+/* ---------- KOP ---------- */
+
+.lad {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lad-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.lad-tools .btn {
+  font-family: var(--mono);
+}
+.lad-sep {
+  width: 8px;
+}
+.lad-networks {
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lad-comment {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #4b5560;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+.lad-rung {
+  display: flex;
+  align-items: center;
+  padding: 8px 4px 12px;
+  overflow-x: auto;
+  color: #1d232a;
+  font-family: var(--mono);
+  min-height: 64px;
+}
+.lad-rung-target {
+  background: rgba(212, 138, 0, 0.06);
+}
+.lad-rail {
+  align-self: stretch;
+  width: 3px;
+  background: #8f9aa5;
+  flex: none;
+}
+.lad-wire {
+  height: 2px;
+  background: #4b5560;
+  min-width: 10px;
+  flex: none;
+  align-self: center;
+}
+.lad-grow {
+  flex: 1;
+}
+.lad-el {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 2px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  flex: none;
+}
+.lad-el::before {
+  content: '';
+}
+.lad-sel {
+  border-color: #d48a00;
+  background: rgba(212, 138, 0, 0.1);
+}
+.lad-err {
+  border-color: #e5484d;
+}
+.lad-op {
+  width: 96px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #1d232a;
+}
+.lad-op:focus {
+  border-color: #8f9aa5;
+  background: #fff;
+  outline: none;
+}
+.lad-mem {
+  color: #6b7580;
+}
+.lad-contact,
+.lad-coil {
+  font-size: 15px;
+  white-space: pre;
+  line-height: 1.2;
+}
+.lad-on {
+  color: #1f9d55;
+  font-weight: 700;
+}
+.lad-off {
+  color: #3a6fd8;
+}
+.lad-par {
+  display: flex;
+  flex-direction: column;
+  border-left: 2px solid #4b5560;
+  border-right: 2px solid #4b5560;
+  padding: 0 0;
+  margin: 0 4px;
+  flex: none;
+}
+.lad-branch {
+  display: flex;
+  align-items: center;
+}
+.lad-branch .lad-wire {
+  flex: 1;
+}
+.lad-box {
+  border: 1.5px solid #4b5560;
+  background: #fdfdfd;
+  min-width: 110px;
+  font-size: 11px;
+}
+.lad-box-head {
+  text-align: center;
+  font-weight: 700;
+  border-bottom: 1px solid #c3c9d0;
+  padding: 1px 4px;
+}
+.lad-pin {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 3px;
+}
+.lad-pin input {
+  width: 70px;
+  font-family: var(--mono);
+  font-size: 11px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+.lad-pin-out {
+  justify-content: flex-end;
+}
+.lad-coils {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 2px solid #4b5560;
+  padding-left: 4px;
+}
+.lad-hint {
+  color: #8f9aa5;
+  font-size: 11px;
+  padding: 0 8px;
+}
+.lad-msgs {
+  color: #c62f35;
+  font-size: 12px;
+  padding: 2px 8px 6px;
+}

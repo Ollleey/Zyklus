@@ -38,7 +38,22 @@ class LoweringError extends Error {
 
 /** Klammert einen Ausdruck, wenn er nicht atomar ist. */
 function paren(e: string): string {
-  return /^[#"%\w.]+$/.test(e) || /^\(.*\)$/.test(e) ? e : `(${e})`;
+  return /^[#"%\w.]+$/.test(e) || wrapped(e) ? e : `(${e})`;
+}
+
+/** true, wenn eine Klammer den ganzen Ausdruck umschließt („(a) OR (b)“ zählt nicht) */
+function wrapped(e: string): boolean {
+  if (!e.startsWith('(') || !e.endsWith(')')) return false;
+  let depth = 0;
+  let quoted = false;
+  for (let i = 0; i < e.length; i++) {
+    const ch = e[i];
+    if (ch === '"') quoted = !quoted;
+    if (quoted) continue;
+    if (ch === '(') depth++;
+    else if (ch === ')' && --depth === 0 && i < e.length - 1) return false;
+  }
+  return depth === 0;
 }
 
 /**

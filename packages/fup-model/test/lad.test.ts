@@ -188,3 +188,16 @@ describe('Umschalten FUP ↔ KOP', () => {
     expect('reason' in r).toBe(true);
   });
 });
+
+describe('Absenkung: Klammern', () => {
+  it('ODER-Ausgang vor einem UND bleibt geklammert', () => {
+    const p = ladProject([SELF]);
+    const r = compilePlcProject(p);
+    expect(r.ok).toBe(true);
+    const cpu = run(p);
+    cpu.setInput('%I0.0', true);
+    cpu.setInput('%I0.1', true); // Stopp gedrückt (Öffner in SELF negiert) → aus
+    cpu.scan(0);
+    expect(cpu.read('%Q0.0')).toBe(false);
+  });
+});

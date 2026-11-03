@@ -21,7 +21,17 @@ import { t } from '../i18n';
 import { setCompletionSymbols } from '../monaco-setup';
 import { formatValue, useBoolFormat } from '../state/prefs';
 import { updateProject } from '../state/edit';
-import { emptyFup, isFupBody } from '@zyklus/fup-model';
+import {
+  emptyFup,
+  emptyLad,
+  fupToLad,
+  isFupBody,
+  isLadBody,
+  ladBodyToFup,
+  type LadNetwork,
+} from '@zyklus/fup-model';
+import { LadEditor } from './LadEditor';
+import { showNotice } from '../state/commands';
 import { DbPanel, INSTANCE_TYPES, udtNames } from './DbPanel';
 import { FupEditor } from './FupEditor';
 import { SclEditor } from './SclEditor';
@@ -189,6 +199,55 @@ export function ProgramPanel({
     );
   }
 
+  /**
+   * Sprache wechseln wie in TIA: FUP ↔ KOP wird umgewandelt (FUP → KOP nur, wo darstellbar),
+   * SCL ↔ Grafik nicht (eigener Inhalt je Sprache)
+   */
+  const switchLang = (l: 'SCL' | 'FUP' | 'KOP') => {
+    if (!block || l === block.lang) return;
+    if (l === 'KOP' && block.lang === 'FUP' && isFupBody(block.fup) && block.fup.networks.length) {
+      const lad: LadNetwork[] = [];
+      for (const [n, nw] of block.fup.networks.entries()) {
+        const r = fupToLad(nw);
+        if ('reason' in r) {
+          showNotice(`Netzwerk ${n + 1} lässt sich nicht in KOP darstellen: ${r.reason}`);
+          return;
+        }
+        lad.push(r.lad);
+      }
+      changeBlock((b) => ({ ...b, lang: 'KOP', kop: { lad } }));
+      return;
+    }
+    if (l === 'FUP' && block.lang === 'KOP' && isLadBody(block.kop) && block.kop.lad.length) {
+      const fup = ladBodyToFup(block.kop);
+      changeBlock((b) => ({ ...b, lang: 'FUP', fup }));
+      return;
+    }
+    changeBlock((b) => ({
+      ...b,
+      lang: l,
+      fup: l === 'FUP' && !isFupBody(b.fup) ? emptyFup() : b.fup,
+      kop: l === 'KOP' && !isLadBody(b.kop) ? emptyLad() : b.kop,
+    }));
+  };
+
+  /** Beobachten in FUP/KOP: Wert eines Operanden */
+  const liveOperand =
+    watch && block
+      ? (text: string) => {
+          if (text.startsWith('#')) {
+            return block.kind === 'OB'
+              ? watch(cpuId, {
+                  local: text.slice(1),
+                  block: block.name === MAIN_OB ? undefined : block.name,
+                })
+              : undefined;
+          }
+          const target = resolveOperand(project, text);
+          return 'error' in target ? undefined : online?.access?.(cpuId)?.read(target);
+        }
+      : undefined;
+
   const userFbs = codeBlocks.filter((b) => b.kind === 'FB').map((b) => `"${b.name}"`);
   const isCodeName = (name?: string) => !!name && codeBlocks.some((b) => b.name === name);
   const change = (f: (p: PlcProject) => PlcProject) => onChange(updateProject(solution, cpuId, f));
@@ -295,7 +354,7 @@ export function ProgramPanel({
           <span
             className={`size-meter ${result.used > result.limit ? 'size-over' : ''}`}
             title={
-              result.lang === 'FUP' ? `${result.size} ${t('program.boxes')}` : t('program.memory')
+              result.lang !== 'SCL' ? `${result.size} ${t('program.boxes')}` : t('program.memory')
             }
           >
             <span className="size-bar" aria-hidden="true">
@@ -305,7 +364,7 @@ export function ProgramPanel({
               <b>
                 {result.used} / {result.limit}
               </b>{' '}
-              {result.lang === 'FUP' ? t('program.networks') : t('program.statements')}
+              {result.lang !== 'SCL' ? t('program.networks') : t('program.statements')}
             </span>
             <span
               className={result.dataBytes > result.dataLimit ? 'size-over' : 'muted'}
@@ -382,19 +441,13 @@ export function ProgramPanel({
           )}
           <div className="iface iface-bar">
             <div className="lang-switch" role="radiogroup" aria-label="Sprache">
-              {(['SCL', 'FUP'] as const).map((l) => (
+              {(['SCL', 'FUP', 'KOP'] as const).map((l) => (
                 <button
                   key={l}
                   role="radio"
                   aria-checked={block.lang === l}
                   className={`lang ${block.lang === l ? 'lang-active' : ''}`}
-                  onClick={() =>
-                    changeBlock((b) => ({
-                      ...b,
-                      lang: l,
-                      fup: l === 'FUP' && !isFupBody(b.fup) ? emptyFup() : b.fup,
-                    }))
-                  }
+                  onClick={() => switchLang(l)}
                 >
                   {l}
                 </button>
@@ -462,7 +515,16 @@ export function ProgramPanel({
               </div>
             )}
           </div>
-          {block.lang === 'FUP' ? (
+          {block.lang === 'KOP' ? (
+            <LadEditor
+              key={block.name}
+              project={project}
+              block={block}
+              diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
+              onChange={(p) => change(() => p)}
+              live={liveOperand}
+            />
+          ) : block.lang === 'FUP' ? (
             <FupEditor
               key={block.name}
               project={project}
@@ -470,21 +532,7 @@ export function ProgramPanel({
               diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
               onChange={(p) => change(() => p)}
               focus={fupFocus}
-              live={
-                watch &&
-                ((text) => {
-                  if (text.startsWith('#')) {
-                    return block.kind === 'OB'
-                      ? watch(cpuId, {
-                          local: text.slice(1),
-                          block: block.name === MAIN_OB ? undefined : block.name,
-                        })
-                      : undefined;
-                  }
-                  const target = resolveOperand(project, text);
-                  return 'error' in target ? undefined : online?.access?.(cpuId)?.read(target);
-                })
-              }
+              live={liveOperand}
             />
           ) : (
             <SclEditor

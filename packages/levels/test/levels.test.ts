@@ -586,3 +586,55 @@ FOR #i := 0 TO 799 DO #s := #s + "Filter".Werte[#i]; END_FOR;
     expect(v.runs[0]!.stop).toMatch(/Zykluszeitüberschreitung/);
   });
 });
+
+describe('KOP-Lösung', () => {
+  it('Level 1 in KOP besteht und verhält sich wie SCL', () => {
+    const level = levelById('01-foerderband')!;
+    const board = BOARDS[level.id]!;
+    const base: Solution = { version: 2, ...board, projects: {} };
+    const analysis = analyzeBoard(level, base);
+    const project: PlcProject = {
+      tags: [],
+      blocks: [
+        {
+          kind: 'OB',
+          name: 'Main',
+          number: 1,
+          lang: 'KOP',
+          iface: {},
+          source: '',
+          kop: {
+            lad: [
+              {
+                id: 'nw1',
+                title: 'Selbsthaltung',
+                items: [
+                  {
+                    k: 'parallel',
+                    id: 'p',
+                    branches: [
+                      [{ k: 'contact', id: 'a', operand: '"Start"' }],
+                      [{ k: 'contact', id: 'b', operand: '"Bandmotor"' }],
+                    ],
+                  },
+                  { k: 'contact', id: 'c', operand: '"Stopp"' },
+                ],
+                coils: [{ id: 'q', kind: '=', operand: '"Bandmotor"' }],
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const kop = { ...base, projects: { cpu1: syncDeviceTags(level, analysis, 'cpu1', project) } };
+    const a = verify(level, kop);
+    expect(a.passed).toBe(true);
+    const b = verify(level, reference(level));
+    expect(a.runs.map((r) => r.traces)).toEqual(b.runs.map((r) => r.traces));
+    expect(compileSolution(level, kop).cpus.get('cpu1')).toMatchObject({
+      lang: 'KOP',
+      size: 4,
+      used: 1,
+    });
+  });
+});
