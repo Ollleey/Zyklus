@@ -214,6 +214,6 @@ export function verifySolution(
   return {
     passed: runs.every((r) => r.passed),
     runs,
-    metrics: { cost, energy, size, ...(level.given ? { changes: changes ?? 0 } : {}) },
+    metrics: { cost, energy, size, ...(level.kind === 'bestand' ? { changes: changes ?? 0 } : {}) },
   };
 }

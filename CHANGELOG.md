@@ -1,5 +1,16 @@
 # Changelog
 
+## M13b – Erweiterung (2026-11-03)
+
+- Neue Auftragsart **Erweiterung** (`kind: 'erweiterung'`, `extends`): Ausgangsstand ist die eigene
+  Lösung des Vorgängers (sonst der gelieferte Stand); dessen Tests laufen als
+  **Regressionstests** (`regression: true`) mit
+- **Auftrag 26 – Schnitt an der Ablängsäge**: Erweiterung von Auftrag 23 um Spannen und Sägen mit
+  Schrittkette, Verriegelung gegen Fahren während des Schnitts, zweite Ausgangsbaugruppe
+- Änderungsumfang nur noch bei Bestandsanlagen
+- Fehllösungen: alte Lösung ohne Schnitt, Schnitt ohne Verriegelung
+- 781 Tests
+
 ## M13a – Bestandsanlage (2026-11-03)
 
 - Neue Auftragsart **Bestandsanlage** (`kind: 'bestand'`, `given`): Aufbau und Programm werden

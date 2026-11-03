@@ -78,7 +78,7 @@ function verify(level: Level, solution: Solution) {
 describe('Kampagne', () => {
   it('alle Level sind gültig und fortlaufend nummeriert', () => {
     expect(LEVELS.map((l) => l.order)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
     ]);
   });
 
@@ -673,6 +673,40 @@ describe('Bestandsanlage', () => {
     const main = p.blocks.find((b) => b.name === 'Main') as { source: string };
     main.source = `// nur ein Kommentar\n${main.source}`;
     expect(compileSolution(level, given).changes).toBe(0);
+  });
+});
+
+describe('Erweiterung', () => {
+  const level = levelById('26-saege')!;
+  const failedTests = (src: string) => {
+    const v = verify(level, solutionFor(level, src));
+    return [...new Set(v.runs.filter((r) => !r.passed).map((r) => r.testId))];
+  };
+
+  it('Regressionstests stammen aus Auftrag 23 und sind markiert', () => {
+    const reg = level.tests.filter((t) => t.regression).map((t) => t.id);
+    expect(reg).toEqual(levelById('23-positionieren')!.tests.map((t) => `alt_${t.id}`));
+  });
+
+  it('die alte Lösung besteht die Regression, aber nicht den Schnitt', () => {
+    const old = readFileSync(join(DATA, '23-positionieren.scl'), 'utf8');
+    expect(failedTests(old)).toEqual(['schnitt', 'sperre']);
+  });
+
+  it('ohne Verriegelung fährt der Anschlag während des Schnitts', () => {
+    const src = readFileSync(join(DATA, '26-saege.scl'), 'utf8')
+      .replace(
+        'IF "Start" AND NOT "Achse".start_alt AND "Kette".schritt = 0 THEN',
+        'IF "Start" AND NOT "Achse".start_alt THEN',
+      )
+      .replace(/ AND "Kette"\.schritt = 0;/g, ';');
+    expect(failedTests(src)).toEqual(['sperre']);
+  });
+
+  it('ohne eigenen Stand beginnt die Erweiterung mit dem gelieferten Vorgänger', () => {
+    const g = givenSolution(level)!;
+    expect(g.modules.map((m) => m.type)).toEqual(['cpu-klein', 'di8hf', 'do4']);
+    expect(compileSolution(level, g).changes).toBeUndefined();
   });
 });
 

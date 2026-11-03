@@ -74,3 +74,9 @@ finden und **möglichst wenig zu ändern**: Neben Kosten, Energie und Größe z�
 Programm (Leer- und Kommentarzeilen zählen nicht, Einstellungen im Schaltschrank auch nicht).
 „Neu beginnen“ stellt den gelieferten Stand wieder her. Hilfreich: Querverweise, Beobachten,
 Haltepunkte und die Compiler-Warnung bei Mehrfachzuweisungen.
+
+## Erweiterungen
+
+Eine **Erweiterung** baut auf einem gelösten Auftrag auf: Du beginnst mit deiner eigenen Lösung
+des Vorgängers (ohne eigene Lösung mit der gelieferten). Dessen Tests laufen als
+**Regressionstests** mit („Regression: …“) – die neue Funktion darf nichts Bestehendes brechen.

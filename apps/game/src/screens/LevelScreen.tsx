@@ -12,7 +12,7 @@ import {
   type Verification,
 } from '@zyklus/sim-core';
 import { projectToSource } from '@zyklus/scl-compiler';
-import { compileSolution, givenSolution } from '@zyklus/levels';
+import { compileSolution, givenSolution, levelById } from '@zyklus/levels';
 import { t } from '../i18n';
 import { Cabinet, type CpuStatus } from '../components/Cabinet';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
@@ -96,12 +96,23 @@ interface Props {
   plant?: PlantSlot;
 }
 
+/**
+ * Ausgangsstand eines Auftrags ohne eigenen Stand: bei einer Erweiterung die eigene Lösung des
+ * Vorgängers, sonst der gelieferte Stand (Bestandsanlage, Erweiterung) bzw. ein leerer Aufbau.
+ */
+function startSolution(level: Level): Solution {
+  const prev = level.extends ? levelById(level.extends) : undefined;
+  const own = prev ? loadSolution(prev) : undefined;
+  if (own?.modules.length) return structuredClone(own);
+  return givenSolution(level) ?? emptySolution();
+}
+
 export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plant }: Props) {
   // Bestandsanlage/Erweiterung: ohne eigenen Stand beginnt der Auftrag mit dem gelieferten
   const [fresh] = useState(() => !loadSolution(level).modules.length);
   const [solution, setSolution] = useState<Solution>(() => {
     const saved = loadSolution(level);
-    return saved.modules.length ? saved : (givenSolution(level) ?? saved);
+    return saved.modules.length ? saved : startSolution(level);
   });
   const [brief, setBrief] = useState<'mail' | 'datasheet' | null>(() =>
     (solution.modules.length && !fresh) || plant ? null : sandbox ? 'datasheet' : 'mail',
@@ -775,7 +786,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           onConfirm={() => {
             setConfirmReset(false);
             clearSolution(level.id);
-            setSolution(givenSolution(level) ?? emptySolution());
+            setSolution(startSolution(level));
           }}
         />
       )}

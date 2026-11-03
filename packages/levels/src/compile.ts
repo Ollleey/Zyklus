@@ -96,7 +96,7 @@ export function lineChanges(a: string[], b: string[]): number {
 /** Änderungsumfang einer Lösung gegenüber dem gelieferten Programm (alle CPUs) */
 export function solutionChanges(level: Level, solution: Solution): number | undefined {
   const g = level.given;
-  if (!g) return undefined;
+  if (!g || level.kind !== 'bestand') return undefined;
   let total = 0;
   const cpus = new Set([...Object.keys(g.sources), ...Object.keys(solution.projects)]);
   for (const cpu of cpus) {

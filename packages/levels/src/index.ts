@@ -24,6 +24,7 @@ import level22 from '../data/22-ofen-pid.json';
 import level23 from '../data/23-positionieren.json';
 import level24 from '../data/24-pumpstation.json';
 import level25 from '../data/25-rolltor.json';
+import level26 from '../data/26-saege.json';
 
 export * from './compile';
 
@@ -54,6 +55,7 @@ export const LEVELS: Level[] = [
   level23,
   level24,
   level25,
+  level26,
 ]
   .map((l) => validateLevel(l))
   .sort((a, b) => a.order - b.order);

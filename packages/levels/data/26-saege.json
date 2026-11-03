@@ -1,0 +1,527 @@
+{
+  "id": "26-saege",
+  "order": 26,
+  "kind": "erweiterung",
+  "extends": "23-positionieren",
+  "title": {
+    "de": "Erweiterung: Schnitt an der Ablängsäge"
+  },
+  "customer": {
+    "de": "Holzbau Stöckl"
+  },
+  "mail": {
+    "from": {
+      "de": "Martin Stöckl <m.stoeckl@holzbau-stoeckl.example>"
+    },
+    "subject": {
+      "de": "Der Anschlag läuft – jetzt bitte noch die Säge"
+    },
+    "body": {
+      "de": "Hallo,\n\nder Anschlag fährt seit deinem Umbau auf den Millimeter. Jetzt soll die Säge dazu: Spannen, Sägeblatt runter, wieder rauf, lösen – alles auf einen Knopfdruck.\n\nWichtig: Am Anschlag darf sich nichts ändern, der läuft so, wie er ist. Und solange gesägt wird, darf der Anschlag auf keinen Fall fahren.\n\nGruß\nMartin Stöckl"
+    }
+  },
+  "datasheet": {
+    "de": "# Ablängsäge – Erweiterung Schnitt\n\n**Erweiterung:** Du beginnst mit deiner Lösung von Auftrag 23 (oder, falls es keine gibt, mit der gelieferten). Deren Tests laufen als **Regressionstests** weiter mit und müssen bestehen bleiben.\n\n## Neue Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S2 | DI | Taster Schnitt |\n| B3 | DI | Säge unten |\n| B4 | DI | Säge oben |\n| Y1 | DO | Spannzylinder |\n| M3 | DO | Säge abwärts (Blatt läuft) |\n| M4 | DO | Säge aufwärts |\n\nDie vorhandene Ausgangsbaugruppe ist voll – plane eine zweite ein.\n\n## Schnitt\n\n1. Steigende Flanke an S2, während der Anschlag steht und kein Schnitt läuft: **Y1 ein**.\n2. **300 ms** später (Spannzeit): **M3 ein** bis B3 (Säge unten).\n3. Dann **M4 ein** bis B4 (Säge oben).\n4. Dann **Y1 aus** – der Schnitt ist fertig.\n\n## Verriegelung\n\n- Solange ein Schnitt läuft, fährt der Anschlag nicht; ein Start in dieser Zeit wird nicht gespeichert.\n- M3 und M4 nie gleichzeitig.\n\n## Zeitverhalten\n\nToleranz ± 50 ms je Schaltflanke."
+  },
+  "board": {
+    "width": 15,
+    "ductCapacity": 6
+  },
+  "allowedModules": [
+    "cpu-klein",
+    "cpu-mittel",
+    "di8",
+    "di8hf",
+    "do4",
+    "do8"
+  ],
+  "toleranceMs": 50,
+  "par": {
+    "cost": 10,
+    "energy": 37800,
+    "size": 17
+  },
+  "plant": {
+    "type": "axis",
+    "params": {
+      "motor": "M1",
+      "creep": "M2",
+      "encoder": "B1",
+      "ppm": 2,
+      "fast": 200,
+      "slow": 20,
+      "accel": 1000,
+      "length": 1600,
+      "targets": [
+        400,
+        800,
+        1200
+      ]
+    }
+  },
+  "given": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8hf",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do4",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "M1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "M2",
+        "module": "do1",
+        "channel": 1
+      }
+    ],
+    "config": {
+      "di1": {
+        "hsc": 112
+      }
+    },
+    "sources": {
+      "cpu1": "DATA_BLOCK \"Achse\"\n{ S7_Optimized_Access := 'TRUE' }\nVERSION : 0.1\nNON_RETAIN\n   VAR\n      ziel : DInt;   // Zielposition in Impulsen (2 je mm)\n      start_alt : Bool;\n   END_VAR\n\nBEGIN\n\nEND_DATA_BLOCK\n\nORGANIZATION_BLOCK \"Main\"\nTITLE = Main Program Sweep (Cycle)\n{ S7_Optimized_Access := 'TRUE' }\nVERSION : 0.1\n   VAR_TEMP\n      rest : DInt;\n   END_VAR\n\nBEGIN\n\t// jede Startflanke: 400 mm weiter\n\tIF \"Start\" AND NOT \"Achse\".start_alt THEN\n\t    \"Achse\".ziel := \"Achse\".ziel + 800;\n\tEND_IF;\n\t\"Achse\".start_alt := \"Start\";\n\t// schneller Zähler der DI 8 HF (Kanal 0) zählt den Geber\n\t#rest := \"Achse\".ziel - %ID112;\n\t\"Eilgang\" := #rest > 50;\n\t\"Schleichgang\" := #rest > 0;\nEND_ORGANIZATION_BLOCK\n"
+    }
+  },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "Start",
+      "name": {
+        "de": "Taster Start (S1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "B1",
+      "tag": "Geber",
+      "name": {
+        "de": "Inkrementalgeber (B1)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor"
+    },
+    {
+      "id": "M1",
+      "tag": "Eilgang",
+      "name": {
+        "de": "Antrieb Eilgang (M1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    },
+    {
+      "id": "M2",
+      "tag": "Schleichgang",
+      "name": {
+        "de": "Antrieb Schleichgang (M2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    },
+    {
+      "id": "S2",
+      "tag": "Schnitt",
+      "name": {
+        "de": "Taster Schnitt (S2)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "B3",
+      "tag": "Saege_unten",
+      "name": {
+        "de": "Säge unten (B3)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor"
+    },
+    {
+      "id": "B4",
+      "tag": "Saege_oben",
+      "name": {
+        "de": "Säge oben (B4)"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "sensor"
+    },
+    {
+      "id": "Y1",
+      "tag": "Spanner",
+      "name": {
+        "de": "Spannzylinder (Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "M3",
+      "tag": "Saege_ab",
+      "name": {
+        "de": "Säge abwärts (M3)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    },
+    {
+      "id": "M4",
+      "tag": "Saege_auf",
+      "name": {
+        "de": "Säge aufwärts (M4)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "motor"
+    }
+  ],
+  "tests": [
+    {
+      "id": "alt_einmal",
+      "name": {
+        "de": "Regression: Ein Brett"
+      },
+      "durationMs": 5000,
+      "seeds": [
+        1
+      ],
+      "stimuli": {
+        "S1": [
+          [
+            200,
+            true
+          ],
+          [
+            400,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Anschlag bei 400 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 399,
+          "max": 401,
+          "from": 4000,
+          "to": 5000
+        }
+      ],
+      "regression": true
+    },
+    {
+      "id": "alt_drei",
+      "name": {
+        "de": "Regression: Drei Bretter hintereinander"
+      },
+      "durationMs": 13000,
+      "seeds": [
+        2
+      ],
+      "stimuli": {
+        "S1": [
+          [
+            200,
+            true
+          ],
+          [
+            400,
+            false
+          ],
+          [
+            4200,
+            true
+          ],
+          [
+            4400,
+            false
+          ],
+          [
+            8500,
+            true
+          ],
+          [
+            8700,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "400 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 399,
+          "max": 401,
+          "from": 3500,
+          "to": 4200
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "800 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 799,
+          "max": 801,
+          "from": 7500,
+          "to": 8500
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "1200 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 1199,
+          "max": 1201,
+          "from": 12000,
+          "to": 13000
+        }
+      ],
+      "regression": true
+    },
+    {
+      "id": "schnitt",
+      "name": {
+        "de": "Ein Schnitt"
+      },
+      "durationMs": 3000,
+      "seeds": [
+        1
+      ],
+      "stimuli": {
+        "S2": [
+          [
+            500,
+            true
+          ],
+          [
+            700,
+            false
+          ]
+        ],
+        "B4": [
+          [
+            0,
+            true
+          ],
+          [
+            1000,
+            false
+          ],
+          [
+            2200,
+            true
+          ]
+        ],
+        "B3": [
+          [
+            1500,
+            true
+          ],
+          [
+            1700,
+            false
+          ]
+        ]
+      },
+      "expect": {
+        "Y1": [
+          [
+            500,
+            true
+          ],
+          [
+            2200,
+            false
+          ]
+        ],
+        "M3": [
+          [
+            800,
+            true
+          ],
+          [
+            1500,
+            false
+          ]
+        ],
+        "M4": [
+          [
+            1500,
+            true
+          ],
+          [
+            2200,
+            false
+          ]
+        ],
+        "M1": [
+          [
+            0,
+            false
+          ]
+        ],
+        "M2": [
+          [
+            0,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "Säge nie gleichzeitig ab und auf"
+          },
+          "signals": [
+            "M3",
+            "M4"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sperre",
+      "name": {
+        "de": "Start während des Schnitts"
+      },
+      "durationMs": 7000,
+      "seeds": [
+        2
+      ],
+      "stimuli": {
+        "S2": [
+          [
+            500,
+            true
+          ],
+          [
+            700,
+            false
+          ]
+        ],
+        "S1": [
+          [
+            1000,
+            true
+          ],
+          [
+            1200,
+            false
+          ],
+          [
+            3000,
+            true
+          ],
+          [
+            3200,
+            false
+          ]
+        ],
+        "B4": [
+          [
+            0,
+            true
+          ],
+          [
+            1000,
+            false
+          ],
+          [
+            2200,
+            true
+          ]
+        ],
+        "B3": [
+          [
+            1500,
+            true
+          ],
+          [
+            1700,
+            false
+          ]
+        ]
+      },
+      "expect": {
+        "Y1": [
+          [
+            500,
+            true
+          ],
+          [
+            2200,
+            false
+          ]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Anschlag steht während des Schnitts"
+          },
+          "signal": "plant.pos",
+          "min": 0,
+          "max": 0.5,
+          "from": 0,
+          "to": 3000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "danach 400 mm ± 1 mm"
+          },
+          "signal": "plant.pos",
+          "min": 399,
+          "max": 401,
+          "from": 6500,
+          "to": 7000
+        }
+      ]
+    }
+  ]
+}

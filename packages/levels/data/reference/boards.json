@@ -1123,5 +1123,86 @@
         "inputDelay": 12.8
       }
     }
+  },
+  "26-saege": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8hf",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do4",
+        "x": 7
+      },
+      {
+        "id": "do2",
+        "type": "do4",
+        "x": 8
+      }
+    ],
+    "wires": [
+      {
+        "device": "B1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "M1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "M2",
+        "module": "do1",
+        "channel": 1
+      },
+      {
+        "device": "S2",
+        "module": "di1",
+        "channel": 2
+      },
+      {
+        "device": "B3",
+        "module": "di1",
+        "channel": 3
+      },
+      {
+        "device": "B4",
+        "module": "di1",
+        "channel": 4
+      },
+      {
+        "device": "Y1",
+        "module": "do1",
+        "channel": 2
+      },
+      {
+        "device": "M3",
+        "module": "do1",
+        "channel": 3
+      },
+      {
+        "device": "M4",
+        "module": "do2",
+        "channel": 0
+      }
+    ],
+    "config": {
+      "di1": {
+        "hsc": 112
+      }
+    }
   }
 }

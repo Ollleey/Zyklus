@@ -141,6 +141,8 @@ export function probeKey(c: Extract<Check, { kind: 'value' }>): string {
 }
 
 export interface TestCase {
+  /** Regressionstest aus dem Vorgängerauftrag (Erweiterung) */
+  regression?: boolean;
   id: string;
   name: Text;
   durationMs: number;
@@ -198,6 +200,8 @@ export interface Level {
   kind?: 'bestand' | 'erweiterung';
   /** gelieferter Stand, mit dem der Auftrag beginnt */
   given?: GivenSolution;
+  /** Erweiterung: Vorgängerauftrag, dessen eigene Lösung als Ausgangsstand dient */
+  extends?: string;
   tests: TestCase[];
 }
 

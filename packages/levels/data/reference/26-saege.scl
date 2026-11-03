@@ -1,0 +1,73 @@
+DATA_BLOCK "Achse"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      ziel : DInt;   // Zielposition in Impulsen (2 je mm)
+      start_alt : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Kette"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      schritt : Int;   // 0 bereit, 1 spannen, 2 sägen, 3 Säge hoch
+      schnitt_alt : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "Spannzeit"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+TON_TIME
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP
+      rest : DInt;
+   END_VAR
+
+BEGIN
+	// jede Startflanke: 400 mm weiter – nicht während eines Schnitts
+	IF "Start" AND NOT "Achse".start_alt AND "Kette".schritt = 0 THEN
+	    "Achse".ziel := "Achse".ziel + 800;
+	END_IF;
+	"Achse".start_alt := "Start";
+	// schneller Zähler der DI 8 HF (Kanal 0) zählt den Geber
+	#rest := "Achse".ziel - %ID112;
+
+	// Schnitt: spannen, 300 ms warten, Säge ab bis unten, auf bis oben, lösen
+	IF "Schnitt" AND NOT "Kette".schnitt_alt AND "Kette".schritt = 0 AND #rest <= 0 THEN
+	    "Kette".schritt := 1;
+	END_IF;
+	"Kette".schnitt_alt := "Schnitt";
+	"Spannzeit"(IN := "Kette".schritt = 1, PT := T#300ms);
+	IF "Kette".schritt = 1 AND "Spannzeit".Q THEN
+	    "Kette".schritt := 2;
+	ELSIF "Kette".schritt = 2 AND "Saege_unten" THEN
+	    "Kette".schritt := 3;
+	ELSIF "Kette".schritt = 3 AND "Saege_oben" THEN
+	    "Kette".schritt := 0;
+	END_IF;
+
+	"Eilgang" := #rest > 50 AND "Kette".schritt = 0;
+	"Schleichgang" := #rest > 0 AND "Kette".schritt = 0;
+	"Spanner" := "Kette".schritt > 0;
+	"Saege_ab" := "Kette".schritt = 2;
+	"Saege_auf" := "Kette".schritt = 3;
+END_ORGANIZATION_BLOCK
