@@ -5,7 +5,7 @@ import type { Tag } from './tags';
  * Codebausteine haben eine tabellarische Schnittstelle und einen Codeteil (SCL-Text oder FUP).
  */
 
-export type BlockLang = 'SCL' | 'FUP' | 'KOP';
+export type BlockLang = 'SCL' | 'FUP' | 'KOP' | 'GRAPH';
 
 export type IfaceSection = 'Input' | 'Output' | 'InOut' | 'Static' | 'Temp' | 'Constant';
 
@@ -93,6 +93,8 @@ export interface CodeBlock {
   fup?: unknown;
   /** KOP: Strompfade (Modell `LadBody` in @zyklus/fup-model) */
   kop?: unknown;
+  /** GRAPH: Schrittkette (Modell `GraphBody` in @zyklus/fup-model), nur FB */
+  graph?: unknown;
   /**
    * Intern: Baustein wurde aus FUP erzeugt. Der SCL-Compiler erlaubt dann die FUP-Funktionen
    * (SR, RS, P_TRIG, N_TRIG, IN_RANGE, OUT_RANGE, CONV), die es in SCL nicht gibt.

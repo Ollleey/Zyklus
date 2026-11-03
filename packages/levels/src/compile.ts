@@ -25,7 +25,7 @@ export interface CpuCompileResult {
   program?: IrProgram;
   /** Programmgröße: SCL-Anweisungen bzw. FUP-Boxen */
   size: number;
-  lang: 'SCL' | 'FUP' | 'KOP';
+  lang: 'SCL' | 'FUP' | 'KOP' | 'GRAPH';
   /** Grenze der CPU: Anweisungen (SCL) bzw. Netzwerke (FUP) */
   limit: number;
   /** Ausnutzung der Grenze: Anweisungen bzw. Netzwerke */

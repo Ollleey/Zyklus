@@ -6,6 +6,7 @@ import {
   analyzeBoard,
   syncDeviceTags,
   verifySolution,
+  type CodeBlock,
   type Level,
   type PlacedModule,
   type Solution,
@@ -432,5 +433,78 @@ describe('Bedienpanel (HMI) und Program_Alarm', () => {
     const cpu = run.cpus.get('cpu1')!;
     expect(cpu.activeAlarms.size).toBe(1);
     expect(cpu.alarms[0]!.text).toBe('Sollwert hoch');
+  });
+});
+
+describe('GRAPH-light: Auftrag 10 als Schrittkette', () => {
+  it('die Bohrstation läuft mit einer GRAPH-Kette im FB', async () => {
+    const { verifySolution } = await import('@zyklus/sim-core');
+    const level = levelById('10-bohrstation')!;
+    const board = JSON.parse(
+      readFileSync(join(__dirname, '..', 'data', 'reference', 'boards.json'), 'utf8'),
+    )['10-bohrstation'] as { modules: PlacedModule[]; wires: Wire[] };
+    const src = [
+      'DATA_BLOCK "StartFlanke"\nNON_RETAIN\nR_TRIG\nBEGIN\nEND_DATA_BLOCK',
+      'FUNCTION_BLOCK "Bohren"\nBEGIN\nEND_FUNCTION_BLOCK',
+      'DATA_BLOCK "Bohren_DB"\nNON_RETAIN\n"Bohren"\nBEGIN\nEND_DATA_BLOCK',
+      ob('"StartFlanke"(CLK := "Start");\n"Bohren_DB"();'),
+    ].join('\n');
+    const s = build(level, board.modules, board.wires, src);
+    const fb = s.projects.cpu1!.blocks.find((b) => b.name === 'Bohren') as CodeBlock;
+    const N = (id: string, operand: string) => ({ id, q: 'N' as const, operand });
+    fb.lang = 'GRAPH';
+    fb.graph = {
+      graph: {
+        steps: [
+          { id: 's1', no: 1, name: 'Grundstellung', initial: true, actions: [] },
+          { id: 's2', no: 2, name: 'Spannen', actions: [N('a1', '"Spannen"')] },
+          {
+            id: 's3',
+            no: 3,
+            name: 'Bohren',
+            actions: [N('a2', '"Spannen"'), N('a3', '"Bohrmotor"'), N('a4', '"Senken"')],
+          },
+          {
+            id: 's4',
+            no: 4,
+            name: 'Verweilen',
+            actions: [N('a5', '"Spannen"'), N('a6', '"Bohrmotor"')],
+          },
+          {
+            id: 's5',
+            no: 5,
+            name: 'Heben',
+            actions: [N('a7', '"Spannen"'), N('a8', '"Bohrmotor"'), N('a9', '"Heben"')],
+          },
+          { id: 's6', no: 6, name: 'Lösen', actions: [] },
+        ],
+        transitions: [
+          { id: 't1', from: 1, to: 2, cond: '"StartFlanke".Q AND "Oben"' },
+          { id: 't2', from: 2, to: 3, cond: '"Gespannt"' },
+          { id: 't3', from: 3, to: 4, cond: '"Unten"' },
+          { id: 't4', from: 4, to: 5, cond: 'Schrittzeit >= T#300ms' },
+          { id: 't5', from: 5, to: 6, cond: '"Oben"' },
+          { id: 't6', from: 6, to: 1, cond: 'NOT "Gespannt"' },
+        ],
+      },
+    };
+    const c = compileSolution(level, s);
+    expect(
+      [...c.cpus.values()].flatMap((r) =>
+        r.diagnostics.filter((d) => d.severity === 'error').map((d) => d.message),
+      ),
+    ).toEqual([]);
+    const v = verifySolution(level, s, c.programs, c.size);
+    const failed = v.runs
+      .filter((r) => !r.passed)
+      .map(
+        (r) =>
+          `${r.testId}: ${JSON.stringify(r.criteria.filter((x) => !x.ok))} ${JSON.stringify(
+            Object.entries(r.checks)
+              .filter(([, x]) => !x.ok)
+              .map(([k]) => k),
+          )}`,
+      );
+    expect(failed).toEqual([]);
   });
 });

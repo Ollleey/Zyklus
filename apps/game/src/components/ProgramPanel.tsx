@@ -30,11 +30,14 @@ import {
   isLadBody,
   ladBodyToFup,
   type LadNetwork,
+  emptyGraph,
+  isGraphBody,
 } from '@zyklus/fup-model';
 import { LadEditor } from './LadEditor';
 import { showNotice } from '../state/commands';
 import { addToLibrary, insertFromLibrary } from '../state/library';
 import { LibraryDialog } from './LibraryDialog';
+import { GraphEditor } from './GraphEditor';
 import { DbPanel, INSTANCE_TYPES, udtNames } from './DbPanel';
 import { FupEditor, libraryFor } from './FupEditor';
 import { SclEditor } from './SclEditor';
@@ -207,7 +210,7 @@ export function ProgramPanel({
    * Sprache wechseln wie in TIA: FUP ↔ KOP wird umgewandelt (FUP → KOP nur, wo darstellbar),
    * SCL ↔ Grafik nicht (eigener Inhalt je Sprache)
    */
-  const switchLang = (l: 'SCL' | 'FUP' | 'KOP') => {
+  const switchLang = (l: 'SCL' | 'FUP' | 'KOP' | 'GRAPH') => {
     if (!block || l === block.lang) return;
     if (l === 'KOP' && block.lang === 'FUP' && isFupBody(block.fup) && block.fup.networks.length) {
       const lad: LadNetwork[] = [];
@@ -232,6 +235,7 @@ export function ProgramPanel({
       lang: l,
       fup: l === 'FUP' && !isFupBody(b.fup) ? emptyFup() : b.fup,
       kop: l === 'KOP' && !isLadBody(b.kop) ? emptyLad() : b.kop,
+      graph: l === 'GRAPH' && !isGraphBody(b.graph) ? emptyGraph() : b.graph,
     }));
   };
 
@@ -483,7 +487,10 @@ export function ProgramPanel({
           )}
           <div className="iface iface-bar">
             <div className="lang-switch" role="radiogroup" aria-label="Sprache">
-              {(['SCL', 'FUP', 'KOP'] as const).map((l) => (
+              {(block.kind === 'FB'
+                ? (['SCL', 'FUP', 'KOP', 'GRAPH'] as const)
+                : (['SCL', 'FUP', 'KOP'] as const)
+              ).map((l) => (
                 <button
                   key={l}
                   role="radio"
@@ -561,6 +568,19 @@ export function ProgramPanel({
           </div>
           {block.protected ? (
             <div className="block-protected">🔒 {t('block.protected')}</div>
+          ) : block.lang === 'GRAPH' ? (
+            <GraphEditor
+              key={block.name}
+              project={project}
+              block={block}
+              diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
+              onChange={(p) => change(() => p)}
+              activeStep={(() => {
+                const idb = project.blocks.find((b) => b.kind === 'IDB' && b.of === block.name);
+                const v = idb ? liveOperand?.(`"${idb.name}".__Schritt`) : undefined;
+                return typeof v === 'number' ? v : undefined;
+              })()}
+            />
           ) : block.lang === 'KOP' ? (
             <LadEditor
               key={block.name}

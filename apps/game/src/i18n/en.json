@@ -425,5 +425,17 @@
   "block.tpaHint": "Process image partition: the interrupt OB reads its partition's inputs before it starts and writes its outputs afterwards. Without a partition it only works through the OB1 process image.",
   "cabinet.tpa": "Process image",
   "cabinet.tpaOb1": "OB1 (TPA 0)",
-  "cabinet.tpaHint": "Channels in a process image partition are only updated by the interrupt OB with that partition, not by OB1. Once any module has a partition, interrupt OBs without one no longer read or write I/O."
+  "cabinet.tpaHint": "Channels in a process image partition are only updated by the interrupt OB with that partition, not by OB1. Once any module has a partition, interrupt OBs without one no longer read or write I/O.",
+  "graph.stepNo": "Step number",
+  "graph.initial": "Initial step",
+  "graph.initialHint": "The chain starts with this step after startup",
+  "graph.removeStep": "Delete the step and its transitions",
+  "graph.qualifier": "Qualifier",
+  "graph.time": "Delay",
+  "graph.action": "Action",
+  "graph.condition": "Condition",
+  "graph.target": "Target step",
+  "graph.transition": "Transition",
+  "graph.step": "Step",
+  "graph.hint": "At most one transition of the active step fires per cycle. In conditions, “Schrittzeit” is the time since the step became active. N and D only apply while the step is active, S and R are stored."
 }

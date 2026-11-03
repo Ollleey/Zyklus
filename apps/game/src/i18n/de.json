@@ -425,5 +425,17 @@
   "block.tpaHint": "Teilprozessabbild: Der Alarm-OB liest vor dem Start die Eingänge seines TPA und schreibt danach dessen Ausgänge. Ohne TPA wirkt er nur über das Prozessabbild von OB1.",
   "cabinet.tpa": "Prozessabbild",
   "cabinet.tpaOb1": "OB1 (TPA 0)",
-  "cabinet.tpaHint": "Kanäle in einem Teilprozessabbild aktualisiert nur der Alarm-OB mit diesem TPA, nicht OB1. Sobald eine Baugruppe ein TPA hat, gilt das auch für Alarm-OBs ohne TPA: Sie lesen und schreiben keine Peripherie mehr."
+  "cabinet.tpaHint": "Kanäle in einem Teilprozessabbild aktualisiert nur der Alarm-OB mit diesem TPA, nicht OB1. Sobald eine Baugruppe ein TPA hat, gilt das auch für Alarm-OBs ohne TPA: Sie lesen und schreiben keine Peripherie mehr.",
+  "graph.stepNo": "Schrittnummer",
+  "graph.initial": "Initialschritt",
+  "graph.initialHint": "Mit diesem Schritt beginnt die Kette nach dem Anlauf",
+  "graph.removeStep": "Schritt mit seinen Transitionen löschen",
+  "graph.qualifier": "Bestimmungszeichen",
+  "graph.time": "Verzögerung",
+  "graph.action": "Aktion",
+  "graph.condition": "Bedingung",
+  "graph.target": "Zielschritt",
+  "graph.transition": "Transition",
+  "graph.step": "Schritt",
+  "graph.hint": "Je Zyklus wird höchstens eine Transition des aktiven Schritts geschaltet. In Bedingungen steht „Schrittzeit“ für die Zeit seit Aktivierung des Schritts. N und D gelten nur im aktiven Schritt, S und R speichern."
 }

@@ -7,6 +7,7 @@ import fup from '../../../../docs/fup.md?raw';
 import online from '../../../../docs/online.md?raw';
 import geraete from '../../../../docs/geraete.md?raw';
 import technologie from '../../../../docs/technologie.md?raw';
+import graph from '../../../../docs/graph.md?raw';
 import { t } from '../i18n';
 import { Markdown } from '../ui/Markdown';
 
@@ -56,6 +57,7 @@ const PAGES = [
   { id: 'online', title: 'Online-Funktionen' },
   { id: 'geraete', title: 'Geräte und Fehler' },
   { id: 'technologie', title: 'Technologie' },
+  { id: 'graph', title: 'GRAPH (Schrittketten)' },
 ] as const;
 
 type PageId = (typeof PAGES)[number]['id'];
@@ -93,6 +95,7 @@ export function Handbook({ onBack }: { onBack: () => void }) {
           {page === 'online' && <Markdown text={online} joinLines />}
           {page === 'geraete' && <Markdown text={geraete} joinLines />}
           {page === 'technologie' && <Markdown text={technologie} joinLines />}
+          {page === 'graph' && <Markdown text={graph} joinLines />}
           <footer className="paper-foot">
             {t('handbook.title')}, Seite {PAGES.findIndex((p) => p.id === page) + 1}:{' '}
             {PAGES.find((p) => p.id === page)!.title}

@@ -1,5 +1,17 @@
 # Changelog
 
+## M14b – GRAPH-light (2026-11-03)
+
+- Neue Sprache **GRAPH** für Funktionsbausteine: Schrittkette mit Schritten (Nummer, Name,
+  Initialschritt), Aktionen **N/S/R/D** und Transitionen mit SCL-Bedingung; `Schrittzeit` in
+  Bedingungen
+- Absenkung nach SCL: `CASE` über den aktiven Schritt (`__Schritt`), Schrittzeit als TON
+  (`__Zeit`) im Instanz-DB; Meldungen am Schritt bzw. an Aktion und Transition
+- Editor mit Schritten, Aktionen und Transitionen, aktiver Schritt beim Beobachten grün;
+  Programmgröße = Schritte + Transitionen + Aktionen
+- Auftrag 10 (Bohrstation) als GRAPH-Kette lösbar (Test); Handbuchseite „GRAPH“
+- 800 Tests
+
 ## M14a – Teilprozessabbilder (TPA) (2026-11-03)
 
 - Baugruppen lassen sich einem **Teilprozessabbild** (TPA 1 … 4) zuordnen, Weck- und

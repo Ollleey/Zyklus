@@ -171,7 +171,7 @@ Was heute fehlt, im Vergleich zur Praxis:
 - Level 20–21: Anlage muss bei Drahtbruch bzw. Baugruppenausfall geordnet weiterlaufen (OB86 +
   Ersatzbetrieb), Mittelwert ohne Zykluszeitfehler (Lastverteilung bzw. laufende Summe, OB80).
 
-### M11 – KOP und eigene Bausteine in FUP/KOP (erledigt, siehe CHANGELOG M11a–M11c; ohne GRAPH-light)
+### M11 – KOP und eigene Bausteine in FUP/KOP (erledigt, siehe CHANGELOG M11a–M11c, GRAPH-light in M14b)
 
 - **KOP-Editor** (Kontaktplan): Kontakte (Schließer/Öffner, P/N), Spulen (=, S, R, P/N-Spule),
   Parallelzweige, Boxen wie in FUP; Absenkung über dasselbe Netzwerkmodell nach SCL.

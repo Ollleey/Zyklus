@@ -10,13 +10,14 @@ import {
 import { lowerFupBlock, type LineOrigin } from './lower';
 import { countLadElements, isLadBody, ladBodyToFup } from './lad';
 import { setCallSignatures } from './catalog';
+import { countGraphElements, emptyGraph, isGraphBody, lowerGraphBlock } from './graph';
 import { countBoxes, isFupBody, type FupBody } from './model';
 
 export interface PlcCompileResult extends CompileResult {
   /** Größe je Codebaustein: SCL-Anweisungen bzw. FUP-Boxen */
   size: number;
   /** Sprache des OB1 */
-  lang: 'SCL' | 'FUP' | 'KOP';
+  lang: 'SCL' | 'FUP' | 'KOP' | 'GRAPH';
   /** Anzahl FUP-Netzwerke (0 bei SCL) */
   networks: number;
 }
@@ -33,7 +34,7 @@ export function compilePlcProject(
   const extra: ProjectDiagnostic[] = [];
   let size = 0;
   let networks = 0;
-  let lang: 'SCL' | 'FUP' | 'KOP' = 'SCL';
+  let lang: 'SCL' | 'FUP' | 'KOP' | 'GRAPH' = 'SCL';
   const kopBlocks = new Set<string>();
   setCallSignatures(project);
 
@@ -47,6 +48,14 @@ export function compilePlcProject(
           ? 0
           : countStatements(parseBody(code.source).body);
       return code;
+    }
+    if (code.lang === 'GRAPH') {
+      const g = isGraphBody(code.graph) ? code.graph : emptyGraph();
+      if (!code.protected && !isUnchangedLibraryBlock(code)) size += countGraphElements(g);
+      const lowered = lowerGraphBlock({ ...code, graph: g });
+      origins.set(code.name, lowered.lines);
+      extra.push(...lowered.diagnostics);
+      return lowered.block;
     }
     let body: FupBody;
     if (code.lang === 'KOP') {

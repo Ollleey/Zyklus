@@ -4024,3 +4024,64 @@ text.fup-live-num {
 .campaign-done h2 {
   margin: 0 0 4px;
 }
+
+/* GRAPH-Editor */
+.graph-editor {
+  padding: 8px 12px;
+  overflow: auto;
+}
+.graph-step {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin: 0 0 4px;
+  background: var(--panel-2);
+}
+.graph-initial {
+  border-width: 3px;
+  border-style: double;
+}
+.graph-active {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green);
+}
+.graph-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.graph-no {
+  width: 52px;
+  font-weight: 700;
+}
+.graph-name {
+  flex: 1;
+}
+.graph-actions input.mono {
+  width: 180px;
+}
+.graph-time {
+  width: 80px !important;
+}
+.graph-trans {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 2px 16px;
+}
+.graph-bar {
+  color: var(--amber);
+  font-weight: 700;
+}
+.graph-cond {
+  flex: 1;
+}
+.graph-error input,
+.graph-error select {
+  border-color: var(--red);
+}
+.graph-msg {
+  color: var(--red);
+  font-size: 12px;
+}
