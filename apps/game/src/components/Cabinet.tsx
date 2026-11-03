@@ -100,8 +100,9 @@ export function Cabinet({
   const [hoverWire, setHoverWire] = useState<string | null>(null);
   const width = level.board.width;
   const l = useMemo(() => layout(level), [level]);
-  const left = level.devices.filter((d) => d.side === 'left');
-  const right = level.devices.filter((d) => d.side === 'right');
+  // Elemente des Bedienpanels werden nicht verdrahtet
+  const left = level.devices.filter((d) => d.side === 'left' && !d.hmi);
+  const right = level.devices.filter((d) => d.side === 'right' && !d.hmi);
   const wr = wallRange(level.board);
 
   // ---------- Zoom und Verschieben ----------

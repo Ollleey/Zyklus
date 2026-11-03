@@ -46,6 +46,9 @@ interface RelayState {
  * - `true.<AI>`: Rohwert ohne Rauschen und Geberfehler
  * - `plant.<größe>`: Zustand des Anlagenmodells
  */
+/** Bildaktualisierung des Bedienpanels in ms (Lampen und Anzeigen) */
+export const HMI_CYCLE_MS = 50;
+
 /** Übertragungszeit einer Nachricht (TSEND_C → TRCV_C) in ms: 5 ms plus 1 ms je 8 Elemente */
 export function commLatency(elements: number): number {
   return 5 + Math.ceil(elements / 8);
@@ -268,8 +271,24 @@ export class LevelRun {
   /** zuletzt übertragene Ausgangswerte dezentraler Stationen (Aktualisierungszeit) */
   private readonly stationOut = new Map<string, Value>();
 
+  /** zuletzt gelesene bzw. geschriebene Werte der Panel-Elemente */
+  private readonly hmiValues = new Map<string, Value>();
+
   /** Ausgangswert an der Klemme; dezentrale Stationen übernehmen ihn im Takt der Aktualisierungszeit */
   private commanded(d: Device): Value {
+    const hb = this.analysis.bindings.get(d.id);
+    if (hb?.hmi) {
+      // Bedienpanel liest seine Variablen im Bildtakt
+      const t = this.sim.time;
+      const cpu = this.cpus.get(hb.cpu)!;
+      if (t % HMI_CYCLE_MS === 0 || !this.hmiValues.has(d.id)) {
+        this.hmiValues.set(
+          d.id,
+          cpu.isPowered ? cpu.read(hb.address, hb.t) : hb.t === 'BOOL' ? false : 0,
+        );
+      }
+      return this.hmiValues.get(d.id)!;
+    }
     const st = this.analysis.bindings.get(d.id)?.station;
     if (!st) return this.commandedNow(d);
     const t = this.sim.time;
@@ -535,6 +554,9 @@ export class LevelRun {
         const raw = this.inputValue(d, t);
         this.countHsc(d, raw, t);
         v = this.delayed(d, raw, t);
+      } else if (d.kind === 'AI' && this.analysis.bindings.get(d.id)?.hmi) {
+        // Eingabefeld des Panels: physikalischer Wert als Ganzzahl
+        v = Math.round(this.analogPhysical(d, t));
       } else if (d.kind === 'AI') {
         const clean = toRaw(this.analogPhysical(d, t), d.analog!);
         const fault = faultAt(this.opts.test?.faults?.[d.id], t) ?? this.plant?.fault?.(d.id);
@@ -564,6 +586,16 @@ export class LevelRun {
       if (b && this.moduleDead(b.module, t)) v = d.kind === 'AI' ? 0 : false;
       const f = this.forces.get(d.id);
       if (f !== undefined) v = f;
+      if (b?.hmi) {
+        // Panel schreibt nur bei Änderung (Bedienhandlung), nicht zyklisch
+        if (this.hmiValues.get(d.id) !== v) {
+          this.hmiValues.set(d.id, v);
+          const cpu = this.cpus.get(b.cpu)!;
+          if (cpu.isPowered) cpu.modify({ address: b.address, t: b.t }, v);
+        }
+        this.push(d.id, t, v);
+        continue;
+      }
       // dezentrale Station: Eingänge erreichen die CPU im Takt der Aktualisierungszeit
       if (b && (!b.station || t % b.station.updateTime === 0))
         this.cpus.get(b.cpu)!.setInput(b.address, v, b.t);

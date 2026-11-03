@@ -35,8 +35,8 @@ export interface Layout {
 export function layout(level: Level): Layout {
   const railW = level.board.width * G.te;
   const plateW = railW + 2 * G.margin;
-  const left = level.devices.filter((d) => d.side === 'left').length;
-  const right = level.devices.filter((d) => d.side === 'right').length;
+  const left = level.devices.filter((d) => d.side === 'left' && !d.hmi).length;
+  const right = level.devices.filter((d) => d.side === 'right' && !d.hmi).length;
   const devicesH = G.device.y + Math.max(left, right) * G.device.step + 6;
   const plateH = Math.max(G.ductBottom.y + G.ductBottom.h + G.plateBottomPad, devicesH);
   return {

@@ -63,6 +63,16 @@ export interface CpuMetrics {
 /** geprüfte Adressen (Adresse bzw. Adresse|Typ → zerlegte Adresse und Datentyp) */
 const ACCESS_CACHE = new Map<string, { a: ReturnType<typeof parseAddress>; type: DataType }>();
 
+/** Meldung aus dem Programm (Program_Alarm) */
+export interface AlarmEntry {
+  time: number;
+  text: string;
+  /** kommend (true) bzw. gehend */
+  coming: boolean;
+  /** Instanz der Meldung */
+  inst: number;
+}
+
 /** Sendeauftrag einer TSEND_C-Instanz; `delivered`: beim Partner angekommen */
 export interface CommJob {
   inst: number;
@@ -91,6 +101,10 @@ export class Cpu {
   private readonly tempSlots: number[];
   /** Diagnosepuffer, neueste Einträge zuerst */
   readonly diagnostics: DiagEntry[] = [];
+  /** Meldungen (Program_Alarm), neueste zuerst; höchstens 100 */
+  readonly alarms: AlarmEntry[] = [];
+  /** anstehende Meldungen je Instanz */
+  readonly activeAlarms = new Map<number, AlarmEntry>();
   /** Kommunikation: offene Sendeaufträge (TSEND_C), Zeitpunkt des Auftrags */
   readonly outbox: CommJob[] = [];
   /** angekommene, noch nicht abgeholte Nachrichten je Verbindungs-ID (TRCV_C) */
@@ -318,6 +332,7 @@ export class Cpu {
     this.lastInputs.clear();
     this.outbox.length = 0;
     this.inbox.clear();
+    this.activeAlarms.clear();
     this.started = false;
   }
 
@@ -389,6 +404,13 @@ export class Cpu {
       probes: this.probes,
       opTimeMs: this.config.cycleMs / this.config.maxOpsPerCycle,
       comm: this.comm,
+      alarm: (inst, text, coming) => {
+        const e: AlarmEntry = { time: now, text, coming, inst };
+        this.alarms.unshift(e);
+        if (this.alarms.length > 100) this.alarms.length = 100;
+        if (coming) this.activeAlarms.set(inst, e);
+        else this.activeAlarms.delete(inst);
+      },
       ...(handled
         ? {
             onError: (id: number, message: string) => {

@@ -43,6 +43,8 @@ export interface ExecContext {
   opTimeMs?: number;
   /** Kommunikation mit anderen CPUs (TSEND_C/TRCV_C); ohne: keine Verbindung */
   comm?: CommPort;
+  /** Program_Alarm: Meldung kommt (`coming`) bzw. geht */
+  alarm?: (inst: number, text: string, coming: boolean) => void;
 }
 
 /** Sende- und Empfangsfächer einer CPU, bedient von der Umgebung */
@@ -197,6 +199,13 @@ export function execute(ctx: ExecContext): ExecResult {
         case 'trig':
           evalTrig(instances[ins.i]!, bool(ins.clk));
           break;
+        case 'alarm': {
+          const s = instances[ins.i]!;
+          const sig = bool(ins.sig);
+          if (sig !== s.m1) ctx.alarm?.(ins.i, String(read(ins.text)), sig);
+          s.m1 = sig;
+          break;
+        }
         case 'comm': {
           const s = instances[ins.i]!;
           const en = bool(ins.en);

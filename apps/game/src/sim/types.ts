@@ -1,5 +1,6 @@
 import type {
   DataType,
+  AlarmEntry,
   DiagEntry,
   Edge,
   InstanceField,
@@ -22,6 +23,8 @@ export interface CpuView {
   /** anstehende Diagnosen (ERROR-LED) und Diagnosepuffer (neueste zuerst) */
   readonly diagActive: number;
   readonly diagnostics: readonly DiagEntry[];
+  /** Meldungen (Program_Alarm), neueste zuerst */
+  readonly alarms: readonly AlarmEntry[];
   read(address: string, t?: DataType): Value;
   readImage(address: string, t?: DataType): Value;
   readSlot(name: string): Value;

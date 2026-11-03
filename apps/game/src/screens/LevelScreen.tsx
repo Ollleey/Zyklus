@@ -576,6 +576,13 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                     return typeof v === 'number' ? v : (dev?.analog?.min ?? 0);
                   }}
                   testParams={test?.plant}
+                  alarms={
+                    run
+                      ? [...run.cpus.values()]
+                          .flatMap((c) => c.alarms)
+                          .sort((a, b) => b.time - a.time)
+                      : []
+                  }
                   onAnalog={(d, v) => {
                     sim.setManual(d, v);
                     if (!sim.running) sim.play();

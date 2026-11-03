@@ -315,3 +315,122 @@ describe('CPU-CPU-Kommunikation (TSEND_C/TRCV_C)', () => {
     expect(run2.cpus.get('cpu2')!.readSlot('Daten.status')).toBe(0x80b3);
   });
 });
+
+describe('Bedienpanel (HMI) und Program_Alarm', () => {
+  const level = {
+    ...levelById('01-foerderband')!,
+    id: 'test-hmi',
+    devices: [
+      {
+        id: 'P1',
+        tag: 'P_Start',
+        name: { de: 'Start (Panel)' },
+        kind: 'DI',
+        side: 'left',
+        role: 'button',
+        hmi: true,
+      },
+      {
+        id: 'P2',
+        tag: 'P_Betrieb',
+        name: { de: 'Betrieb (Panel)' },
+        kind: 'DO',
+        side: 'right',
+        role: 'lamp',
+        hmi: true,
+      },
+      {
+        id: 'P3',
+        tag: 'P_Soll',
+        name: { de: 'Sollwert (Panel)' },
+        kind: 'AI',
+        side: 'left',
+        role: 'sensor',
+        hmi: true,
+        analog: { unit: '°C', min: 0, max: 200 },
+      },
+      {
+        id: 'P4',
+        tag: 'P_Anzeige',
+        name: { de: 'Anzeige (Panel)' },
+        kind: 'AO',
+        side: 'right',
+        role: 'display',
+        hmi: true,
+        analog: { unit: '°C', min: 0, max: 400 },
+      },
+      {
+        id: 'M1',
+        tag: 'Bandmotor',
+        name: { de: 'Bandmotor' },
+        kind: 'DO',
+        side: 'right',
+        role: 'motor',
+      },
+    ],
+    tests: [],
+  } as unknown as Level;
+  const modules: PlacedModule[] = [
+    { id: 'cpu1', type: 'cpu-klein', x: 0 },
+    { id: 'do1', type: 'do8', x: 6 },
+  ];
+  const wires: Wire[] = [{ device: 'M1', module: 'do1', channel: 0 }];
+
+  it('Panel-Elemente bekommen Merkeradressen und Variablen, ohne Verdrahtung', () => {
+    const a = analyzeBoard(level, { version: 2, modules, wires, projects: {} });
+    expect(a.ok).toBe(true);
+    expect(a.issues.filter((i) => i.code === 'unwired')).toEqual([]);
+    expect(a.bindings.get('P1')).toMatchObject({ address: '%M200.0', hmi: true });
+    expect(a.bindings.get('P2')).toMatchObject({ address: '%M200.1' });
+    expect(a.bindings.get('P3')).toMatchObject({ address: '%MW220', t: 'INT' });
+    const bad = analyzeBoard(level, {
+      version: 2,
+      modules,
+      wires,
+      projects: {},
+      hmi: { tags: { P1: '%I0.0' } },
+    });
+    expect(bad.issues.find((i) => i.device === 'P1')?.message).toMatch(/Merkeradresse/);
+  });
+
+  it('Taster schreibt bei Änderung, Lampe und Anzeige folgen im Bildtakt; Meldungen', () => {
+    const src = [
+      'DATA_BLOCK "Hoch"\nNON_RETAIN\nProgram_Alarm\nBEGIN\nEND_DATA_BLOCK',
+      'ORGANIZATION_BLOCK "Main"\nBEGIN\n"Bandmotor" := "P_Start";\n"P_Betrieb" := "Bandmotor";\n"P_Anzeige" := "P_Soll" * 2;\n"Hoch"(SIG := "P_Soll" > 100, TEXT := \'Sollwert hoch\');\nEND_ORGANIZATION_BLOCK',
+    ].join('\n');
+    const s = build(level, modules, wires, src);
+    const c = compileSolution(level, s);
+    expect(
+      [...c.cpus.values()].flatMap((r) =>
+        r.diagnostics.filter((d) => d.severity === 'error').map((d) => d.message),
+      ),
+    ).toEqual([]);
+    const test = {
+      id: 't',
+      name: { de: 't' },
+      durationMs: 1000,
+      seeds: [1],
+      stimuli: {
+        P1: [
+          [100, true],
+          [300, false],
+        ] as [number, boolean][],
+        P3: [
+          [0, 50],
+          [500, 150],
+        ] as [number, number][],
+      },
+    };
+    const run = new LevelRun(level, s, c.programs, { test, seed: 1 });
+    run.runTo(1000);
+    const m1 = run.traces.get('M1')!;
+    expect(m1.find(([, v]) => v === true)![0]).toBeGreaterThanOrEqual(100);
+    expect(m1.find(([, v]) => v === true)![0]).toBeLessThan(115);
+    const lamp = run.traces.get('P2')!;
+    expect(lamp.find(([, v]) => v === true)![0] % 50).toBe(0);
+    expect(run.traces.get('P4')!.at(-1)![1]).toBe(300);
+    const cpu = run.cpus.get('cpu1')!;
+    expect(cpu.activeAlarms.size).toBe(1);
+    expect(cpu.alarms[0]!.text).toBe('Sollwert hoch');
+  });
+});

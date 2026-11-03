@@ -1,4 +1,4 @@
-import { formatAddress } from '../address';
+import { formatAddress, parseAddress } from '../address';
 import type { PlcProject } from '../project';
 import type { DataType } from '../types';
 import type { Device, Level } from './level';
@@ -38,6 +38,30 @@ export interface Solution {
   projects: Record<string, PlcProject>;
   /** Einstellungen je Baugruppe (Modul-Inspektor), z. B. Messbereich je Analogkanal */
   config?: Record<string, ModuleConfig>;
+  /** Bedienpanel: zugeordnete CPU und Merkeradresse je Element (sonst automatisch) */
+  hmi?: { cpu?: string; tags?: Record<string, string> };
+}
+
+/** Bedienpanel: automatische Adressen der Bitelemente ab %M200.0, der Wertelemente ab %MW220 */
+export const HMI_BIT_BASE = 200;
+export const HMI_WORD_BASE = 220;
+
+/** Standardadressen der Panel-Elemente eines Levels (in Gerätereihenfolge) */
+export function hmiDefaultAddresses(level: Level): Map<string, string> {
+  const out = new Map<string, string>();
+  let bit = 0;
+  let word = 0;
+  for (const d of level.devices) {
+    if (!d.hmi) continue;
+    if (d.kind === 'DI' || d.kind === 'DO') {
+      out.set(d.id, `%M${HMI_BIT_BASE + Math.floor(bit / 8)}.${bit % 8}`);
+      bit++;
+    } else {
+      out.set(d.id, `%MW${HMI_WORD_BASE + 2 * word}`);
+      word++;
+    }
+  }
+  return out;
 }
 
 export interface ModuleConfig {
@@ -154,6 +178,8 @@ export interface Binding {
   mismatch?: boolean;
   /** Baugruppe einer dezentralen Station: Interfacemodul und Aktualisierungszeit in ms */
   station?: { im: string; updateTime: number };
+  /** Element des Bedienpanels (Adresse im Merkerbereich) */
+  hmi?: boolean;
 }
 
 export interface BoardAnalysis {
@@ -413,6 +439,14 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
     const dev = devices.get(w.device);
     const mod = solution.modules.find((m) => m.id === w.module);
     const t = mod ? types.get(mod.id) : undefined;
+    if (dev?.hmi) {
+      err({
+        code: 'bad-wire',
+        message: `${dev.name.de} ist ein Element des Bedienpanels und wird nicht verdrahtet`,
+        device: w.device,
+      });
+      continue;
+    }
     if (!dev || !mod || !t) {
       err({
         code: 'bad-wire',
@@ -525,7 +559,43 @@ export function analyzeBoard(level: Level, solution: Solution): BoardAnalysis {
       });
     }
   });
+  // Bedienpanel: Elemente über Merkeradressen der zugeordneten CPU
+  const hmiDevices = level.devices.filter((d) => d.hmi);
+  if (hmiDevices.length) {
+    const defaults = hmiDefaultAddresses(level);
+    const want = solution.hmi?.cpu ?? firstCpu;
+    const hmiCpu = want && types.get(want)?.kind === 'cpu' ? want : undefined;
+    for (const d of hmiDevices) {
+      const text = solution.hmi?.tags?.[d.id]?.trim() || defaults.get(d.id)!;
+      let ok = false;
+      try {
+        const a = parseAddress(text);
+        const bit = d.kind === 'DI' || d.kind === 'DO';
+        ok = a.area === 'M' && (bit ? a.size === 'X' : a.size === 'W');
+      } catch {
+        ok = false;
+      }
+      if (!ok) {
+        err({
+          code: 'address',
+          message: `${d.name.de}: ${text} ist keine passende Merkeradresse (${d.kind === 'DI' || d.kind === 'DO' ? 'Bit, z. B. %M200.0' : 'Wort, z. B. %MW220'})`,
+          device: d.id,
+        });
+        continue;
+      }
+      if (!hmiCpu) continue;
+      bindings.set(d.id, {
+        cpu: hmiCpu,
+        module: 'hmi',
+        channel: hmiDevices.indexOf(d),
+        address: text.toUpperCase().replace(/^%M/, '%M'),
+        t: d.kind === 'DI' || d.kind === 'DO' ? 'BOOL' : 'INT',
+        hmi: true,
+      });
+    }
+  }
   for (const d of level.devices) {
+    if (d.hmi) continue;
     if (!solution.wires.some((w) => w.device === d.id)) {
       issues.push({
         code: 'unwired',
@@ -596,7 +666,7 @@ export function autoWire(
   const missing: Partial<Record<ChannelKind | 'REL', number>> = {};
   let wired = 0;
   for (const d of level.devices) {
-    if (wiredDevices.has(d.id)) continue;
+    if (wiredDevices.has(d.id) || d.hmi) continue;
     let found: { module: string; channel: number; ranges?: AnalogRange[] } | undefined;
     for (const pass of d.kind === 'DO' && !d.power ? [false, true] : [d.power === true]) {
       for (const m of modules) {

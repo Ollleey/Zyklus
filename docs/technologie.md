@@ -121,6 +121,31 @@ Verbindungen legst du im Schaltschrank an der CPU an.
 In FUP und KOP stehen beide Boxen unter „Kommunikation“. Nach einem Neustart der CPU sind
 offene Aufträge verworfen.
 
+## Bedienpanel und Meldungen
+
+Manche Aufträge haben statt fester Taster ein **Bedienpanel**. Seine Elemente werden nicht
+verdrahtet: Jedes ist mit einem Merker der CPU verbunden und steht wie ein Gerät in der
+PLC-Variablentabelle.
+
+| Element          | Art | Adresse (automatisch) | Verhalten                               |
+| ---------------- | --- | --------------------- | --------------------------------------- |
+| Taster, Schalter | DI  | ab `%M200.0`          | schreibt den Merker bei jeder Bedienung |
+| Lampe            | DO  | ab `%M200.0`          | liest den Merker im Bildtakt (50 ms)    |
+| Eingabefeld      | AI  | ab `%MW220`           | schreibt den eingegebenen Wert (Int)    |
+| Anzeige          | AO  | ab `%MW220`           | liest das Wort im Bildtakt              |
+
+Bits und Wörter werden in der Reihenfolge der Elemente vergeben. Weil das Panel nur bei einer
+Bedienung schreibt, darf das Programm einen Taster-Merker auch selbst zurücksetzen (Quittieren).
+
+**Meldungen** kommen aus dem Programm mit **Program_Alarm** (Instanz-DB vom Typ Program_Alarm):
+
+```
+"Ofen_heiss"(SIG := "Temperatur" > 180.0, TEXT := 'Ofen über 180 °C');
+```
+
+Jede Flanke an SIG meldet die Meldung kommend bzw. gehend mit Zeitstempel. Das Panel zeigt die
+letzten Meldungen, anstehende rot. Nach einem Neustart der CPU stehen keine Meldungen mehr an.
+
 ## NORM_X und SCALE_X
 
 Skalierung als Box-Paar (FUP/KOP unter Übertragen, in SCL als Funktion):

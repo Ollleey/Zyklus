@@ -119,3 +119,33 @@ describe('Bibliothek ohne Aufruf', () => {
     expect(r.diagnostics.filter((d) => d.location.block === 'PID_Compact')).toEqual([]);
   });
 });
+
+describe('Program_Alarm', () => {
+  it('meldet kommend und gehend mit Text und Zeit', () => {
+    const p: PlcProject = {
+      tags: TAGS,
+      blocks: [
+        {
+          kind: 'OB',
+          name: 'Main',
+          number: 1,
+          lang: 'SCL',
+          iface: {},
+          source: '"Hitze"(SIG := "Ist" > 80.0, TEXT := \'Ofen zu heiß\');',
+        },
+        { kind: 'IDB', name: 'Hitze', number: 2, of: 'Program_Alarm' },
+      ],
+    };
+    const c = cpu(p);
+    c.scan(0);
+    expect(c.alarms).toEqual([]);
+    c.modify({ address: '%MD10', t: 'REAL' }, 90);
+    c.scan(10);
+    expect(c.activeAlarms.size).toBe(1);
+    expect(c.alarms[0]).toMatchObject({ time: 10, text: 'Ofen zu heiß', coming: true });
+    c.modify({ address: '%MD10', t: 'REAL' }, 20);
+    c.scan(20);
+    expect(c.activeAlarms.size).toBe(0);
+    expect(c.alarms.map((a) => a.coming)).toEqual([false, true]);
+  });
+});

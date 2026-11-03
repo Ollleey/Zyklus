@@ -395,5 +395,9 @@
   "cabinet.connections": "Verbindungen",
   "cabinet.connHint": "Verbindungen für TSEND_C/TRCV_C: beide CPUs benutzen dieselbe ID.",
   "cabinet.connAuto": "automatisch",
-  "cabinet.connAdd": "Verbindung"
+  "cabinet.connAdd": "Verbindung",
+  "hmi.title": "Bedienpanel",
+  "hmi.alarms": "Meldungen",
+  "hmi.noAlarms": "keine Meldungen",
+  "hmi.manualOnly": "Im Handbetrieb bedienbar"
 }

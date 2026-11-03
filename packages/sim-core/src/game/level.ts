@@ -58,6 +58,11 @@ export interface Device {
   power?: boolean;
   /** Analoggeräte: elektrische Signalart; ohne Angabe passt jeder Messbereich */
   signal?: AnalogRange;
+  /**
+   * Element des Bedienpanels (Taster/Schalter DI, Lampe DO, Eingabefeld AI, Anzeige AO): wird
+   * nicht verdrahtet, sondern über eine Merkeradresse mit der CPU verbunden
+   */
+  hmi?: boolean;
 }
 
 /** Geberfehler an einem Analogeingang: Drahtbruch/Überlauf = 32767, Unterlauf = −32768 */

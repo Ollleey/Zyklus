@@ -1,5 +1,16 @@
 # Changelog
 
+## M12e – Bedienpanel und Program_Alarm (2026-11-03)
+
+- **Bedienpanel**: Geräte mit `hmi` (Taster/Schalter, Lampe, Eingabefeld, Anzeige) werden nicht
+  verdrahtet, sondern über Merker verbunden (automatisch ab `%M200.0` bzw. `%MW220`, je Lösung
+  änderbar); das Panel schreibt nur bei Bedienung und liest im Bildtakt von 50 ms
+- **Program_Alarm** (Instanz-DB): Flanken an SIG melden TEXT kommend/gehend mit Zeitstempel;
+  Meldepuffer und anstehende Meldungen in der CPU, gelöscht beim Neustart
+- Panel-Ansicht unter der Anlage mit Tastern, Lampen, Feldern und Meldeanzeige; Panel-Elemente
+  erscheinen nicht im Schaltschrank
+- 759 Tests
+
 ## M12d – CPU-CPU-Kommunikation mit TSEND_C/TRCV_C (2026-11-03)
 
 - Neue Systembausteine **TSEND_C** und **TRCV_C** (Instanz-DB): Daten über eine Verbindung (ID)

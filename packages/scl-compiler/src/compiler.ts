@@ -2655,6 +2655,9 @@ class CodeGen {
       case 'F_TRIG':
         this.b.emit({ op: 'trig', i, clk: inputs.CLK! });
         break;
+      case 'ALARM':
+        this.b.emit({ op: 'alarm', i, sig: inputs.SIG!, text: inputs.TEXT! });
+        break;
       case 'TSEND':
       case 'TRCV': {
         const name = kind === 'TSEND' ? 'TSEND_C' : 'TRCV_C';

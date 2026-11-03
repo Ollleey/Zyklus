@@ -1,4 +1,5 @@
-import { tr, type Edge, type Level } from '@zyklus/sim-core';
+import { tr, type AlarmEntry, type Edge, type Level } from '@zyklus/sim-core';
+import { HmiPanel } from './HmiPanel';
 import { t } from '../i18n';
 import { formatBool, useBoolFormat } from '../state/prefs';
 
@@ -15,6 +16,8 @@ interface Props {
   onAnalog: (device: string, v: number) => void;
   /** Parameter des laufenden Testfalls (z. B. Paketfolge) */
   testParams?: Record<string, unknown>;
+  /** Meldungen aller CPUs (Program_Alarm), neueste zuerst */
+  alarms?: readonly AlarmEntry[];
 }
 
 /** Anzahl steigender Flanken in [from, to] */
@@ -94,6 +97,7 @@ export function PlantView({
   analogValue,
   onAnalog,
   testParams,
+  alarms = [],
 }: Props) {
   const boolFormat = useBoolFormat();
   const press = (id: string) => {
@@ -118,8 +122,9 @@ export function PlantView({
   };
   const fromPlant = new Set((plantKeys[type ?? ''] ?? []).map((k) => param(k)));
   if (type === 'tanks') for (const g of ['a', 'b']) fromPlant.add(sub(g, 'sensor'));
-  const inputs = level.devices.filter((d) => d.kind === 'DI' && !fromPlant.has(d.id));
-  const analogs = level.devices.filter((d) => d.kind === 'AI');
+  const inputs = level.devices.filter((d) => d.kind === 'DI' && !d.hmi && !fromPlant.has(d.id));
+  const analogs = level.devices.filter((d) => d.kind === 'AI' && !d.hmi);
+  const hmi = level.devices.filter((d) => d.hmi);
   const on = (id: string | undefined) => (id ? values.get(id) === true : false);
   const rawTo = (id: string | undefined, raw: boolean | number | undefined) => {
     const a = level.devices.find((d) => d.id === id)?.analog;
@@ -338,6 +343,18 @@ export function PlantView({
               </label>
             ))}
       </div>
+      {(hmi.length > 0 || alarms.length > 0) && (
+        <HmiPanel
+          devices={hmi}
+          values={values}
+          manual={manual}
+          actuated={actuated}
+          onActuate={onActuate}
+          analogValue={analogValue}
+          onAnalog={onAnalog}
+          alarms={alarms}
+        />
+      )}
     </div>
   );
 }

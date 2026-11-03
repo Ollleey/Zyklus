@@ -162,6 +162,7 @@ export class SimHost {
         probes: [...c.probes],
         diagActive: c.diagActive,
         diagnostics: [...c.diagnostics],
+        alarms: c.alarms.slice(0, 20),
       })),
       forced: run.forcedIds.map((id) => [id, run.forced(id)!]),
       values,

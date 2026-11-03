@@ -30,6 +30,7 @@ const TYPED: Record<string, InstanceKind> = {
   // Kommunikation mit einer anderen CPU
   TSEND_C: 'TSEND',
   TRCV_C: 'TRCV',
+  PROGRAM_ALARM: 'ALARM',
 };
 
 export function instanceType(typeName: string): InstanceType | undefined {
@@ -97,6 +98,10 @@ export const FB_INPUTS: Record<InstanceKind, [string, DataType, boolean][]> = {
     ['EN_R', 'BOOL', true],
     ['ID', 'INT', true],
   ],
+  ALARM: [
+    ['SIG', 'BOOL', true],
+    ['TEXT', 'STRING', true],
+  ],
 };
 
 /** Ausgänge beim Aufruf (Q => …). */
@@ -112,6 +117,7 @@ export const FB_OUTPUTS: Record<InstanceKind, Record<string, DataType>> = {
   F_TRIG: { Q: 'BOOL' },
   TSEND: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   TRCV: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
+  ALARM: {},
 };
 
 /** Anweisungen mit Datenbereich DATA (Kommunikation) */

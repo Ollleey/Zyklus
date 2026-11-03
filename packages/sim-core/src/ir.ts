@@ -32,7 +32,9 @@ export type InstanceKind =
   | 'F_TRIG'
   /** Kommunikation: Daten senden (TSEND_C) bzw. empfangen (TRCV_C) */
   | 'TSEND'
-  | 'TRCV';
+  | 'TRCV'
+  /** Meldung an das Bedienpanel (Program_Alarm) */
+  | 'ALARM';
 
 export type InstanceField =
   'Q' | 'ET' | 'CV' | 'QU' | 'QD' | 'DONE' | 'BUSY' | 'ERROR' | 'STATUS' | 'NDR';
@@ -54,6 +56,7 @@ export const INSTANCE_FIELDS: Record<InstanceKind, Partial<Record<InstanceField,
   F_TRIG: { Q: 'BOOL' },
   TSEND: { DONE: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
   TRCV: { NDR: 'BOOL', BUSY: 'BOOL', ERROR: 'BOOL', STATUS: 'WORD' },
+  ALARM: {},
 };
 
 /** Statuscodes der Kommunikationsbausteine */
@@ -157,6 +160,8 @@ export type Instr =
       data: Operand[];
       types: DataType[];
     }
+  /** Program_Alarm: Flanke an `sig` meldet die Meldung `text` kommend bzw. gehend */
+  | { op: 'alarm'; i: number; sig: Operand; text: Operand }
   | { op: 'jmp'; to: number }
   /** Springe, wenn cond FALSE ist. */
   | { op: 'jz'; cond: Operand; to: number }

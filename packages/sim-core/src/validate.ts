@@ -222,6 +222,11 @@ export function validateProgram(p: IrProgram, opts: ValidateOptions): string[] {
         }
         break;
       }
+      case 'alarm':
+        instance(ins.i, ['ALARM']);
+        operand(ins.sig, 'SIG', 'BOOL');
+        operand(ins.text, 'Text', 'STRING');
+        break;
       case 'comm': {
         instance(ins.i, [ins.kind === 'send' ? 'TSEND' : 'TRCV']);
         operand(ins.en, ins.kind === 'send' ? 'REQ' : 'EN_R', 'BOOL');
