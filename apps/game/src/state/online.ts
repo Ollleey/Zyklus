@@ -84,6 +84,20 @@ export function resolveOperand(project: PlcProject, text: string): Target | { er
   return { kind: 'slot', name: `${block.name}${path}` };
 }
 
+/** Trace: Operand der ersten CPU als aufzeichenbare Variable (Adresse oder Slot) */
+export function traceTarget(
+  solution: { modules: { id: string; type: string }[]; projects: Record<string, PlcProject> },
+  text: string,
+): { cpu: string; target: { address: string } | { slot: string } } | { error: string } {
+  const cpu = solution.modules.find((m) => m.type.startsWith('cpu'))?.id;
+  const project = cpu ? solution.projects[cpu] : undefined;
+  if (!cpu || !project) return { error: 'keine CPU' };
+  const r = resolveOperand(project, text);
+  if ('error' in r) return r;
+  if (r.kind === 'instance') return { error: 'Instanzwerte lassen sich nicht aufzeichnen' };
+  return { cpu, target: r.kind === 'address' ? { address: r.address } : { slot: r.name } };
+}
+
 /** Steuer- bzw. Forcewert aus einem Literal */
 export function parseValue(text: string): Value | undefined {
   try {

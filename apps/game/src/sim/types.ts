@@ -36,6 +36,11 @@ export interface RunView {
   powerCycle(cpuId: string): void;
   /** Forceauftrag an einer E/A-Adresse (`undefined` hebt auf) */
   setForce(cpuId: string, address: string, value: Value | undefined): void;
+  /** Trace: Programmvariable als Spur `key` aufzeichnen (`undefined` beendet) */
+  traceVariable(
+    key: string,
+    spec: { cpu: string; target: { address: string } | { slot: string } } | undefined,
+  ): void;
   /** Steuern: Wert einmalig schreiben */
   modify(cpuId: string, target: { address: string } | { slot: string }, value: Value): void;
 }

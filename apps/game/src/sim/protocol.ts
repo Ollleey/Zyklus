@@ -44,6 +44,11 @@ export type Command =
   | { type: 'cpuSwitch'; cpu: string; mode: 'RUN' | 'STOP' }
   | { type: 'powerCycle'; cpu: string }
   | { type: 'cpuForce'; cpu: string; address: string; value: Value | undefined }
+  | {
+      type: 'traceVar';
+      key: string;
+      spec?: { cpu: string; target: { address: string } | { slot: string } };
+    }
   | { type: 'modify'; cpu: string; target: { address: string } | { slot: string }; value: Value }
   | { type: 'control'; ref: string; value: boolean | number }
   | { type: 'estop'; ref: string }

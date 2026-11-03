@@ -1,5 +1,16 @@
 # Changelog
 
+## M9c – Trace mit Trigger (2026-11-03)
+
+- Der Logikanalysator wird zum **Trace**: Leiste über dem Zeitdiagramm
+  - **Signale** ein-/ausblenden, **Programmvariablen** hinzufügen (`"Daten".Wert`, `%MW10`,
+    `"Lager".Fach[2].Teil`) – Bool als Stufe, Zahlen als Linie, Aufzeichnung mit 1 ms
+  - **Trigger** auf ein Signal: steigende/fallende Flanke oder Wert `=`, `>`, `<`; **Vorlauf** und
+    **Nachlauf** in ms; „Scharf schalten“ wartet ab jetzt, nach dem Auslösen bleibt das Fenster
+    stehen (Triggerlinie), „Freigeben“ kehrt zur laufenden Anzeige zurück
+- Kern: `LevelRun.traceVariable` (auch im Web Worker des Sandkastens)
+- 700 Tests
+
 ## M9b – Beobachten im SCL- und FUP-Editor (2026-11-03)
 
 - SCL: Bedingungen von `IF`/`ELSIF`/`WHILE`/`UNTIL` werden wie in TIA eingefärbt – erfüllt grün,

@@ -33,6 +33,7 @@ import {
   saveMeta,
 } from '../state/layouts';
 import { plantOf } from '../sim/types';
+import { traceTarget } from '../state/online';
 import { LevelScreen, type PlantSlot, type SlotContext } from './LevelScreen';
 import { useCommand, useWindowTitle } from '../state/commands';
 import { FILE_TYPES, platform, platformFileName } from '@zyklus/platform';
@@ -374,8 +375,13 @@ export function SandboxScreen({
         },
       ];
     },
-    simBody: ({ run }) => (
-      <LogicAnalyzer level={level} run={run} signals={signals ?? level.devices.map((d) => d.id)} />
+    simBody: ({ run, solution }) => (
+      <LogicAnalyzer
+        level={level}
+        run={run}
+        signals={signals ?? level.devices.map((d) => d.id)}
+        resolveVariable={(text) => traceTarget(solution, text)}
+      />
     ),
     menu: () => [
       { label: t('anlage.mine'), onSelect: () => setDialog(true) },

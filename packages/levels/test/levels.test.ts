@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  LevelRun,
   analyzeBoard,
   syncDeviceTags,
   verifySolution,
@@ -512,5 +513,19 @@ describe('Forcen bei der Prüfung', () => {
     const v = verifySolution(level, solution, c.programs, c.size, { cpu1: [['%Q0.0', true]] });
     expect(v.passed).toBe(false);
     expect(v.runs[0]!.criteria.map((x) => x.name.de)).toContain('Keine Forceaufträge aktiv');
+  });
+});
+
+describe('Trace von Programmvariablen', () => {
+  it('zeichnet eine Variable als Spur auf', () => {
+    const level = levelById('05-zaehler')!;
+    const solution = reference(level);
+    const c = compileSolution(level, solution);
+    const run = new LevelRun(level, solution, c.programs, { test: level.tests[0], seed: 1 });
+    run.traceVariable('var.zaehler', { cpu: 'cpu1', target: { address: '%Q0.0' } });
+    run.runToEnd();
+    const trace = run.traces.get('var.zaehler')!;
+    expect(trace.length).toBeGreaterThan(1);
+    expect(trace).toEqual(run.traces.get('H1'));
   });
 });

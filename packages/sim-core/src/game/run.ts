@@ -105,6 +105,7 @@ export class LevelRun {
         this.record(t);
         this.exchange();
         this.probe(t);
+        if (this.traceVars.size) this.recordVariables(t);
       },
     });
   }
@@ -199,6 +200,24 @@ export class LevelRun {
     const c = this.cpus.get(cpuId);
     c?.powerOff(this.sim.time);
     c?.powerOn(this.sim.time);
+  }
+
+  /** aufgezeichnete Programmvariablen (Trace): Spur → CPU und Ziel */
+  private readonly traceVars = new Map<
+    string,
+    { cpu: string; target: { address: string } | { slot: string } }
+  >();
+
+  /**
+   * Programmvariable ab jetzt aufzeichnen (Trace), Spur `key` in `traces`. Text bleibt außen vor;
+   * `undefined` beendet die Aufzeichnung.
+   */
+  traceVariable(
+    key: string,
+    spec: { cpu: string; target: { address: string } | { slot: string } } | undefined,
+  ): void {
+    if (spec) this.traceVars.set(key, spec);
+    else this.traceVars.delete(key);
   }
 
   /** Forceauftrag an einer E/A-Adresse einer CPU setzen bzw. mit `undefined` aufheben */
@@ -303,6 +322,19 @@ export class LevelRun {
 
   /** Variablenwerte für Kriterien `value` (nur vorhandene Variablen werden eingetragen) */
   readonly probes = new Map<string, Value | undefined>();
+
+  private recordVariables(t: number): void {
+    for (const [key, { cpu, target }] of this.traceVars) {
+      const c = this.cpus.get(cpu);
+      if (!c) continue;
+      try {
+        const v = 'slot' in target ? c.readSlot(target.slot) : c.readImage(target.address);
+        if (typeof v !== 'string') this.push(key, t, v);
+      } catch {
+        this.traceVars.delete(key);
+      }
+    }
+  }
 
   private probe(t: number): void {
     for (const c of this.opts.test?.checks ?? []) {

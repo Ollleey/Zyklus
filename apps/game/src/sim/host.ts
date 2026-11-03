@@ -66,6 +66,9 @@ export class SimHost {
       case 'powerCycle':
         run.powerCycle(cmd.cpu);
         break;
+      case 'traceVar':
+        run.traceVariable(cmd.key, cmd.spec);
+        break;
       case 'cpuForce':
         run.setForce(cmd.cpu, cmd.address, cmd.value);
         break;

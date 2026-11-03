@@ -44,6 +44,7 @@ import {
   parseValue,
   resolveOperand,
   saveOnline,
+  traceTarget,
   type OnlineState,
   type Target,
 } from '../state/online';
@@ -463,7 +464,12 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                 gridTemplateColumns: `minmax(0, ${1 - plantW}fr) 6px minmax(0, ${plantW}fr)`,
               }}
             >
-              <LogicAnalyzer level={level} run={run} test={test} />
+              <LogicAnalyzer
+                level={level}
+                run={run}
+                test={test}
+                resolveVariable={(text) => traceTarget(solution, text)}
+              />
               <Splitter
                 dir="x"
                 label={t('layout.splitPlant')}
