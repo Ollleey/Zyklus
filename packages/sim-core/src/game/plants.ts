@@ -332,6 +332,56 @@ class Drive implements Plant {
   }
 }
 
+/**
+ * Positionierachse mit Inkrementalgeber. Eilgang (`motor`) und Schleichgang (`creep`) fahren
+ * vorwärts, `back` kehrt die Richtung um; Beschleunigen und Bremsen mit `accel` (mm/s²).
+ * Der Geber liefert `ppm` Impulse je mm (Rechteck, eine steigende Flanke je Impuls).
+ * params: motor, creep?, back?, encoder, ppm (1), fast (200 mm/s), slow (20 mm/s),
+ *         accel (1000 mm/s²), pos0 (0)
+ */
+class Axis implements Plant {
+  private pos: number;
+  private speed = 0;
+  private readonly ids: { motor: string; creep?: string; back?: string; encoder: string };
+  private readonly ppm: number;
+  private readonly fast: number;
+  private readonly slow: number;
+  private readonly accel: number;
+
+  constructor(p: Params) {
+    this.ids = {
+      motor: String(p.motor),
+      encoder: String(p.encoder),
+      ...(p.creep ? { creep: String(p.creep) } : {}),
+      ...(p.back ? { back: String(p.back) } : {}),
+    };
+    this.ppm = Number(p.ppm ?? 1);
+    this.fast = Number(p.fast ?? 200);
+    this.slow = Number(p.slow ?? 20);
+    this.accel = Number(p.accel ?? 1000);
+    this.pos = Number(p.pos0 ?? 0);
+  }
+
+  inputs() {
+    const n = Math.floor(2 * this.pos * this.ppm + EPS);
+    return { [this.ids.encoder]: ((n % 2) + 2) % 2 === 1 };
+  }
+
+  step(_t: number, out: Record<string, Value>) {
+    const on = (id?: string) => id !== undefined && out[id] === true;
+    const dir = on(this.ids.back) ? -1 : 1;
+    const target = on(this.ids.motor) ? this.fast * dir : on(this.ids.creep) ? this.slow * dir : 0;
+    const dv = this.accel / 1000;
+    if (this.speed < target) this.speed = Math.min(target, this.speed + dv);
+    else if (this.speed > target) this.speed = Math.max(target, this.speed - dv);
+    this.pos += this.speed / 1000;
+  }
+
+  state() {
+    return { pos: Math.round(this.pos * 10) / 10, speed: Math.round(this.speed) };
+  }
+}
+
 export type PlantFactory = (p: Params, level: Level, seed: number) => Plant;
 
 const MODELS: Record<string, PlantFactory> = {
@@ -341,6 +391,7 @@ const MODELS: Record<string, PlantFactory> = {
   sorter: (p) => new Sorter(p),
   thermal: (p, l) => new Thermal(p, l),
   drive: (p, l) => new Drive(p, l),
+  axis: (p) => new Axis(p),
 };
 
 /** Weitere Anlagenmodelle anmelden (z. B. die frei gebaute Anlage aus `@zyklus/plant-sim`). */

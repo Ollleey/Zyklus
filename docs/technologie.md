@@ -58,6 +58,38 @@ Td = 0. Danach regelt er in Automatik weiter. Die ermittelten Werte stehen im In
 Tipps: TuneHyst etwas größer als das Rauschen des Istwerts wählen. Bei langsamen Strecken dauert
 die Optimierung mehrere Minuten Anlagenzeit – im Testpult mit ×10 oder ×100 laufen lassen.
 
+## Schneller Zähler (HSC)
+
+Auf der **DI 8 HF** lässt sich Kanal 0 als schneller Zähler einstellen (Baugruppe im Schaltschrank
+anklicken, „Kanal 0 als schneller Zähler“). Die Baugruppe zählt dann jede steigende Flanke im
+1-ms-Raster – unabhängig vom Zyklus und von der Eingangsverzögerung.
+
+| Adresse (Standard) | Inhalt                                            |
+| ------------------ | ------------------------------------------------- |
+| `%ID112`           | Zählwert (DInt), läuft bei 2³¹ über               |
+| `%Q112.0`          | 1 = Zähler auf 0 setzen (solange das Bit ansteht) |
+
+Die Byteadresse ist einstellbar (0…124). Der Kanal bleibt zusätzlich ein normaler Eingang
+(`%I…0` mit Eingangsverzögerung), ein Prozessalarm ist weiterhin möglich.
+
+```
+%Q112.0 := "Start" AND NOT "Start_alt";   // mit der Startflanke zurücksetzen
+"Start_alt" := "Start";
+"Ventil" := %ID112 < 120;
+```
+
+## PWM und PTO (DQ 4 HF)
+
+Jeder Kanal der **DQ 4 HF** ist ein normaler Ausgang oder ein schneller Ausgang, dessen Signal die
+Baugruppe selbst erzeugt. Das Programm schreibt nur ein **Stellwort** je Kanal (Standard ab
+`%QW120`, Kanal n bei `%QW120 + 2·n`, Anfangsadresse einstellbar):
+
+- **PWM:** feste Periodendauer (ms, im Schaltschrank), Tastverhältnis aus dem Stellwort in
+  Promille (0…1000). `%QW120 := 250;` → 25 % ein.
+- **PTO:** Impulsfolge mit der Frequenz aus dem Stellwort in Hz (0…500), Tastverhältnis 50 %.
+
+Bei CPU-STOP sind schnelle Ausgänge aus. Das Prozessabbild-Bit des Kanals hat keine Wirkung.
+
 ## NORM_X und SCALE_X
 
 Skalierung als Box-Paar (FUP/KOP unter Übertragen, in SCL als Funktion):

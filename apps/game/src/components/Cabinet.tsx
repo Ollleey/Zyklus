@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  HSC_BASE,
   MODULE_TYPES,
+  PULSE_BASE,
   RANGE_LABEL,
   channelInfo,
   channelKindAt,
@@ -14,6 +16,7 @@ import {
   type Device,
   type Level,
   type ModuleConfig,
+  type PulseConfig,
   type Solution,
 } from '@zyklus/sim-core';
 import { t } from '../i18n';
@@ -805,6 +808,87 @@ function ModuleInspector({
           {t('cabinet.diag')}
         </label>
       )}
+      {mt.alarms && (
+        <label className="inspector-field" title={t('cabinet.hscHint')}>
+          <input
+            type="checkbox"
+            checked={cfg.hsc !== undefined}
+            onChange={(e) => onConfig({ hsc: e.target.checked ? HSC_BASE : undefined })}
+          />
+          {t('cabinet.hsc')}
+          {cfg.hsc !== undefined && (
+            <>
+              {' '}
+              %ID
+              <input
+                type="number"
+                min={0}
+                max={124}
+                className="inspector-num"
+                value={cfg.hsc}
+                onChange={(e) => onConfig({ hsc: Math.min(124, num(e.target.value) ?? HSC_BASE) })}
+              />
+            </>
+          )}
+        </label>
+      )}
+      {mt.pulse && (
+        <label className="inspector-field" title={t('cabinet.pulseHint')}>
+          {t('cabinet.pulseAddress')} %QW
+          <input
+            type="number"
+            min={0}
+            max={126}
+            step={2}
+            className="inspector-num"
+            placeholder={String(PULSE_BASE)}
+            value={cfg.pulseAddress ?? ''}
+            onChange={(e) => onConfig({ pulseAddress: num(e.target.value) })}
+          />
+        </label>
+      )}
+      {mt.pulse &&
+        all.map((ch) => {
+          const p = cfg.pulse?.[ch];
+          const set = (next: PulseConfig | undefined) => {
+            const pulse = { ...cfg.pulse };
+            if (next) pulse[ch] = next;
+            else delete pulse[ch];
+            onConfig({ pulse: Object.keys(pulse).length ? pulse : undefined });
+          };
+          return (
+            <label key={`p${ch}`} className="inspector-field">
+              DQ {ch}
+              <select
+                value={p?.mode ?? 'off'}
+                onChange={(e) =>
+                  set(
+                    e.target.value === 'off'
+                      ? undefined
+                      : { ...p, mode: e.target.value as PulseConfig['mode'] },
+                  )
+                }
+              >
+                <option value="off">{t('cabinet.pulse.off')}</option>
+                <option value="pwm">{t('cabinet.pulse.pwm')}</option>
+                <option value="pto">{t('cabinet.pulse.pto')}</option>
+              </select>
+              {p?.mode === 'pwm' && (
+                <>
+                  <input
+                    type="number"
+                    min={2}
+                    className="inspector-num"
+                    value={p.period ?? 100}
+                    aria-label={t('cabinet.pulse.period')}
+                    onChange={(e) => set({ ...p, period: Math.max(2, num(e.target.value) ?? 100) })}
+                  />
+                  ms
+                </>
+              )}
+            </label>
+          );
+        })}
       {analogChannels.map((ch) => {
         const info = channelInfo(mt, ch)!;
         const wire = solution.wires.find((w) => w.module === m.id && w.channel === ch);

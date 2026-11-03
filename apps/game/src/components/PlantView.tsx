@@ -233,6 +233,16 @@ export function PlantView({
             wrong={num(traces?.get('plant.wrong'), 0)}
           />
         )}
+        {type === 'axis' && (
+          <AxisView
+            pos={num(traces?.get('plant.pos'), 0)}
+            length={Number(level.plant?.params?.length ?? 1000)}
+            targets={(level.plant?.params?.targets as number[] | undefined) ?? []}
+            fast={on(param('motor'))}
+            slow={on(param('creep'))}
+            back={on(param('back'))}
+          />
+        )}
         {type === 'thermal' && (
           <Thermal
             temp={num(traces?.get('plant.temp'), 20)}
@@ -851,6 +861,54 @@ function DriveView({
           {overload}× gekippt
         </text>
       )}
+    </g>
+  );
+}
+
+/** Positionierachse: Schlitten auf der Führung, Zielmarken, Positionsanzeige */
+function AxisView({
+  pos,
+  length,
+  targets,
+  fast,
+  slow,
+  back,
+}: {
+  pos: number;
+  length: number;
+  targets: number[];
+  fast: boolean;
+  slow: boolean;
+  back: boolean;
+}) {
+  const x = (mm: number) => 30 + (Math.max(0, Math.min(length, mm)) / length) * 340;
+  return (
+    <g>
+      <rect x={20} y={88} width={360} height={8} rx={2} className="ceiling" />
+      {targets.map((t) => (
+        <g key={t}>
+          <line x1={x(t)} y1={70} x2={x(t)} y2={104} className="cord" />
+          <text x={x(t)} y={118} className="plant-label">
+            {t}
+          </text>
+        </g>
+      ))}
+      <rect
+        x={x(pos) - 14}
+        y={66}
+        width={28}
+        height={22}
+        rx={3}
+        className={`bulb ${fast || slow ? 'bulb-on' : ''}`}
+      />
+      <rect x={20} y={14} width={130} height={40} rx={4} className="display" />
+      <text x={85} y={42} className="display-text">
+        {pos.toFixed(1)} mm
+      </text>
+      <text x={300} y={34} className="plant-label">
+        {fast ? 'Eilgang' : slow ? 'Schleichgang' : 'steht'}
+        {(fast || slow) && back ? ' ←' : fast || slow ? ' →' : ''}
+      </text>
     </g>
   );
 }

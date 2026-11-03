@@ -56,6 +56,25 @@ export interface ModuleConfig {
   systemByte?: number;
   /** nur CPU: Taktmerkerbyte (Bit 0 = 10 Hz … Bit 7 = 0,5 Hz) */
   clockByte?: number;
+  /**
+   * nur DI 8 HF: schneller Zähler an Kanal 0 – Byteadresse des Zählwerts (%ID, DInt);
+   * dasselbe Byte im Ausgangsbereich, Bit 0, setzt den Zähler zurück (%Q<n>.0). Fehlt: aus.
+   */
+  hsc?: number;
+  /** nur DQ 4 HF: Betriebsart je Kanal; PWM mit Periodendauer in ms */
+  pulse?: Record<number, PulseConfig>;
+  /** nur DQ 4 HF: Byteadresse des Stellworts von Kanal 0 (%QW, Standard 120) */
+  pulseAddress?: number;
+}
+
+/**
+ * Schneller Ausgang: PWM – Tastverhältnis aus dem Stellwort in Promille (0…1000) bei fester
+ * Periodendauer; PTO – Impulsfolge mit der Frequenz aus dem Stellwort in Hz (0…500).
+ */
+export interface PulseConfig {
+  mode: 'pwm' | 'pto';
+  /** PWM: Periodendauer in ms (Standard 100) */
+  period?: number;
 }
 
 /** Wählbare Eingangsverzögerungen in ms wie bei S7-1500-Digitaleingängen */

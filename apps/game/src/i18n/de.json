@@ -379,5 +379,13 @@
   "db.library": "Technologie",
   "db.config": "Konfiguration (Startwerte)",
   "db.default": "Vorgabe",
-  "db.startValue": "Startwert"
+  "db.startValue": "Startwert",
+  "cabinet.hsc": "Kanal 0 als schneller Zähler (HSC)",
+  "cabinet.hscHint": "Zählt jede steigende Flanke an Kanal 0 unabhängig vom Zyklus. Zählwert als DInt im Eingangsbereich, Bit 0 desselben Bytes im Ausgangsbereich setzt zurück (z. B. %ID112 / %Q112.0).",
+  "cabinet.pulseAddress": "Stellwörter ab",
+  "cabinet.pulseHint": "Stellwort je Kanal (2 Byte): PWM Tastverhältnis in Promille (0…1000), PTO Frequenz in Hz (0…500).",
+  "cabinet.pulse.off": "Standardausgang",
+  "cabinet.pulse.pwm": "PWM",
+  "cabinet.pulse.pto": "PTO (Impulsfolge)",
+  "cabinet.pulse.period": "Periodendauer"
 }

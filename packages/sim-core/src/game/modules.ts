@@ -30,14 +30,21 @@ export interface ModuleType {
   cpu?: CpuType;
   /** Relaisausgang: Ansprech- und Abfallverzögerung in ms */
   delay?: { on: number; off: number };
-  /** Eingänge können einen Prozessalarm (OB40) auslösen */
+  /** Eingänge können einen Prozessalarm (OB40) auslösen; Kanal 0 als schneller Zähler (HSC) */
   alarms?: boolean;
+  /** Ausgänge als PWM/PTO einstellbar */
+  pulse?: boolean;
   description: Text;
 }
 
 /** Koppelmodul: Sende-/Empfangswörter je CPU (wie PUT/GET, 1 Zyklus Latenz) */
 export const COUPLER_WORDS = 2;
 export const COUPLER_BASE = 100;
+
+/** Schneller Zähler: Standardadresse des Zählwerts (%ID) bzw. Rücksetzbits (%Q…0) */
+export const HSC_BASE = 112;
+/** PWM/PTO: Standardadresse des ersten Stellworts (%QW, je Kanal 2 Byte) */
+export const PULSE_BASE = 120;
 
 /** Rasterschritt der Hutschiene in mm */
 export const TE_MM = 15;
@@ -81,7 +88,19 @@ export const MODULE_TYPES: Record<string, ModuleType> = {
     channels: 8,
     alarms: true,
     description: {
-      de: '8 schnelle digitale Eingänge; jede Flanke kann einen Prozessalarm (OB40) auslösen.',
+      de: '8 schnelle digitale Eingänge; jede Flanke kann einen Prozessalarm (OB40) auslösen. Kanal 0 lässt sich als schneller Zähler (HSC) einstellen, der jede Flanke unabhängig vom Zyklus zählt.',
+    },
+  },
+  dq4hf: {
+    id: 'dq4hf',
+    name: { de: 'DQ 4 HF' },
+    kind: 'do',
+    width: 1,
+    price: 4,
+    channels: 4,
+    pulse: true,
+    description: {
+      de: '4 schnelle digitale Ausgänge; je Kanal als Pulsweitenmodulation (PWM) oder Impulsfolge (PTO) einstellbar – das Ausgangssignal erzeugt die Baugruppe selbst, unabhängig vom Zyklus.',
     },
   },
   kop: {

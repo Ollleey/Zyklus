@@ -1,5 +1,17 @@
 # Changelog
 
+## M12b – Schneller Zähler, PWM/PTO, Positionierachse (2026-11-03)
+
+- **HSC auf DI 8 HF**: Kanal 0 zählt jede steigende Flanke im 1-ms-Raster, unabhängig von
+  Zyklus und Eingangsverzögerung; Zählwert `%ID112` (DInt), Rücksetzen mit `%Q112.0`, Adresse
+  einstellbar – Auftrag 14 ist damit auch ohne Prozessalarm lösbar
+- Neue Baugruppe **DQ 4 HF**: je Kanal Standardausgang, **PWM** (Periodendauer in ms,
+  Tastverhältnis in Promille aus `%QW120…`) oder **PTO** (Impulsfolge 0…500 Hz)
+- Anlagenmodell **Positionierachse** (`axis`): Eilgang, Schleichgang, Richtung, Rampe,
+  Inkrementalgeber; Darstellung mit Schlitten, Zielmarken und Positionsanzeige
+- Schaltschrank: Einstellungen für HSC und PWM/PTO im Baugruppen-Inspektor
+- 751 Tests
+
 ## M12a – Technologie-Bibliothek, PID_Compact (2026-11-03)
 
 - **Technologie-Bibliothek**: fertige, geschützte FBs, die der Compiler dazunimmt, sobald ein

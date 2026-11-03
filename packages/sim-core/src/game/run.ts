@@ -2,7 +2,7 @@ import { Cpu } from '../cpu';
 import type { IrProgram } from '../ir';
 import { Simulation } from '../simulation';
 import type { Value } from '../types';
-import { analyzeBoard, type BoardAnalysis, type Solution } from './board';
+import { analyzeBoard, type BoardAnalysis, type PulseConfig, type Solution } from './board';
 import {
   probeKey,
   type Device,
@@ -11,7 +11,7 @@ import {
   type ModuleFaultKind,
   type TestCase,
 } from './level';
-import { COUPLER_BASE, COUPLER_WORDS, moduleType } from './modules';
+import { COUPLER_BASE, COUPLER_WORDS, HSC_BASE, PULSE_BASE, moduleType } from './modules';
 import { createPlant, type Plant } from './plants';
 import {
   AnalogDisturbance,
@@ -242,9 +242,11 @@ export class LevelRun {
     if (b.mismatch && d.kind === 'AO') return 0;
     const cpu = this.cpus.get(b.cpu)!;
     if (this.moduleDead(b.module, this.sim.time)) return d.kind === 'AO' ? 0 : false;
+    const cfg = this.solution.config?.[b.module];
+    const pulse = cfg?.pulse?.[b.channel];
+    if (pulse && d.kind === 'DO') return this.pulseOutput(cpu, b.module, b.channel, pulse);
     const v = cpu.read(b.address, b.t);
     // Verhalten der Ausgangsbaugruppe bei CPU-STOP (ohne Spannung ist alles aus)
-    const cfg = this.solution.config?.[b.module];
     if (cpu.mode === 'STOP' && cpu.isPowered && cfg?.onStop && cfg.onStop !== 'off') {
       if (cfg.onStop === 'hold') return this.lastRun.get(d.id) ?? v;
       const s = cfg.substitute?.[b.channel];
@@ -252,6 +254,49 @@ export class LevelRun {
     }
     if (cpu.mode === 'RUN') this.lastRun.set(d.id, v);
     return v;
+  }
+
+  /** PWM/PTO-Kanal: Signal erzeugt die Baugruppe aus dem Stellwort (nur in RUN) */
+  private pulseOutput(cpu: Cpu, module: string, ch: number, p: PulseConfig): boolean {
+    if (cpu.mode !== 'RUN' || !moduleType(this.moduleTypeOf(module)).pulse) return false;
+    const base = this.solution.config?.[module]?.pulseAddress ?? PULSE_BASE;
+    const w = Number(cpu.read(`%QW${base + 2 * ch}`, 'INT'));
+    const t = this.sim.time;
+    if (p.mode === 'pwm') {
+      const period = Math.max(2, p.period ?? 100);
+      const duty = Math.max(0, Math.min(1000, w)) / 1000;
+      return t % period < period * duty;
+    }
+    const f = Math.max(0, Math.min(500, w));
+    if (f === 0) return false;
+    const period = 1000 / f;
+    return t % period < period / 2;
+  }
+
+  private moduleTypeOf(id: string): string {
+    return this.solution.modules.find((m) => m.id === id)?.type ?? '';
+  }
+
+  /** schnelle Zähler je Baugruppe (DI 8 HF, Kanal 0): Zählwert und letzter Pegel */
+  private readonly counters = new Map<string, { count: number; last: boolean }>();
+
+  /** HSC: zählt jede steigende Flanke im ms-Raster, unabhängig von Zyklus und Eingangsverzögerung */
+  private countHsc(d: Device, raw: boolean | number, t: number): void {
+    const b = this.analysis.bindings.get(d.id);
+    if (!b || b.channel !== 0) return;
+    const addr = this.solution.config?.[b.module]?.hsc;
+    if (addr === undefined || !moduleType(this.moduleTypeOf(b.module)).alarms) return;
+    let c = this.counters.get(b.module);
+    if (!c) {
+      c = { count: 0, last: raw === true };
+      this.counters.set(b.module, c);
+    }
+    const cpu = this.cpus.get(b.cpu)!;
+    const on = raw === true && !this.moduleDead(b.module, t) && !this.forces.has(d.id);
+    if (on && !c.last) c.count = (c.count + 1) | 0;
+    c.last = on;
+    if (cpu.mode === 'RUN' && cpu.read(`%Q${addr}.0`) === true) c.count = 0;
+    cpu.setInput(`%ID${addr}`, c.count, 'DINT');
   }
 
   /** Eingangsverzögerung: Zustand je Digitaleingang (stabiler Wert, neuer Wert seit) */
@@ -439,7 +484,9 @@ export class LevelRun {
     for (const d of this.devices) {
       let v: boolean | number;
       if (d.kind === 'DI') {
-        v = this.delayed(d, this.inputValue(d, t), t);
+        const raw = this.inputValue(d, t);
+        this.countHsc(d, raw, t);
+        v = this.delayed(d, raw, t);
       } else if (d.kind === 'AI') {
         const clean = toRaw(this.analogPhysical(d, t), d.analog!);
         const fault = faultAt(this.opts.test?.faults?.[d.id], t) ?? this.plant?.fault?.(d.id);
