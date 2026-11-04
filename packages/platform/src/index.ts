@@ -9,6 +9,7 @@ export * from './savegame';
 export const FILE_TYPES = {
   anlage: { name: 'ZYKLUS-Anlage', extensions: ['anlage', 'anlage.json'] },
   auftrag: { name: 'ZYKLUS-Auftrag', extensions: ['auftrag', 'auftrag.json'] },
+  szenario: { name: 'ZYKLUS-Szenario', extensions: ['szenario'] },
   loesung: { name: 'ZYKLUS-Lösung', extensions: ['zyklus.json'] },
   scl: { name: 'SCL-Quelle', extensions: ['scl'] },
   export: { name: 'Spielstand', extensions: ['json'] },

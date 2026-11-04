@@ -17,6 +17,7 @@ import { Coach } from '../components/plant/Coach';
 import { MyPlants } from '../components/plant/MyPlants';
 import { PublishDialog } from '../components/plant/PublishDialog';
 import { PlantEditor } from '../components/plant/PlantEditor';
+import { ScenarioPanel } from '../components/plant/ScenarioPanel';
 import { SignalsPanel } from '../components/plant/SignalsPanel';
 import { useHistory } from '../state/history';
 import { saveSolution } from '../state/persistence';
@@ -353,6 +354,19 @@ export function SandboxScreen({
                 if (!sim.running) sim.play();
               }}
               head={head}
+            />
+          ),
+        },
+        {
+          id: 'scenarios',
+          title: t('scenario.panel'),
+          render: () => (
+            <ScenarioPanel
+              layout={layout}
+              onChange={hist.set}
+              level={level}
+              ctx={ctx}
+              onPublish={() => setPublishing(true)}
             />
           ),
         },

@@ -8,6 +8,7 @@ import online from '../../../../docs/online.md?raw';
 import geraete from '../../../../docs/geraete.md?raw';
 import technologie from '../../../../docs/technologie.md?raw';
 import graph from '../../../../docs/graph.md?raw';
+import szenarien from '../../../../docs/szenarien.md?raw';
 import semantikEn from '../../../../docs/en/semantik.md?raw';
 import sclEn from '../../../../docs/en/scl.md?raw';
 import fupEn from '../../../../docs/en/fup.md?raw';
@@ -15,6 +16,7 @@ import onlineEn from '../../../../docs/en/online.md?raw';
 import geraeteEn from '../../../../docs/en/geraete.md?raw';
 import technologieEn from '../../../../docs/en/technologie.md?raw';
 import graphEn from '../../../../docs/en/graph.md?raw';
+import szenarienEn from '../../../../docs/en/szenarien.md?raw';
 import { categoryLabel } from '../components/FupEditor';
 import { boxDescription } from '../i18n/boxes-en';
 import { language, t, tx } from '../i18n';
@@ -105,6 +107,7 @@ const PAGES = [
   { id: 'geraete', title: 'Geräte und Fehler', en: 'Devices and faults' },
   { id: 'technologie', title: 'Technologie', en: 'Technology' },
   { id: 'graph', title: 'GRAPH (Schrittketten)', en: 'GRAPH (step sequences)' },
+  { id: 'szenarien', title: 'Szenarien', en: 'Scenarios' },
 ] as const;
 
 const pageTitle = (p: (typeof PAGES)[number]) => tx(p.title, p.en);
@@ -146,6 +149,7 @@ export function Handbook({ onBack }: { onBack: () => void }) {
           {page === 'geraete' && <Markdown text={en ? geraeteEn : geraete} joinLines />}
           {page === 'technologie' && <Markdown text={en ? technologieEn : technologie} joinLines />}
           {page === 'graph' && <Markdown text={en ? graphEn : graph} joinLines />}
+          {page === 'szenarien' && <Markdown text={en ? szenarienEn : szenarien} joinLines />}
           <footer className="paper-foot">
             {t('handbook.title')}, {tx('Seite', 'page')} {PAGES.findIndex((p) => p.id === page) + 1}
             : {pageTitle(PAGES.find((p) => p.id === page)!)}

@@ -1,4 +1,5 @@
 import type { ColorId, MaterialId, SizeId, WorkpieceSpec } from './materials';
+import type { Scenario } from './scenario';
 
 /**
  * Datenmodell einer frei gebauten Anlage. Alle Maße in mm, Zeiten in ms, Geschwindigkeiten in mm/s.
@@ -82,6 +83,8 @@ export interface Layout {
   seed: number;
   /** Größe der Arbeitsfläche */
   area: { w: number; h: number };
+  /** Szenarien (Prüfläufe mit Zeitleiste), im Sandkasten als Testfälle wählbar */
+  scenarios?: Scenario[];
 }
 
 export function emptyLayout(): Layout {

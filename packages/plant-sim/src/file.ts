@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CATALOG, boundsOf } from './catalog';
 import { COLORS, MATERIALS, SIZES } from './materials';
 import type { Layout, Part, PartType } from './model';
+import type { Scenario } from './scenario';
 import { levelFromLayout } from './plant';
 
 /**
@@ -57,6 +58,48 @@ const SpecSchema = z.object({
   size: z.enum(keys(SIZES)),
 });
 
+const t = z.number().min(0);
+const EventSchema = z
+  .discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('control'),
+      ref: z.string(),
+      value: z.union([z.number(), z.boolean()]),
+    }),
+    z.object({ kind: z.literal('fault'), ref: z.string(), fault: z.string(), until: t.optional() }),
+    z.object({ kind: z.literal('power'), until: t }),
+    z.object({ kind: z.literal('workpiece'), ref: z.string(), spec: SpecSchema }),
+    z.object({ kind: z.literal('magazine'), ref: z.string() }),
+    z.object({ kind: z.literal('tank'), ref: z.string(), level: z.number().min(0).max(100) }),
+  ])
+  .and(z.object({ at: t, jitter: t.optional() }));
+
+const RuleSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('sorted') }),
+  z.object({ kind: z.literal('noLoss') }),
+  z.object({ kind: z.literal('minIn'), bin: z.string(), n: z.number().int().min(1) }),
+  z.object({
+    kind: z.literal('tankRange'),
+    tank: z.string(),
+    min: z.number(),
+    max: z.number(),
+    fromMs: t,
+  }),
+  z.object({ kind: z.literal('exclusive'), a: z.string(), b: z.string() }),
+  z.object({ kind: z.literal('neverOn'), output: z.string() }),
+  z.object({ kind: z.literal('offFrom'), output: z.string(), fromMs: t }),
+  z.object({ kind: z.literal('onBetween'), output: z.string(), fromMs: t, toMs: t }),
+]);
+
+export const ScenarioSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().default('Szenario'),
+  durationMs: z.number().positive().max(600_000),
+  seeds: z.array(z.number().int().min(1)).default([]),
+  events: z.array(EventSchema).default([]),
+  rules: z.array(RuleSchema).default([]),
+});
+
 const LayoutSchema = z.object({
   formatVersion: z.literal(1).default(1),
   parts: z.array(PartSchema),
@@ -67,6 +110,7 @@ const LayoutSchema = z.object({
   area: z
     .object({ w: z.number().positive(), h: z.number().positive() })
     .default({ w: 2000, h: 1200 }),
+  scenarios: z.array(ScenarioSchema).optional(),
 });
 
 const SolutionSchema = z.object({
@@ -178,6 +222,7 @@ export function parseAnlageFile(text: string): ParsedAnlage {
   }
   const layout: Layout = { ...f.layout, parts } as Layout;
   if (!layout.workpieces) delete layout.workpieces;
+  if (!layout.scenarios?.length) delete layout.scenarios;
   const level = levelFromLayout(layout);
   const solution = upgradeSolution(level, f.solution);
   if (!solution)
@@ -226,11 +271,48 @@ export function toAnlageFile(data: Omit<AnlageFile, 'format' | 'formatVersion'>)
         : {}),
       seed: l.seed,
       area: { w: l.area.w, h: l.area.h },
+      ...(l.scenarios?.length ? { scenarios: l.scenarios } : {}),
     },
     solution: data.solution,
     sim: { speed: data.sim.speed, signals: data.sim.signals },
   };
   return JSON.stringify(file, null, 2);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Szenario als eigene Datei (*.szenario): zum Weitergeben ohne Anlage, passt auf gleiche Kennzeichen
+// ---------------------------------------------------------------------------------------------
+
+export const SZENARIO_FORMAT = 'zyklus-szenario';
+
+const ScenarioFileSchema = z.object({
+  format: z.literal(SZENARIO_FORMAT),
+  formatVersion: z.literal(1),
+  scenario: ScenarioSchema,
+});
+
+export function toScenarioFile(s: Scenario): string {
+  return JSON.stringify({ format: SZENARIO_FORMAT, formatVersion: 1, scenario: s }, null, 2);
+}
+
+export type ParsedScenario = { ok: true; scenario: Scenario } | { ok: false; error: string };
+
+export function parseScenarioFile(text: string): ParsedScenario {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return { ok: false, error: 'Die Datei ist kein gültiges JSON.' };
+  }
+  const r = ScenarioFileSchema.safeParse(data);
+  if (!r.success) {
+    const o = data as Record<string, unknown> | null;
+    if (typeof o !== 'object' || o === null || o.format !== SZENARIO_FORMAT)
+      return { ok: false, error: 'Das ist keine ZYKLUS-Szenariodatei (*.szenario).' };
+    const lines = r.error.issues.slice(0, 5).map((i) => message(i, data));
+    return { ok: false, error: `Die Datei ist fehlerhaft:\n${lines.join('\n')}` };
+  }
+  return { ok: true, scenario: r.data.scenario as Scenario };
 }
 
 /** Dateiname aus dem Anlagennamen */

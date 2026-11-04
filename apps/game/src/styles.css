@@ -3371,6 +3371,122 @@ fieldset.iface-sections {
 .publish-ok {
   color: var(--green);
 }
+
+/* Szenario-Editor (Sandkasten) */
+.scenario-panel {
+  padding: var(--s-2) var(--s-3);
+  overflow: auto;
+  height: 100%;
+}
+.scenario-panel h4 {
+  margin: var(--s-3) 0 var(--s-1);
+  font-size: var(--t-sm);
+  color: var(--muted);
+}
+.scenario-panel .pe-field input,
+.scenario-panel .publish-row input,
+.scenario-panel .publish-row select {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font: inherit;
+  color: inherit;
+}
+.sz-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: var(--s-2);
+}
+.sz-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-right: auto;
+}
+.sz-empty,
+.sz-hint {
+  font-size: var(--t-sm);
+  max-width: 70ch;
+}
+.publish-row input.sz-sec {
+  width: 64px;
+}
+.sz-event select[aria-invalid='true'],
+.publish-row select[aria-invalid='true'] {
+  border-color: var(--red);
+}
+.sz-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: var(--s-2) 0;
+}
+.sz-timeline {
+  width: 100%;
+  height: 46px;
+  display: block;
+  margin-top: var(--s-2);
+}
+.sz-track {
+  fill: var(--panel-2);
+  stroke: var(--line);
+}
+.sz-tick {
+  stroke: var(--line-strong);
+}
+.sz-ticktext {
+  fill: var(--muted);
+  font-size: 9px;
+  font-family: var(--mono);
+}
+.sz-mark {
+  fill: currentColor;
+}
+.sz-span {
+  fill: currentColor;
+  opacity: 0.35;
+}
+.sz-jitter {
+  fill: currentColor;
+  opacity: 0.18;
+}
+.sz-now {
+  stroke: var(--amber);
+  stroke-width: 2;
+}
+.sz-c-control {
+  color: var(--teal);
+}
+.sz-c-fault {
+  color: var(--red);
+}
+.sz-c-power {
+  color: var(--warn);
+}
+.sz-c-workpiece {
+  color: var(--green);
+}
+.sz-c-tank {
+  color: var(--do);
+}
+.sz-results {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: var(--t-sm);
+}
+.sz-results ul {
+  padding-left: 14px;
+  margin: 2px 0;
+}
+.sz-ok {
+  color: var(--green);
+}
+.sz-bad {
+  color: var(--red);
+}
 .custom-head {
   display: flex;
   align-items: center;

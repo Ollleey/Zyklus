@@ -414,6 +414,19 @@ export class World {
     return (this.st(tank).volume / num(tank.params, 'volume', 100)) * 100;
   }
 
+  /** Füllstand eines Tanks setzen (Szenario: Leck, Nachfüllen) in % */
+  setLevel(tank: Part, percent: number): void {
+    this.st(tank).volume =
+      (num(tank.params, 'volume', 100) * Math.max(0, Math.min(100, percent))) / 100;
+  }
+
+  /** Werkstück von oben auf ein Bauteil fallen lassen (Szenario) */
+  dropOn(p: Part, spec: WorkpieceSpec): Workpiece {
+    const h = CATALOG[p.type].size(p.params).h;
+    this.spawned++;
+    return this.addWorkpiece(spec, p.x, p.y, p.z + h + 20);
+  }
+
   remaining(p: Part): number {
     const list = p.params.list;
     if (!p.params.random && Array.isArray(list) && list.length)

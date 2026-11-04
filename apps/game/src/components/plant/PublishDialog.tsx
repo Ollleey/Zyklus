@@ -1,16 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { verifySolution, type Level, type Solution, type Verification } from '@zyklus/sim-core';
 import { compileSolution } from '@zyklus/levels';
-import {
-  connectionsOf,
-  publishLevel,
-  ruleText,
-  type ControlStep,
-  type Layout,
-  type PublishTest,
-  type Rule,
-} from '@zyklus/plant-sim';
-import { t, tx } from '../../i18n';
+import { eventsFromControls, publishLevel, type Layout, type PublishTest } from '@zyklus/plant-sim';
+import { t } from '../../i18n';
+import { EventList, RuleList, defaultEvent, refsOf } from './ScenarioParts';
 import { putCustomLevel, toAuftragFile } from '../../state/customLevels';
 import { FILE_TYPES, platform, platformFileName } from '@zyklus/platform';
 
@@ -23,56 +16,34 @@ interface Props {
   onPublished: (level: Level) => void;
 }
 
-const RULE_KINDS: Rule['kind'][] = [
-  'sorted',
-  'noLoss',
-  'minIn',
-  'tankRange',
-  'exclusive',
-  'neverOn',
-];
-
-function defaultRule(kind: Rule['kind'], bins: string[], tanks: string[], outputs: string[]): Rule {
-  switch (kind) {
-    case 'minIn':
-      return { kind, bin: bins[0] ?? '', n: 5 };
-    case 'tankRange':
-      return { kind, tank: tanks[0] ?? '', min: 30, max: 80, fromMs: 20000 };
-    case 'exclusive':
-      return { kind, a: outputs[0] ?? '', b: outputs[1] ?? outputs[0] ?? '' };
-    case 'neverOn':
-      return { kind, output: outputs[0] ?? '' };
-    default:
-      return { kind } as Rule;
-  }
-}
-
 /** Anlage als Auftrag veröffentlichen: Angaben, Testfälle, Probelauf mit der eigenen Lösung */
 export function PublishDialog({ layout, solution, name, author, onClose, onPublished }: Props) {
-  const bins = layout.parts.filter((p) => p.type === 'bin').map((p) => p.tag);
-  const tanks = layout.parts.filter((p) => p.type === 'tank').map((p) => p.tag);
-  const controls = layout.parts.filter((p) =>
-    ['button', 'switch', 'estop', 'selector', 'poti'].includes(p.type),
-  );
-  const outputs = connectionsOf(layout)
-    .filter((c) => c.device.kind === 'DO')
-    .map((c) => c.device.label!);
+  const refs = refsOf(layout);
 
   const [title, setTitle] = useState(name);
   const [customer, setCustomer] = useState(author || 'Eigene Werkstatt');
   const [mail, setMail] = useState('');
   const [notes, setNotes] = useState('');
-  const [tests, setTests] = useState<PublishTest[]>(() => [
-    {
-      name: 'Normalbetrieb',
-      durationMs: 60000,
-      seeds: [layout.seed],
-      controls: controls[0]
-        ? [[100, controls[0].tag, controls[0].type === 'selector' ? 2 : true]]
-        : [],
-      rules: bins.length ? [{ kind: 'sorted' }, { kind: 'noLoss' }] : [],
-    },
-  ]);
+  // Testfälle: die Szenarien der Anlage, sonst ein Normalbetrieb mit der ersten Bedienung
+  const [tests, setTests] = useState<PublishTest[]>(() =>
+    layout.scenarios?.length
+      ? layout.scenarios.map((s) => ({
+          name: s.name,
+          durationMs: s.durationMs,
+          seeds: s.seeds,
+          events: structuredClone(s.events),
+          rules: structuredClone(s.rules),
+        }))
+      : [
+          {
+            name: 'Normalbetrieb',
+            durationMs: 60000,
+            seeds: [layout.seed],
+            events: refs.controls.length ? [defaultEvent('control', 100, refs)] : [],
+            rules: refs.bins.length ? [{ kind: 'sorted' }, { kind: 'noLoss' }] : [],
+          },
+        ],
+  );
   const [result, setResult] = useState<Verification | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -222,203 +193,19 @@ export function PublishDialog({ layout, solution, name, author, onClose, onPubli
               </button>
             </div>
 
-            <h4>{t('publish.controls')}</h4>
-            {test.controls.map(([at, ref, value], k) => {
-              const part = controls.find((p) => p.tag === ref);
-              const set = (c: ControlStep) =>
-                setTest(i, { controls: test.controls.map((x, j) => (j === k ? c : x)) });
-              return (
-                <div key={k} className="publish-row">
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    value={at / 1000}
-                    aria-label={t('publish.at')}
-                    onChange={(e) =>
-                      set([Math.round((Number(e.target.value) || 0) * 1000), ref, value])
-                    }
-                  />
-                  <span>s</span>
-                  <select value={ref} onChange={(e) => set([at, e.target.value, value])}>
-                    {controls.map((p) => (
-                      <option key={p.id} value={p.tag}>
-                        {p.tag}
-                      </option>
-                    ))}
-                  </select>
-                  {part?.type === 'selector' ? (
-                    <select
-                      value={Number(value)}
-                      onChange={(e) => set([at, ref, Number(e.target.value)])}
-                    >
-                      <option value={0}>0</option>
-                      <option value={1}>{tx('Hand', 'Manual')}</option>
-                      <option value={2}>Auto</option>
-                    </select>
-                  ) : part?.type === 'poti' ? (
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={Number(value)}
-                      onChange={(e) => set([at, ref, Number(e.target.value) || 0])}
-                    />
-                  ) : (
-                    <select
-                      value={value ? '1' : '0'}
-                      onChange={(e) => set([at, ref, e.target.value === '1'])}
-                    >
-                      <option value="1">{t('publish.on')}</option>
-                      <option value="0">{t('publish.off')}</option>
-                    </select>
-                  )}
-                  <button
-                    className="icon-btn"
-                    aria-label={t('publish.remove')}
-                    onClick={() =>
-                      setTest(i, { controls: test.controls.filter((_, j) => j !== k) })
-                    }
-                  >
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
-            <button
-              className="btn btn-small"
-              disabled={!controls.length}
-              onClick={() =>
-                setTest(i, {
-                  controls: [
-                    ...test.controls,
-                    [test.controls.at(-1)?.[0] ?? 0, controls[0]!.tag, true],
-                  ],
-                })
-              }
-            >
-              + {t('publish.addControl')}
-            </button>
+            <h4>{t('publish.events')}</h4>
+            <EventList
+              layout={layout}
+              events={[...eventsFromControls(test.controls ?? []), ...(test.events ?? [])]}
+              onChange={(events) => setTest(i, { controls: [], events })}
+            />
 
             <h4>{t('publish.rules')}</h4>
-            {test.rules.map((rule, k) => {
-              const set = (r: Rule) =>
-                setTest(i, { rules: test.rules.map((x, j) => (j === k ? r : x)) });
-              return (
-                <div key={k} className="publish-row">
-                  <select
-                    value={rule.kind}
-                    onChange={(e) =>
-                      set(defaultRule(e.target.value as Rule['kind'], bins, tanks, outputs))
-                    }
-                  >
-                    {RULE_KINDS.map((kind) => (
-                      <option key={kind} value={kind}>
-                        {t(`publish.rule.${kind}` as never)}
-                      </option>
-                    ))}
-                  </select>
-                  {rule.kind === 'minIn' && (
-                    <>
-                      <select
-                        value={rule.bin}
-                        onChange={(e) => set({ ...rule, bin: e.target.value })}
-                      >
-                        {bins.map((b) => (
-                          <option key={b}>{b}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        value={rule.n}
-                        onChange={(e) =>
-                          set({ ...rule, n: Math.max(1, Number(e.target.value) || 1) })
-                        }
-                      />
-                    </>
-                  )}
-                  {rule.kind === 'tankRange' && (
-                    <>
-                      <select
-                        value={rule.tank}
-                        onChange={(e) => set({ ...rule, tank: e.target.value })}
-                      >
-                        {tanks.map((b) => (
-                          <option key={b}>{b}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        value={rule.min}
-                        onChange={(e) => set({ ...rule, min: Number(e.target.value) })}
-                      />
-                      <span>…</span>
-                      <input
-                        type="number"
-                        value={rule.max}
-                        onChange={(e) => set({ ...rule, max: Number(e.target.value) })}
-                      />
-                      <span>% ab</span>
-                      <input
-                        type="number"
-                        value={rule.fromMs / 1000}
-                        onChange={(e) =>
-                          set({ ...rule, fromMs: (Number(e.target.value) || 0) * 1000 })
-                        }
-                      />
-                      <span>s</span>
-                    </>
-                  )}
-                  {rule.kind === 'exclusive' && (
-                    <>
-                      {(['a', 'b'] as const).map((key) => (
-                        <select
-                          key={key}
-                          value={rule[key]}
-                          onChange={(e) => set({ ...rule, [key]: e.target.value })}
-                        >
-                          {outputs.map((o) => (
-                            <option key={o}>{o}</option>
-                          ))}
-                        </select>
-                      ))}
-                    </>
-                  )}
-                  {rule.kind === 'neverOn' && (
-                    <select
-                      value={rule.output}
-                      onChange={(e) => set({ ...rule, output: e.target.value })}
-                    >
-                      {outputs.map((o) => (
-                        <option key={o}>{o}</option>
-                      ))}
-                    </select>
-                  )}
-                  <span className="muted publish-rule-text">{ruleText(rule)}</span>
-                  <button
-                    className="icon-btn"
-                    aria-label={t('publish.remove')}
-                    onClick={() => setTest(i, { rules: test.rules.filter((_, j) => j !== k) })}
-                  >
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
-            <button
-              className="btn btn-small"
-              onClick={() =>
-                setTest(i, {
-                  rules: [
-                    ...test.rules,
-                    defaultRule(bins.length ? 'minIn' : 'neverOn', bins, tanks, outputs),
-                  ],
-                })
-              }
-            >
-              + {t('publish.addRule')}
-            </button>
+            <RuleList
+              layout={layout}
+              rules={test.rules}
+              onChange={(rules) => setTest(i, { rules })}
+            />
           </section>
         ))}
         <button

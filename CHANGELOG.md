@@ -1,5 +1,21 @@
 # Changelog
 
+## M15 – Szenario-Editor im Sandkasten (2026-11-04)
+
+- Neuer Tab **„Szenarien“**: Prüfläufe mit Zeitleiste – Bedienen, Störungen ein/aus (Sensor
+  dauernd 0/1, Drahtbruch, klemmt, Band blockiert), Stromausfall der Steuerung, Teil auf ein Bauteil
+  fallen lassen, Magazin auslösen, Füllstand setzen; Ereignisse bei 0 s legen den Startzustand fest
+- **Zufallsversatz** je Ereignis: je Seed reproduzierbar später, Störungsende wandert mit
+- **Abspielen** live in der Simulation (Auswahl „Freier Lauf“ / „Szenario: …“ in der Leiste),
+  **Prüfen** mit dem eigenen Programm je Seed und Regel
+- Szenarien liegen in der Anlage (auch in `.anlage`-Dateien) und einzeln als `.szenario`-Datei
+- Regeln „ab Zeitpunkt aus“ und „in Zeitraum an“; Regel- und Ereignistexte auf Deutsch und Englisch
+- **Als Auftrag veröffentlichen** übernimmt die Szenarien als Testfälle, das Datenblatt nennt den
+  Ablauf; ältere Aufträge mit Bedienfolge laufen unverändert
+- Neue Panels erscheinen auch bei gespeicherter Panel-Anordnung
+- Handbuch-Seite „Szenarien“ (Deutsch/Englisch)
+- 813 Tests
+
 ## Sprachwahl in der Desktop-App (2026-11-04)
 
 - „English“ blieb in der Desktop-App wirkungslos: die Wahl wurde verzögert in die Datei geschrieben,

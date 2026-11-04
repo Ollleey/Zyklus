@@ -10,3 +10,4 @@ export * from './file';
 export * from './templates';
 export * from './publish';
 export type * from './view';
+export * from './scenario';

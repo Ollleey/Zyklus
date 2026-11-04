@@ -10,7 +10,8 @@ import {
 } from '@zyklus/sim-core';
 import { connectionsOf, identifier, type Connection } from './devices';
 import { bool, num, type Layout, type Part } from './model';
-import type { ControlStep } from './publish';
+import { scenarioTests, type ControlStep } from './publish';
+import { resolveEvents, type PlantEvent, type ScenarioEvent } from './scenario';
 import { SENSOR_TYPES, detect } from './sensors';
 import { STEP_MS, World } from './world';
 
@@ -20,8 +21,10 @@ import { STEP_MS, World } from './world';
  */
 export class SandboxPlant implements Plant {
   readonly world: World;
+  readonly layout: Layout;
   private readonly conns: Connection[];
-  private readonly cutOutputs: Connection[];
+  /** Ausgänge; Drahtbruch kann ein Szenario im Lauf einschalten */
+  private readonly outputConns: Connection[];
   private cache: Record<string, number | boolean> = {};
   private ms = 0;
   /** Rohwert (ohne Ansprechzeit) und Ausgang je Sensor */
@@ -35,22 +38,28 @@ export class SandboxPlant implements Plant {
   /** Bedienfolge eines Prüflaufs (veröffentlichte Aufträge), nach Zeit sortiert */
   private readonly controls: ControlStep[];
   private nextControl = 0;
+  /** Zeitleiste eines Szenarios mit festen Zeitpunkten für diesen Seed */
+  private readonly events: PlantEvent[];
+  private nextEvent = 0;
 
   constructor(
-    readonly layout: Layout,
+    layout: Layout,
     seed = layout.seed,
     controls: ControlStep[] = [],
+    events: ScenarioEvent[] = [],
   ) {
     this.controls = [...controls].sort((a, b) => a[0] - b[0]);
+    this.events = resolveEvents(events, seed);
+    // Störungen wechseln im Lauf: eigene Kopie, damit die Anlage im Level unverändert bleibt
+    this.layout = this.events.some((e) => e.kind === 'fault') ? structuredClone(layout) : layout;
+    layout = this.layout;
     this.world = new World(layout, seed);
     this.stateKeys = layout.parts
       .filter((p) => p.type === 'bin' || p.type === 'tank')
       .map((p) => [p, identifier(p.tag)]);
     const all = connectionsOf(layout);
     this.conns = all.filter((c) => c.io.kind === 'DI' || c.io.kind === 'AI');
-    this.cutOutputs = all.filter(
-      (c) => (c.io.kind === 'DO' || c.io.kind === 'AO') && c.part.fault === 'drahtbruch',
-    );
+    this.outputConns = all.filter((c) => c.io.kind === 'DO' || c.io.kind === 'AO');
     for (const p of layout.parts) {
       if (!SENSOR_TYPES.has(p.type)) continue;
       const bounce = p.type === 'limit' && bool(p.params, 'bounce', true);
@@ -62,6 +71,8 @@ export class SandboxPlant implements Plant {
         ),
       );
     }
+    // Startzustand des Szenarios (Ereignisse bei 0 ms)
+    this.applyEvents(0);
     this.sense();
     this.refresh();
   }
@@ -70,16 +81,48 @@ export class SandboxPlant implements Plant {
     return this.cache;
   }
 
+  private control(ref: string, value: number | boolean): void {
+    const part = this.world.find(ref);
+    if (part?.type === 'estop' && !value) this.world.releaseEstop(ref);
+    else this.world.setControl(ref, value);
+  }
+
+  private applyEvents(t: number): void {
+    while (this.nextEvent < this.events.length && this.events[this.nextEvent]!.at <= t) {
+      const e = this.events[this.nextEvent++]!;
+      const part = this.world.find(e.ref);
+      if (!part) continue;
+      switch (e.kind) {
+        case 'control':
+          this.control(e.ref, e.value);
+          break;
+        case 'fault':
+          if (e.fault) part.fault = e.fault;
+          else delete part.fault;
+          break;
+        case 'workpiece':
+          this.world.dropOn(part, e.spec);
+          break;
+        case 'magazine':
+          this.world.triggerMagazine(e.ref);
+          break;
+        case 'tank':
+          if (part.type === 'tank') this.world.setLevel(part, e.level);
+          break;
+      }
+    }
+  }
+
   step(t: number, outputs: Record<string, Value>): void {
     while (this.nextControl < this.controls.length && this.controls[this.nextControl]![0] <= t) {
       const [, ref, value] = this.controls[this.nextControl++]!;
-      const part = this.world.find(ref);
-      if (part?.type === 'estop' && !value) this.world.releaseEstop(ref);
-      else this.world.setControl(ref, value);
+      this.control(ref, value);
     }
+    this.applyEvents(t);
     // Drahtbruch an einem Ausgang: am Gerät kommt nichts an
     let out = outputs;
-    for (const c of this.cutOutputs) {
+    for (const c of this.outputConns) {
+      if (c.part.fault !== 'drahtbruch') continue;
       if (out === outputs) out = { ...outputs };
       out[c.device.id] = c.io.kind === 'AO' ? 0 : false;
     }
@@ -244,7 +287,12 @@ class DiFilter {
 registerPlantModel(
   'sandbox',
   (p, _level, seed) =>
-    new SandboxPlant(p.layout as Layout, seed, (p.controls as ControlStep[]) ?? []),
+    new SandboxPlant(
+      p.layout as Layout,
+      seed,
+      (p.controls as ControlStep[]) ?? [],
+      (p.events as ScenarioEvent[]) ?? [],
+    ),
 );
 
 /** Aus einer Anlage entsteht zur Laufzeit ein gewöhnliches Level mit Handbetrieb. */
@@ -268,12 +316,13 @@ export function levelFromLayout(layout: Layout, title = 'Sandkasten'): Level {
     tests: [
       {
         id: 'frei',
-        name: { de: 'Freier Lauf' },
+        name: { de: 'Freier Lauf', en: 'Free run' },
         durationMs: 60000,
         seeds: [layout.seed],
         stimuli: {},
         checks: [],
       },
+      ...scenarioTests(layout),
     ],
   };
 }

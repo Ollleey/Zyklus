@@ -36,6 +36,18 @@ function valid(l: unknown, ids: string[]): l is DockLayout {
   return seen.every((id) => ids.includes(id)) && new Set(seen).size === seen.length;
 }
 
+/** Panels, die nach dem Speichern dazugekommen sind, an ihrem Standardplatz ergänzen */
+function withNewPanels(l: DockLayout, defaults: DockLayout, ids: string[]): DockLayout {
+  const seen = new Set(AREAS.flatMap((a) => l.areas[a]));
+  const missing = ids.filter(
+    (id) => !seen.has(id) && AREAS.some((a) => defaults.areas[a].includes(id)),
+  );
+  if (!missing.length) return l;
+  const areas = Object.fromEntries(AREAS.map((a) => [a, [...l.areas[a]]])) as DockLayout['areas'];
+  for (const id of missing) areas[AREAS.find((a) => defaults.areas[a].includes(id))!].push(id);
+  return { ...l, areas };
+}
+
 /** gespeicherte Anordnung; unbekannte oder kaputte Einträge fallen auf den Standard zurück */
 export function useDockLayout(
   name: string,
@@ -46,7 +58,7 @@ export function useDockLayout(
     try {
       const raw = platform.storage.getItem(KEY(name));
       const l = raw ? (JSON.parse(raw) as unknown) : undefined;
-      return valid(l, ids) ? l : defaults;
+      return valid(l, ids) ? withNewPanels(l, defaults, ids) : defaults;
     } catch {
       return defaults;
     }

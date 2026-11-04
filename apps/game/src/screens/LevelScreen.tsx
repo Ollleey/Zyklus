@@ -61,7 +61,11 @@ const LEVEL_DOCK: DockLayout = {
 
 /** Sandkasten: Anlage und Schaltschrank als Tabs links, Programm rechts, Simulation unten */
 const SANDKASTEN_DOCK: DockLayout = {
-  areas: { left: ['plant', 'cabinet'], right: ['program', 'signals'], bottom: ['sim'] },
+  areas: {
+    left: ['plant', 'cabinet'],
+    right: ['program', 'scenarios', 'signals'],
+    bottom: ['sim'],
+  },
   active: { left: 'plant' },
 };
 
@@ -345,6 +349,10 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
 
   const stopped = run && [...run.cpus.values()].find((c) => c.mode === 'STOP');
   const test = sim.mode === 'test' ? level.tests[sim.testIdx] : undefined;
+  // Sandkasten: gewähltes Szenario gelöscht → zurück zum freien Lauf
+  useEffect(() => {
+    if (sandbox && sim.mode === 'test' && !level.tests[sim.testIdx]) sim.setMode('manual');
+  });
 
   const verify = () => {
     if (!compiled.ok) return;
@@ -467,7 +475,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           <div className="simbar">
             {head}
             <select
-              hidden={sandbox}
+              hidden={sandbox && level.tests.length < 2}
               value={sim.mode === 'manual' ? 'manual' : `${sim.testIdx}`}
               onChange={(e) => {
                 if (e.target.value === 'manual') sim.setMode('manual');
@@ -478,12 +486,16 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
                   );
               }}
             >
-              {level.tests.map((tc, i) => (
-                <option key={tc.id} value={i}>
-                  {t('sim.test')}: {tr(tc.name)}
-                </option>
-              ))}
-              <option value="manual">{t('sim.manual')}</option>
+              {sandbox && <option value="manual">{t('sim.freeRun')}</option>}
+              {level.tests.map((tc, i) =>
+                // Sandkasten: der erste Testfall ist der freie Lauf (Handbetrieb), danach die Szenarien
+                sandbox && i === 0 ? null : (
+                  <option key={tc.id} value={i}>
+                    {sandbox ? t('scenario.label') : t('sim.test')}: {tr(tc.name)}
+                  </option>
+                ),
+              )}
+              {!sandbox && <option value="manual">{t('sim.manual')}</option>}
             </select>
             {test && test.seeds.length > 1 && (
               <select
