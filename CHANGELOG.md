@@ -1,5 +1,23 @@
 # Changelog
 
+## M16 – Zufallsaufträge (2026-11-04)
+
+- Neues Paket `@zyklus/zufall`: Aufträge aus Bauplänen mit Zufallswerten, deterministisch aus einem
+  **Auftragscode** (`SGN-4K7Q2M` = Bauplan, Stufe, Art, Startwert)
+- Baupläne **Sortieranlage** (1–3 Stationen, induktiv oder Farbsensor, Teilemix, Takt) und
+  **Tankanlage** (Band, Durchflüsse, Startfüllstand, Hand/Auto)
+- Stufen **Lehrling** (Schrank fertig verdrahtet), **Geselle**, **Meister** (Not-Halt bzw.
+  Stromausfall und Leck als Szenario-Ereignisse)
+- Art **Bestandsanlage mit Fehler**: ein eingebauter Fehler, der in einem Testfall auffällt; die
+  Kundschaft beschreibt das Symptom, bewertet wird auch der Änderungsumfang
+- Jeder Auftrag wird vor der Ausgabe mit der **Musterlösung** geprüft (Richtwerte); Erzeugen im
+  Web Worker
+- Posteingang: Abschnitt „Zufallsaufträge“ mit Würfeln, **Tagesauftrag**, Code eingeben, Code
+  kopieren; erfundene Kundschaft, Texte auf Deutsch und Englisch
+- Aluminium am induktiven Sensor: Station mit 20 mm Schaltabstand (Reduktionsfaktor 0,4 im Datenblatt)
+- Posteingang: „Energie“/„Anweisungen“ auch auf Englisch
+- 824 Tests
+
 ## M15 – Szenario-Editor im Sandkasten (2026-11-04)
 
 - Neuer Tab **„Szenarien“**: Prüfläufe mit Zeitleiste – Bedienen, Störungen ein/aus (Sensor

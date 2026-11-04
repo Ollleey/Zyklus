@@ -10,6 +10,8 @@ export interface CustomLevel {
   /** Kennzahlen der Lösung des Autors (Richtwerte) */
   par?: Metrics;
   author?: string;
+  /** Zufallsauftrag: aus diesem Code erzeugt */
+  random?: { code: string };
 }
 
 export function listCustomLevels(): CustomLevel[] {

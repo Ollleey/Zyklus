@@ -4220,3 +4220,38 @@ text.fup-live-num {
 .hmi-setup table {
   margin-top: 4px;
 }
+
+/* Zufallsaufträge im Posteingang */
+.random-jobs {
+  margin: var(--s-4) 0;
+}
+.random-jobs > .muted {
+  max-width: 80ch;
+}
+.random-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-2);
+  margin: var(--s-2) 0;
+}
+.random-form .pe-field select,
+.random-form .pe-field input {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font: inherit;
+  color: inherit;
+}
+.random-form code,
+.random-code {
+  font-family: var(--mono);
+}
+.random-busy {
+  color: var(--amber);
+}
+.random-meta {
+  color: var(--muted);
+  font-size: var(--t-sm);
+}

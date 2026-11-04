@@ -18,6 +18,7 @@
     "@zyklus/fup-model": "*",
     "@zyklus/levels": "*",
     "@zyklus/plant-sim": "*",
+    "@zyklus/zufall": "*",
     "@zyklus/platform": "*",
     "@zyklus/scl-compiler": "*",
     "@zyklus/sim-core": "*",

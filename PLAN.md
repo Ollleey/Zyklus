@@ -214,7 +214,7 @@ Was heute fehlt, im Vergleich zur Praxis:
   aktualisieren, Änderungszählung bei Sprachwechsel, Selbstoptimierung an echter Strecke geprüft.
 - SCL-Editor (Monaco) wird erst beim ersten Öffnen geladen.
 
-### M15 – Szenario-Editor (Sandkasten)
+### M15 – Szenario-Editor (Sandkasten, erledigt)
 
 - Szenario = Prüflauf mit Zeitleiste: Bedienen, Störungen (mit Ende), Stromausfall, Teil einlegen,
   Magazin auslösen, Füllstand setzen; Zufallsversatz je Seed; Ereignisse bei 0 s = Startzustand.
@@ -222,7 +222,7 @@ Was heute fehlt, im Vergleich zur Praxis:
   Testfall wählbar, abspielen und mit dem eigenen Programm prüfen; Veröffentlichen übernimmt sie.
 - Neue Regeln „ab Zeitpunkt aus“ und „in Zeitraum an“.
 
-### M16 – Zufallsaufträge
+### M16 – Zufallsaufträge (erledigt)
 
 - Generator aus Bauplänen mit Zufallswerten (Stationen, Teilemix, Zeiten, Grenzwerte, Kundschaft);
   jeder Bauplan bringt eine Musterlösung mit, die den erzeugten Auftrag vor der Ausgabe prüft.

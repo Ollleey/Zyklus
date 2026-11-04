@@ -43,3 +43,20 @@ With random offsets, leave enough margin in the rule times.
   missing parts are shown in red.
 - **Publish as job** takes all scenarios as test cases. The job's datasheet lists the sequence of
   each test case.
+
+# Random jobs
+
+In the inbox under **“Random jobs”** the game rolls new jobs from blueprints:
+
+- **Blueprint**: sorting line (1–3 ejector stations with inductive or colour sensor) or tank system
+  (two-point control with ultrasonic sensor, manual/auto).
+- **Level**: _Apprentice_ – the cabinet is already fitted and wired, only the program is missing;
+  _Journeyman_ – everything yourself, more stations or manual mode; _Master_ – plus emergency stop,
+  power failure or a leak the control has to handle.
+- **Type**: _New plant_ or _Existing plant with a fault_ – a running program with a built-in fault;
+  the customer only describes what they notice. As with every existing plant, the amount of change
+  counts too.
+
+Every job is verified with a **reference solution** before it is handed out; its metrics are the
+reference values. The **job code** (e.g. `SGN-4K7Q2M`: sorting line, journeyman, new plant) gives the
+same job everywhere – to share or compare. The **job of the day** is the same for everyone on a day.

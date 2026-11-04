@@ -107,7 +107,7 @@ const PAGES = [
   { id: 'geraete', title: 'Geräte und Fehler', en: 'Devices and faults' },
   { id: 'technologie', title: 'Technologie', en: 'Technology' },
   { id: 'graph', title: 'GRAPH (Schrittketten)', en: 'GRAPH (step sequences)' },
-  { id: 'szenarien', title: 'Szenarien', en: 'Scenarios' },
+  { id: 'szenarien', title: 'Szenarien und Zufallsaufträge', en: 'Scenarios and random jobs' },
 ] as const;
 
 const pageTitle = (p: (typeof PAGES)[number]) => tx(p.title, p.en);

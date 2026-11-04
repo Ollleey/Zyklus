@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => ({
       '@zyklus/levels',
       '@zyklus/plant-sim',
       '@zyklus/platform',
+      '@zyklus/zufall',
     ],
   },
   // Desktop-Build getrennt vom Web-Build, damit beide nebeneinander bestehen

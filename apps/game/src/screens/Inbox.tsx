@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { tr, type Level } from '@zyklus/sim-core';
-import { LANGUAGES, chooseLanguage, language, t } from '../i18n';
+import { LANGUAGES, chooseLanguage, language, t, tx } from '../i18n';
+import { RandomJobs } from '../components/RandomJobs';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SavegameMenu } from '../ui/Savegame';
 import {
@@ -29,7 +30,10 @@ interface Props {
   onCustom: (list: CustomLevel[]) => void;
 }
 
-export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: Props) {
+export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom }: Props) {
+  // Zufallsaufträge haben einen eigenen Abschnitt
+  const custom = all.filter((c) => !c.random);
+  const random = all.filter((c) => c.random);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<CustomLevel | null>(null);
   const importFile = async () => {
@@ -127,8 +131,12 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
                     <span>
                       {t('inbox.best')}: ¤{p.best.cost}
                     </span>
-                    <span>{p.best.energy} Energie</span>
-                    <span>{p.best.size} Anweisungen</span>
+                    <span>
+                      {p.best.energy} {tx('Energie', 'energy')}
+                    </span>
+                    <span>
+                      {p.best.size} {tx('Anweisungen', 'statements')}
+                    </span>
                   </span>
                 )}
               </button>
@@ -136,6 +144,7 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
           );
         })}
       </ul>
+      <RandomJobs list={random} progress={progress} onOpen={onOpen} onChange={onCustom} />
       <h2 className="custom-head">
         {t('custom.title')}
         <button className="btn btn-small" onClick={() => void importFile()}>
@@ -168,8 +177,12 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
                     <span>
                       {t('custom.par')}: ¤{c.level.par.cost}
                     </span>
-                    <span>{Math.round(c.level.par.energy)} Energie</span>
-                    <span>{c.level.par.size} Anweisungen</span>
+                    <span>
+                      {Math.round(c.level.par.energy)} {tx('Energie', 'energy')}
+                    </span>
+                    <span>
+                      {c.level.par.size} {tx('Anweisungen', 'statements')}
+                    </span>
                   </span>
                 )}
               </button>

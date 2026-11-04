@@ -45,3 +45,21 @@ Bei Ereignissen mit Zufallsversatz sollten Regelzeiten genug Abstand lassen.
   denselben Kennzeichnungen. Verweise auf fehlende Bauteile werden rot angezeigt.
 - **Als Auftrag veröffentlichen** übernimmt alle Szenarien als Testfälle. Das Datenblatt des Auftrags
   nennt den Ablauf jedes Testfalls.
+
+# Zufallsaufträge
+
+Im Posteingang unter **„Zufallsaufträge“** würfelt das Spiel neue Aufträge aus Bauplänen:
+
+- **Bauplan**: Sortieranlage (1–3 Auswerferstationen mit induktivem Sensor oder Farbsensor) oder
+  Tankanlage (Zweipunktregelung mit Ultraschallsensor, Hand/Auto).
+- **Stufe**: _Lehrling_ – der Schrank ist schon bestückt und verdrahtet, nur das Programm fehlt;
+  _Geselle_ – alles selbst, mehr Stationen bzw. Handbetrieb; _Meister_ – dazu Not-Halt, Stromausfall
+  oder ein Leck, das die Regelung abfangen muss.
+- **Art**: _Neue Anlage_ oder _Bestandsanlage mit Fehler_ – ein laufendes Programm mit einem
+  eingebauten Fehler; die Kundschaft beschreibt nur, was auffällt. Gewertet wird wie bei jeder
+  Bestandsanlage auch der Änderungsumfang.
+
+Jeder Auftrag wird vor der Ausgabe mit einer **Musterlösung** geprüft; ihre Kennzahlen sind die
+Richtwerte. Der **Auftragscode** (z. B. `SGN-4K7Q2M`: Sortieranlage, Geselle, neue Anlage) ergibt
+überall denselben Auftrag – zum Weitergeben oder Vergleichen. Der **Tagesauftrag** ist an einem Tag
+für alle gleich.
