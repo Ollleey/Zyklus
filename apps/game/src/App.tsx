@@ -4,6 +4,7 @@ import { FILE_TYPES, platform, type Command, type OpenedFile } from '@zyklus/pla
 import { t } from './i18n';
 import { SANDBOX } from './sandbox';
 import { AboutDialog } from './ui/AboutDialog';
+import { Course } from './screens/Course';
 import { Handbook } from './screens/Handbook';
 import { Inbox, type Place } from './screens/Inbox';
 import { LevelScreen } from './screens/LevelScreen';
@@ -169,6 +170,16 @@ export function App() {
     );
   } else if (place === 'handbook') screen = <Handbook onBack={home} />;
   else if (place === 'patience') screen = <Patience onBack={home} />;
+  else if (place === 'grundkurs')
+    screen = (
+      <Course
+        onBack={home}
+        onFirstJob={() => {
+          setPlace(null);
+          setLevelId(LEVELS[0]!.id);
+        }}
+      />
+    );
   else if (place === 'sandkasten')
     screen = (
       <SandboxScreen onBack={home} start={sandboxStart} onStarted={() => setSandboxStart(null)} />

@@ -52,6 +52,8 @@ export function onNotice(fn: (text: string) => void): () => void {
 export function useWindowTitle(title: string): void {
   useEffect(() => {
     platform.setTitle(title);
+    // beim Verlassen des Bildschirms (z. B. zurück zum Posteingang) wieder der Grundtitel
+    return () => platform.setTitle('ZYKLUS');
   }, [title]);
 }
 

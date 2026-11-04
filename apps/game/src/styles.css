@@ -4255,3 +4255,137 @@ text.fup-live-num {
   color: var(--muted);
   font-size: var(--t-sm);
 }
+
+/* Grundkurs und Einstiegsfrage */
+.course-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+.course-quiz {
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+.course-question {
+  margin-bottom: var(--s-3);
+}
+.course-q {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.course-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.course-options .course-right {
+  border-color: var(--green);
+  color: var(--green);
+}
+.course-options .course-wrong {
+  border-color: var(--red);
+  color: var(--red);
+}
+.course-why {
+  margin-top: 6px;
+  font-size: var(--t-sm);
+}
+.course-why-ok {
+  color: var(--green);
+}
+.course-why-bad {
+  color: var(--red);
+}
+.course-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-4);
+}
+.course-page {
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+.course-hint {
+  text-align: right;
+  font-size: var(--t-sm);
+}
+.course-badge {
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+.coach-more {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  font-size: var(--t-sm);
+}
+.start-choice {
+  margin: var(--s-3) 0 var(--s-4);
+}
+.start-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--s-3);
+}
+.start-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: var(--s-3);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.start-card:hover,
+.start-card:focus-visible {
+  border-color: var(--amber);
+}
+.start-card span:not(.start-icon) {
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+.start-icon {
+  font-size: 1.6em;
+}
+/* Grundkurs: Knöpfe und Rückmeldungen auf dem hellen Papier */
+.paper .btn:not(.btn-primary) {
+  background: #fff;
+  color: #222;
+  border-color: #b9bec4;
+}
+.paper .btn:not(.btn-primary):hover:not(:disabled) {
+  border-color: #6b7380;
+}
+.paper .course-options .course-right {
+  border-color: #1d7a43;
+  color: #1d7a43;
+  background: #e8f5ec;
+}
+.paper .course-options .course-wrong {
+  border-color: #b3261e;
+  color: #b3261e;
+  background: #fbeaea;
+}
+.paper .course-why-ok {
+  color: #1d7a43;
+}
+.paper .course-why-bad {
+  color: #b3261e;
+}
+.paper .course-quiz,
+.paper .course-page,
+.paper .course-hint {
+  border-color: #c9cdd2;
+  color: #555;
+}
+.paper .course-q {
+  color: #222;
+}

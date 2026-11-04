@@ -9,6 +9,7 @@ import geraete from '../../../../docs/geraete.md?raw';
 import technologie from '../../../../docs/technologie.md?raw';
 import graph from '../../../../docs/graph.md?raw';
 import szenarien from '../../../../docs/szenarien.md?raw';
+import schrittketten from '../../../../docs/schrittketten.md?raw';
 import semantikEn from '../../../../docs/en/semantik.md?raw';
 import sclEn from '../../../../docs/en/scl.md?raw';
 import fupEn from '../../../../docs/en/fup.md?raw';
@@ -17,12 +18,16 @@ import geraeteEn from '../../../../docs/en/geraete.md?raw';
 import technologieEn from '../../../../docs/en/technologie.md?raw';
 import graphEn from '../../../../docs/en/graph.md?raw';
 import szenarienEn from '../../../../docs/en/szenarien.md?raw';
+import schrittkettenEn from '../../../../docs/en/schrittketten.md?raw';
 import { categoryLabel } from '../components/FupEditor';
 import { boxDescription } from '../i18n/boxes-en';
 import { language, t, tx } from '../i18n';
 import { Markdown } from '../ui/Markdown';
 
 const INTRO = `# Willkommen in der Werkstatt
+
+> Neu bei SPS? Der **🎓 Grundkurs** im Posteingang erklärt alles von null an – Signale, Logik,
+> Zeiten, Zähler und Schrittketten – mit kleinen Quizfragen.
 
 Kunden schicken Aufträge per Mail. Zu jedem Auftrag gibt es ein **Datenblatt** mit den Feldgeräten
 und der gewünschten Funktion. Deine Aufgabe in drei Schritten:
@@ -59,6 +64,9 @@ Die Histogramme im Prüfergebnis zeigen, wo deine Lösung im Vergleich liegt.
 - **Klemmen-Patience**: eine kleine Pause zwischen zwei Aufträgen.`;
 
 const INTRO_EN = `# Welcome to the workshop
+
+> New to PLCs? The **🎓 Basics course** in the inbox explains everything from scratch – signals,
+> logic, timers, counters and step sequences – with small quiz questions.
 
 Customers send jobs by mail. Every job comes with a **datasheet** listing the field devices and the
 required function. Your task in three steps:
@@ -106,6 +114,7 @@ const PAGES = [
   { id: 'online', title: 'Online-Funktionen', en: 'Online functions' },
   { id: 'geraete', title: 'Geräte und Fehler', en: 'Devices and faults' },
   { id: 'technologie', title: 'Technologie', en: 'Technology' },
+  { id: 'schrittketten', title: 'Schrittketten verstehen', en: 'Understanding step sequences' },
   { id: 'graph', title: 'GRAPH (Schrittketten)', en: 'GRAPH (step sequences)' },
   { id: 'szenarien', title: 'Szenarien und Zufallsaufträge', en: 'Scenarios and random jobs' },
 ] as const;
@@ -148,6 +157,9 @@ export function Handbook({ onBack }: { onBack: () => void }) {
           {page === 'online' && <Markdown text={en ? onlineEn : online} joinLines />}
           {page === 'geraete' && <Markdown text={en ? geraeteEn : geraete} joinLines />}
           {page === 'technologie' && <Markdown text={en ? technologieEn : technologie} joinLines />}
+          {page === 'schrittketten' && (
+            <Markdown text={en ? schrittkettenEn : schrittketten} joinLines />
+          )}
           {page === 'graph' && <Markdown text={en ? graphEn : graph} joinLines />}
           {page === 'szenarien' && <Markdown text={en ? szenarienEn : szenarien} joinLines />}
           <footer className="paper-foot">

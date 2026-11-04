@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { tr, type Level } from '@zyklus/sim-core';
 import { LANGUAGES, chooseLanguage, language, t, tx } from '../i18n';
 import { RandomJobs } from '../components/RandomJobs';
+import { LESSONS } from '../course/lessons';
+import { loadDone, loadStart, saveStart, type Start } from '../state/course';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SavegameMenu } from '../ui/Savegame';
 import {
@@ -15,7 +17,7 @@ import type { LevelProgress } from '../state/persistence';
 import { FILE_TYPES, platform, platformFileName } from '@zyklus/platform';
 
 /** `sandbox` ist das Testpult (Schlüssel bleibt wegen gespeicherter Stände) */
-export type Place = 'handbook' | 'sandbox' | 'sandkasten' | 'patience';
+export type Place = 'handbook' | 'sandbox' | 'sandkasten' | 'patience' | 'grundkurs';
 
 /** Gelöste Aufträge, ab denen das Bonusspiel freigeschaltet ist */
 export const PATIENCE_UNLOCK = 3;
@@ -36,6 +38,14 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom
   const random = all.filter((c) => c.random);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<CustomLevel | null>(null);
+  // Einstieg: beim ersten Besuch fragen, ob schon Vorkenntnisse da sind
+  const [start, setStartState] = useState<Start | null>(loadStart);
+  const chooseStart = (s: Start) => {
+    saveStart(s);
+    setStartState(s);
+    if (s === 'anfaenger') onPlace('grundkurs');
+  };
+  const courseDone = loadDone().length;
   const importFile = async () => {
     const f = await platform.files.open([FILE_TYPES.auftrag]);
     if (!f) return;
@@ -63,6 +73,15 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom
           </div>
         </div>
         <nav className="workshop">
+          <button className="btn" onClick={() => onPlace('grundkurs')} title={t('course.hint')}>
+            🎓 {t('course.title')}
+            {courseDone > 0 && courseDone < LESSONS.length && (
+              <span className="course-badge">
+                {' '}
+                {courseDone}/{LESSONS.length}
+              </span>
+            )}
+          </button>
           <button className="btn" onClick={() => onPlace('handbook')}>
             📖 {t('handbook.title')}
           </button>
@@ -96,6 +115,23 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom
           </select>
         </nav>
       </header>
+      {start === null && (
+        <section className="start-choice" aria-labelledby="start-title">
+          <h2 id="start-title">{t('start.title')}</h2>
+          <div className="start-cards">
+            <button className="start-card" onClick={() => chooseStart('anfaenger')}>
+              <span className="start-icon">🎓</span>
+              <b>{t('start.beginner')}</b>
+              <span>{t('start.beginnerText')}</span>
+            </button>
+            <button className="start-card" onClick={() => chooseStart('profi')}>
+              <span className="start-icon">⚙</span>
+              <b>{t('start.pro')}</b>
+              <span>{t('start.proText')}</span>
+            </button>
+          </div>
+        </section>
+      )}
       <p className="inbox-progress">
         {solved} / {levels.length} {t('inbox.progress')}
       </p>

@@ -15,12 +15,29 @@ Eigene Anlage bauen, verdrahten, programmieren und live simulieren. Der Plan ste
 - App: bewegliche Panels (`ui/Dock.tsx`, auch für die Aufträge), Anlageneditor
   (`components/plant`), Panel „Signale“, „Meine Anlagen“.
 
+## Szenarien
+
+Tab „Szenarien“ (`components/plant/ScenarioPanel.tsx`, Modell `packages/plant-sim/src/scenario.ts`):
+Prüfläufe mit Zeitleiste – Bedienen, Störungen ein/aus, Stromausfall, Teil einlegen, Magazin
+auslösen, Füllstand setzen, je Ereignis mit Zufallsversatz je Seed. `SandboxPlant` führt die
+Zeitleiste aus (Störungen auf einer Kopie der Anlage), Stromausfälle gehen als `test.power` an die
+Steuerung. Szenarien liegen in `layout.scenarios`, werden als Testfälle des Sandkasten-Levels
+abspielbar und lassen sich einzeln als `*.szenario` weitergeben. Bedienung: Handbuch-Seite
+„Szenarien und Zufallsaufträge“ ([../szenarien.md](../szenarien.md)).
+
 ## Eigene Aufträge
 
-Im Sandkasten unter „Mehr → Als Auftrag veröffentlichen“: Testfälle mit Bedienfolge und
-Prüfregeln (`packages/plant-sim/src/publish.ts`). Die eigene Lösung muss bestehen und liefert die
-Richtwerte. Der Auftrag erscheint im Posteingang unter „Eigene Aufträge“ und lässt sich als
-`*.auftrag.json` weitergeben und importieren.
+Im Sandkasten unter „Mehr → Als Auftrag veröffentlichen“: Testfälle mit Zeitleiste und
+Prüfregeln (`packages/plant-sim/src/publish.ts`); vorhandene Szenarien werden übernommen. Die
+eigene Lösung muss bestehen und liefert die Richtwerte. Der Auftrag erscheint im Posteingang unter
+„Eigene Aufträge“ und lässt sich als `*.auftrag.json` weitergeben und importieren.
+
+## Zufallsaufträge
+
+`packages/zufall`: Baupläne (`blueprints.ts`) erzeugen aus einem Auftragscode Anlage, Testfälle,
+Musterlösung und – für Bestandsanlagen – Fehlerstellen; `generateJob` prüft die Musterlösung, bevor
+ein Auftrag ausgegeben wird. Die App erzeugt im Web Worker (`apps/game/src/random`). Neue Baupläne
+mit `ZYKLUS_PROBE=<datei> npx vitest run test/probe.test.ts` (im Paket) über viele Seeds prüfen.
 
 ## Leistung
 

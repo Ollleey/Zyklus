@@ -229,6 +229,11 @@ Was heute fehlt, im Vergleich zur Praxis:
 - Kurzer Seed-Code zum Weitergeben, Schwierigkeit Lehrling/Geselle/Meister, Tagesauftrag.
 - Varianten: neue Anlage, Bestandsanlage mit eingebautem Fehler, Szenario mit Störungen.
 
+### M17 – Grundkurs für Einsteiger
+
+- Einstiegsfrage (Einsteiger / mit Vorkenntnissen), Grundkurs mit Lektionen und Quiz in
+  `docs/grundkurs`, ausführlichere Schrittkarte in Auftrag 0, Handbuch „Schrittketten verstehen“.
+
 ### Querschnitt (laufend)
 
 - Jede neue Anweisung mit Unit-Tests und Eintrag in Handbuch und `docs/`.

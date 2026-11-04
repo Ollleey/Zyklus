@@ -1,5 +1,23 @@
 # Changelog
 
+## M17 – Grundkurs für Einsteiger und Schrittketten (2026-11-04)
+
+- **Einstiegsfrage** beim ersten Besuch im Posteingang: „Ich bin neu bei SPS“ (Grundkurs) oder
+  „Ich habe schon SPS programmiert“ (direkt zu Auftrag 0)
+- **🎓 Grundkurs** mit 11 Lektionen von null an: SPS und Zyklus, Signale (Schließer/Öffner),
+  Schaltschrank und Adressen, UND/ODER/NICHT, Zyklus und IF, Setzen/Rücksetzen, Flanken, Zeiten,
+  Zähler und Vergleiche, **Schrittketten**, erster Auftrag; seitenweise mit Quiz, Fortschritt
+  gespeichert, am Ende weiter zu Auftrag 0
+- Einführung (Auftrag 0): im Einsteigermodus erklärt die Schrittkarte jeden Schritt ausführlicher
+- Handbuch-Seite **„Schrittketten verstehen“**: vom Ablauf zur Kette, Umsetzung mit CASE,
+  Verzweigungen, Betriebsarten, Not-Halt und Schrittüberwachung, typische Fehler, Bezug zu GRAPH
+- Handbuch „Erste Schritte“ verweist auf den Grundkurs; README und Sandkasten-Doku aktualisiert
+  (Pakete, Dokumentationsübersicht, Szenarien, Zufallsaufträge)
+- Quiz-Knöpfe auf dem hellen Papier lesbar (helle Knöpfe, dunkle Schrift)
+- Fenstertitel springt nach dem Verlassen eines Auftrags wieder auf „ZYKLUS“
+- im Browser geprüft (Einstiegsfrage, Kurs, Quiz, Weg zu Auftrag 0, Einsteiger-Schrittkarte,
+  Handbuch, Englisch), 824 Tests, Desktop-E2E bestanden
+
 ## M16 – Zufallsaufträge (2026-11-04)
 
 - Neues Paket `@zyklus/zufall`: Aufträge aus Bauplänen mit Zufallswerten, deterministisch aus einem
