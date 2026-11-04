@@ -45,6 +45,9 @@ export const platform: Platform = {
   get recent() {
     return current.recent;
   },
+  get updates() {
+    return current.updates;
+  },
   init: () => current.init(),
   flush: () => current.flush(),
 };

@@ -234,6 +234,11 @@ Was heute fehlt, im Vergleich zur Praxis:
 - Einstiegsfrage (Einsteiger / mit Vorkenntnissen), Grundkurs mit Lektionen und Quiz in
   `docs/grundkurs`, ausführlichere Schrittkarte in Auftrag 0, Handbuch „Schrittketten verstehen“.
 
+### M18 – Veröffentlichung
+
+- Public Repo, Updates in den Einstellungen (Tauri-Updater, signiert), Release mit Windows-Installer
+  und Linux-AppImage, Installationsbefehle für Windows und Linux, CI.
+
 ### Querschnitt (laufend)
 
 - Jede neue Anweisung mit Unit-Tests und Eintrag in Handbuch und `docs/`.

@@ -48,8 +48,16 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE2QkI3RDEzQUM4OEQ3NkIKUldScjE0aXNFMzI3RmhRTUZlRzlKOFlpejY5cjZVVUxLR2x1V3lMSVY5b05nMFdOdjBNQ3dSaS8K",
+      "endpoints": ["https://github.com/Ollleey/Zyklus/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": false,
     "targets": ["nsis", "msi"],
     "icon": [
       "icons/32x32.png",

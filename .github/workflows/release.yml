@@ -1,11 +1,11 @@
-# Release der Desktop-Anwendung: bei einem Tag v* bauen und als Entwurf eines GitHub-Releases
-# hochladen (Installer .exe/.msi und portable .exe; Linux .AppImage/.deb, sobald zugeschaltet).
-# Linux zuschalten: Repository-Variable ZYKLUS_LINUX = true (Settings → Variables → Actions).
+# Release der Desktop-Anwendung in der Cloud (manuell starten: Actions → Release → Run workflow).
+# Baut Installer .exe/.msi und portable .exe (Linux .AppImage/.deb mit ZYKLUS_LINUX = true) und
+# legt einen Release-Entwurf mit latest.json für die Update-Suche an. Braucht die Secrets
+# TAURI_SIGNING_PRIVATE_KEY (und ggf. TAURI_SIGNING_PRIVATE_KEY_PASSWORD).
+# Lokal geht dasselbe mit `node scripts/release.mjs` (siehe docs/desktop/README.md).
 name: Release
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -38,15 +38,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Version des Tags prüfen
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          v=$(node -p "require('./package.json').version")
-          if [ "v$v" != "${GITHUB_REF_NAME}" ]; then
-            echo "Tag ${GITHUB_REF_NAME} passt nicht zur Version $v in package.json"; exit 1
-          fi
-
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
@@ -55,20 +46,25 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           tauriScript: npx tauri
-          args: ${{ startsWith(matrix.platform, 'ubuntu') && '--bundles appimage,deb' || '' }}
-          tagName: ${{ github.ref_name }}
-          releaseName: 'ZYKLUS ${{ github.ref_name }}'
+          args: >-
+            ${{ startsWith(matrix.platform, 'ubuntu') && '--bundles appimage,deb' || '' }}
+            --config {"bundle":{"createUpdaterArtifacts":true}}
+          includeUpdaterJson: true
+          tagName: v__VERSION__
+          releaseName: 'ZYKLUS v__VERSION__'
           releaseBody: 'Installer für Windows (.exe, .msi) und portable .exe. Unsigniert – siehe docs/desktop/README.md.'
           releaseDraft: true
 
       - name: Portable .exe hochladen
-        if: startsWith(matrix.platform, 'windows') && startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(matrix.platform, 'windows')
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node scripts/desktop-portable.mjs
-          gh release upload "${GITHUB_REF_NAME}" apps/desktop/src-tauri/target/release/bundle/portable/*.exe --clobber
+          gh release upload "v$(node -p "require('./package.json').version")" apps/desktop/src-tauri/target/release/bundle/portable/*.exe --clobber

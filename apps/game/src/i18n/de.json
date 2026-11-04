@@ -526,5 +526,19 @@
   "start.beginner": "Ich bin neu bei SPS",
   "start.beginnerText": "Der Grundkurs erklärt alles von null an: Signale, Logik, Zeiten, Zähler, Schrittketten. Danach führt dich Auftrag 0 mit ausführlichen Hinweisen.",
   "start.pro": "Ich habe schon SPS programmiert",
-  "start.proText": "Direkt los mit Auftrag 0 und der kurzen Schrittkarte. Der Grundkurs bleibt jederzeit über 🎓 erreichbar."
+  "start.proText": "Direkt los mit Auftrag 0 und der kurzen Schrittkarte. Der Grundkurs bleibt jederzeit über 🎓 erreichbar.",
+  "settings.title": "Einstellungen",
+  "settings.updates": "Updates",
+  "settings.check": "Nach Updates suchen",
+  "settings.checking": "Suche …",
+  "settings.current": "Du hast die neueste Version.",
+  "settings.found": "Version {version} ist verfügbar.",
+  "settings.installAsk": "Jetzt herunterladen und installieren? Dein Spielstand bleibt erhalten; das Spiel startet danach neu.",
+  "settings.yesInstall": "Ja, installieren",
+  "settings.later": "Später",
+  "settings.installing": "Update wird heruntergeladen und installiert …",
+  "settings.error": "Update-Suche fehlgeschlagen:",
+  "settings.auto": "Beim Start nach Updates suchen (braucht Internet)",
+  "settings.webUpdates": "Die Browser-Version lädt immer den aktuellen Stand – Updates gibt es nur für die Desktop-App.",
+  "settings.show": "Anzeigen"
 }

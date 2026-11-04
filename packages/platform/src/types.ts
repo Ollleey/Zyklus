@@ -28,6 +28,20 @@ export interface OpenedFile {
 export type Command =
   'new' | 'open' | 'save' | 'export' | 'handbook' | 'about' | 'fullscreen' | `recent:${number}`;
 
+/** gefundenes Update */
+export interface UpdateInfo {
+  version: string;
+  date?: string;
+  notes?: string;
+}
+
+export interface Updates {
+  /** nach einer neueren Version suchen; null = aktuell */
+  check(): Promise<UpdateInfo | null>;
+  /** herunterladen, installieren und neu starten; Fortschritt 0…1, -1 = Größe unbekannt */
+  install(onProgress: (p: number) => void): Promise<void>;
+}
+
 export interface Platform {
   readonly kind: 'web' | 'desktop';
   readonly storage: SyncStore;
@@ -57,6 +71,8 @@ export interface Platform {
    * schließen). Der Browser kann nur seine eigene Rückfrage zeigen.
    */
   guardClose(dirty: () => boolean, ask: () => Promise<boolean>): () => void;
+  /** Desktop: Updates aus den Releases suchen und installieren */
+  readonly updates?: Updates;
   /** Desktop: zuletzt geöffnete Dateien */
   readonly recent?: { list(): string[]; open(index: number): Promise<OpenedFile | null> };
   /** vor dem ersten Lesen aufrufen (Desktop lädt dann die Dateien in den Speicher) */

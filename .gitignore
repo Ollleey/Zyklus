@@ -8,3 +8,5 @@ apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
 apps/desktop/e2e/.tmp/
 apps/desktop/e2e/.drivers/
+release/
+release-notes.md

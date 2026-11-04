@@ -6,6 +6,7 @@ import { LESSONS } from '../course/lessons';
 import { loadDone, loadStart, saveStart, type Start } from '../state/course';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { SavegameMenu } from '../ui/Savegame';
+import { SettingsDialog, useStartupUpdate } from '../ui/SettingsDialog';
 import {
   parseAuftragFile,
   putCustomLevel,
@@ -46,6 +47,9 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom
     if (s === 'anfaenger') onPlace('grundkurs');
   };
   const courseDone = loadDone().length;
+  const [settings, setSettings] = useState(false);
+  // Update beim Start gefunden (nur wenn in den Einstellungen eingeschaltet)
+  const update = useStartupUpdate();
   const importFile = async () => {
     const f = await platform.files.open([FILE_TYPES.auftrag]);
     if (!f) return;
@@ -100,6 +104,9 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom
             {patience ? '▦' : '🔒'} {t('patience.title')}
           </button>
           <SavegameMenu />
+          <button className="btn" onClick={() => setSettings(true)}>
+            🔧 {t('settings.title')}
+          </button>
           <select
             className="lang-select"
             value={language()}
@@ -115,6 +122,15 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom
           </select>
         </nav>
       </header>
+      {update && (
+        <p className="notice update-notice" role="status">
+          {t('settings.found', { version: update.version })}{' '}
+          <button className="btn btn-small btn-primary" onClick={() => setSettings(true)}>
+            {t('settings.show')}
+          </button>
+        </p>
+      )}
+      {settings && <SettingsDialog found={update} onClose={() => setSettings(false)} />}
       {start === null && (
         <section className="start-choice" aria-labelledby="start-title">
           <h2 id="start-title">{t('start.title')}</h2>

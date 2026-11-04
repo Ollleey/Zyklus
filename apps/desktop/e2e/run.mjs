@@ -170,6 +170,18 @@ try {
   check('Englisch nach Neustart', en2);
   await s.click(await s.find('.lang-select option[value=de]'));
   await s.byText('.inbox-progress', 'erledigt');
+  // Update-Suche gegen das veröffentlichte Release (braucht Internet, nur mit ZYKLUS_E2E_UPDATE=1)
+  if (process.env.ZYKLUS_E2E_UPDATE) {
+    await s.click(await s.byText('.workshop .btn', 'Einstellungen'));
+    await s.click(await s.byText('.settings .btn', 'Nach Updates suchen'));
+    const r = await s.text(
+      await s.find(
+        '.settings-updates .publish-ok, .settings-updates .pe-error, .settings-found',
+        30000,
+      ),
+    );
+    check('Update-Suche', !/fehlgeschlagen/.test(r), r);
+  }
   await s.close();
   await sleep(1500);
 

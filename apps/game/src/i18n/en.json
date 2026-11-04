@@ -526,5 +526,19 @@
   "start.beginner": "I am new to PLCs",
   "start.beginnerText": "The basics course explains everything from scratch: signals, logic, timers, counters, step sequences. Afterwards job 0 guides you with detailed hints.",
   "start.pro": "I have programmed PLCs before",
-  "start.proText": "Start right away with job 0 and the short step card. The basics course stays available via 🎓 at any time."
+  "start.proText": "Start right away with job 0 and the short step card. The basics course stays available via 🎓 at any time.",
+  "settings.title": "Settings",
+  "settings.updates": "Updates",
+  "settings.check": "Check for updates",
+  "settings.checking": "Checking …",
+  "settings.current": "You have the latest version.",
+  "settings.found": "Version {version} is available.",
+  "settings.installAsk": "Download and install now? Your save game is kept; the game restarts afterwards.",
+  "settings.yesInstall": "Yes, install",
+  "settings.later": "Later",
+  "settings.installing": "Downloading and installing the update …",
+  "settings.error": "Update check failed:",
+  "settings.auto": "Check for updates on start (needs internet)",
+  "settings.webUpdates": "The browser version always loads the current state – updates are only for the desktop app.",
+  "settings.show": "Show"
 }

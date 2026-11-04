@@ -137,6 +137,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         // per Dialog freigegebene Ordner (z. B. eigener Anlagen-Ordner) bleiben nach Neustart freigegeben
         .plugin(tauri_plugin_persisted_scope::init())
+        // Updates aus den GitHub-Releases (signiert), Neustart nach der Installation
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(Launch { files: Mutex::new(Vec::new()), zoom: Mutex::new(1.0) })
         .setup(|app| {
             let args: Vec<String> = std::env::args().skip(1).collect();

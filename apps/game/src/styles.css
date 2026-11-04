@@ -4389,3 +4389,38 @@ text.fup-live-num {
 .paper .course-q {
   color: #222;
 }
+
+/* Einstellungen */
+.settings {
+  min-width: min(480px, 92vw);
+}
+.settings h3 {
+  margin: var(--s-3) 0 var(--s-1);
+  font-size: var(--t-sm);
+  color: var(--muted);
+}
+.settings-updates p {
+  margin: 6px 0;
+}
+.settings-notes {
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: var(--t-sm);
+}
+.settings-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: var(--s-2);
+  font-size: var(--t-sm);
+}
+.update-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}

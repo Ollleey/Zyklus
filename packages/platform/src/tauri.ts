@@ -14,8 +14,10 @@ import {
   writeTextFile,
 } from '@tauri-apps/plugin-fs';
 import { openPath } from '@tauri-apps/plugin-opener';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { check, type Update } from '@tauri-apps/plugin-updater';
 import { desktopPlatform, type DesktopDeps } from './desktop';
-import type { FileFilter, OpenedFile, Platform } from './types';
+import type { FileFilter, OpenedFile, Platform, Updates } from './types';
 
 /** Abmeldung für Tauri-Listener, die erst asynchron zustande kommen */
 function later(p: Promise<() => void>): () => void {
@@ -109,5 +111,29 @@ export async function createDesktopPlatform(): Promise<Platform> {
       closing = false;
     }
   });
-  return p;
+  // Updates aus den GitHub-Releases: nur auf Knopfdruck, signiert (öffentlicher Schlüssel in tauri.conf.json)
+  let pending: Update | null = null;
+  const updates: Updates = {
+    async check() {
+      pending = await check();
+      return pending ? { version: pending.version, date: pending.date, notes: pending.body } : null;
+    },
+    async install(onProgress) {
+      pending ??= await check();
+      if (!pending) return;
+      // Spielstände sichern: unter Windows beendet der Installer das Spiel
+      await p.flush();
+      let total = 0;
+      let got = 0;
+      await pending.downloadAndInstall((e) => {
+        if (e.event === 'Started') total = e.data.contentLength ?? 0;
+        else if (e.event === 'Progress') {
+          got += e.data.chunkLength;
+          onProgress(total ? got / total : -1);
+        } else onProgress(1);
+      });
+      await relaunch();
+    },
+  };
+  return Object.assign(p, { updates });
 }

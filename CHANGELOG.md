@@ -1,5 +1,19 @@
 # Changelog
 
+## M18 – Veröffentlichung, Updates und Installation per Befehl (2026-11-04)
+
+- Öffentliches Repository github.com/Ollleey/Zyklus; persönliche Angaben aus Dateien und der
+  Git-Historie entfernt
+- **🔧 Einstellungen** im Posteingang: Sprache, **Nach Updates suchen** – bei einer neuen Version
+  fragt das Spiel nach und installiert mit „Ja“ (Download, Installation, Neustart; Spielstand
+  bleibt). Optional Suche beim Start, standardmäßig aus
+- Tauri-Updater mit eigenem Signierschlüssel, `latest.json` im Release; `scripts/release.mjs` baut
+  ein signiertes Release lokal, der Release-Workflow startet manuell und signiert über Secrets
+- Installation per Befehl: `scripts/install.ps1` (Windows) und `scripts/install.sh` (Linux,
+  mit `--uninstall`); Linux-AppImage signiert aus `scripts/linux-appimage.sh`
+- CI-Workflow mit Typprüfung und Tests bei jedem Push
+- README neu: Download, Installation, Updates, Spielstände, Entwicklung, Englisch, Hinweis zu Marken
+
 ## M17 – Grundkurs für Einsteiger und Schrittketten (2026-11-04)
 
 - **Einstiegsfrage** beim ersten Besuch im Posteingang: „Ich bin neu bei SPS“ (Grundkurs) oder

@@ -118,8 +118,34 @@ Lokal ohne CI: `scripts/linux-appimage.sh` baut das AppImage in einem Ubuntu-22.
 Die App setzt unter Linux `WEBKIT_DISABLE_DMABUF_RENDERER=1`, weil WebKitGTK mit manchen
 Grafiktreibern sonst nur eine weiße Fläche zeigt.
 
+## Updates
+
+Die App sucht auf Knopfdruck (🔧 Einstellungen) bzw. auf Wunsch beim Start unter
+`https://github.com/Ollleey/Zyklus/releases/latest/download/latest.json` nach einer neueren Version
+(Tauri-Plugin `updater`). Gefundene Pakete sind mit einem eigenen Schlüssel signiert; der öffentliche
+Teil steht in `tauri.conf.json` (`plugins.updater.pubkey`), der private Teil liegt nur beim
+Herausgeber (`~/.tauri/zyklus-updater.key`) und **nie** im Repository. Geht der private Schlüssel
+verloren, können bestehende Installationen keine Updates mehr annehmen – dann muss einmal von Hand
+neu installiert werden. Unter Windows installiert der NSIS-Installer im Modus „passive“ und startet
+das Spiel neu; unter Linux wird das AppImage ersetzt.
+
 ## Release
 
-Tag mit der Version aus `package.json` setzen und pushen, z. B. `git tag v0.1.0 && git push --tags`.
-Der Workflow `.github/workflows/release.yml` prüft die Version, führt Typprüfung und Tests aus,
-baut und legt einen Release-Entwurf mit Installer, MSI und portabler `.exe` an.
+1. Version in der Root-`package.json` erhöhen (Tauri und die Oberfläche lesen sie von dort), Eintrag
+   im `CHANGELOG.md`, optional Text für die Update-Meldung in `release-notes.md`.
+2. Optional Linux: `scripts/linux-appimage.sh` mit `TAURI_SIGNING_PRIVATE_KEY` im Container laufen
+   lassen (Aufruf im Kopf des Skripts, Ziel `apps/desktop/src-tauri/target/linux`).
+3. `node scripts/release.mjs` – baut signierte Windows-Installer und die portable `.exe` und legt
+   alles mit `latest.json` nach `release/`.
+4. Hochladen: `gh release create v<version> release/* --title "ZYKLUS v<version>" --notes-file release-notes.md`
+
+Alternativ baut der Workflow `.github/workflows/release.yml` (Actions → Release → Run workflow)
+dasselbe in der Cloud; dafür müssen die Secrets `TAURI_SIGNING_PRIVATE_KEY` und
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` gesetzt sein.
+
+## Installation per Befehl
+
+- Windows: `irm https://raw.githubusercontent.com/Ollleey/Zyklus/main/scripts/install.ps1 | iex`
+  (lädt den Installer des neuesten Releases, installiert still mit `/S`)
+- Linux: `curl -fsSL https://raw.githubusercontent.com/Ollleey/Zyklus/main/scripts/install.sh | bash`
+  (AppImage nach `~/.local/bin`, Starter im Anwendungsmenü; `--uninstall` entfernt beides)

@@ -24,6 +24,12 @@ cd /build
 [ -d node_modules ] && [ package-lock.json -ot node_modules ] || npm ci --no-audit --no-fund
 export APPIMAGE_EXTRACT_AND_RUN=1
 cd apps/desktop
-npx tauri build --bundles appimage
-cp src-tauri/target/release/bundle/appimage/*.AppImage /out/
+# mit TAURI_SIGNING_PRIVATE_KEY: signiertes AppImage für die Update-Suche (.sig daneben)
+if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+  export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+  npx tauri build --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":true}}'
+else
+  npx tauri build --bundles appimage
+fi
+cp src-tauri/target/release/bundle/appimage/*.AppImage* /out/
 ls -la /out/*.AppImage
