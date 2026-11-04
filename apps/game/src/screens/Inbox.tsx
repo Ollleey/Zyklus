@@ -82,7 +82,7 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom, onCustom }: P
             value={language()}
             aria-label={t('language.label')}
             title={t('language.label')}
-            onChange={(e) => chooseLanguage(e.target.value as 'de' | 'en')}
+            onChange={(e) => void chooseLanguage(e.target.value as 'de' | 'en')}
           >
             {LANGUAGES.map((l) => (
               <option key={l.id} value={l.id}>

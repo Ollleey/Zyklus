@@ -1,5 +1,11 @@
 # Changelog
 
+## Sprachwahl in der Desktop-App (2026-11-04)
+
+- „English“ blieb in der Desktop-App wirkungslos: die Wahl wurde verzögert in die Datei geschrieben,
+  das Fenster aber sofort neu geladen. Jetzt wird vor dem Neuladen gespeichert
+- E2E prüft den Sprachwechsel und dass er einen Neustart übersteht
+
 ## Linux-AppImage (2026-11-03)
 
 - **Linux-Version als eine Datei** (`ZYKLUS_0.1.0_amd64.AppImage`), gebaut auf Ubuntu 22.04;

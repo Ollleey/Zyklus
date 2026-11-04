@@ -38,9 +38,11 @@ export function initLanguage(): void {
 }
 
 /** Sprache wechseln und merken; die Oberfläche wird neu geladen */
-export function chooseLanguage(l: Lang): void {
+export async function chooseLanguage(l: Lang): Promise<void> {
   try {
     platform.storage.setItem(KEY, l);
+    // Desktop schreibt verzögert in Dateien – vor dem Neuladen sichern, sonst gilt wieder Deutsch
+    await platform.flush();
   } catch {
     /* nur für diese Sitzung */
   }

@@ -153,6 +153,23 @@ try {
   const p2 = await s.text(await s.find('.inbox-progress'));
   check('Fortschritt nach Neustart', p2.startsWith('1 /'), p2);
   check('Spielstand als Datei', existsSync(join(data, 'fortschritt.json')));
+  // Sprache wechseln: die Oberfläche lädt neu, die Wahl muss vorher in der Datei stehen
+  await s.click(await s.find('.lang-select option[value=en]'));
+  const en = await s.byText('.inbox-progress', 'jobs done').then(
+    () => true,
+    () => false,
+  );
+  check('Englisch nach dem Umschalten', en);
+  await s.close();
+  await sleep(1500);
+  s = await session();
+  const en2 = await s.byText('.inbox-progress', 'jobs done').then(
+    () => true,
+    () => false,
+  );
+  check('Englisch nach Neustart', en2);
+  await s.click(await s.find('.lang-select option[value=de]'));
+  await s.byText('.inbox-progress', 'erledigt');
   await s.close();
   await sleep(1500);
 
