@@ -4,10 +4,24 @@ All functions work with the running simulation (manual mode, test case or sandbo
 
 ## Monitoring
 
-- **SCL**: operand values are shown at the end of the line. Conditions of `IF`, `ELSIF`, `WHILE` and
-  `UNTIL` are coloured: **green** fulfilled, **blue** not fulfilled (value from the last cycle).
-- **FBD/LAD**: values at the operands of inputs and outputs; Bool pins green (1) or dashed blue (0).
+Above the program editor, **👓 Monitoring on/off** switches the display (like the glasses in the
+TIA Portal; the setting is remembered). While the simulation runs or is paused, the values are
+shown right in the program – when paused or in single cycle, the state of that cycle.
+
+- **SCL**: to the right of each line a column with all operands of the line and their values
+  (**1 green**, **0 blue**, numbers yellow). Conditions of `IF`, `ELSIF`, `WHILE` and `UNTIL` are
+  coloured: green fulfilled, blue not fulfilled.
+- **LAD**: the **power flow** from the left rail – contacts, wires, boxes and coils green where power
+  flows, blue (dashed) where not. Box pins show their values, timers and counters also `ET`, `Q`,
+  `CV` from the instance DB.
+- **FBD**: values at operands and pins, **connection lines** green (1) or dashed blue (0); unassigned
+  outputs of timers and counters show their value from the instance DB.
 - **GRAPH**: the active step is outlined in green.
+- **FB**: local variables (`#…`) are shown from the instance DB of the selected **call
+  environment** (selection next to the switch). In an **FC** only global operands are visible.
+
+If a value cannot be determined (e.g. an edge in the middle of a rung), that spot stays neutral grey
+instead of being coloured wrongly.
 
 ## Watch table and force table
 

@@ -540,5 +540,12 @@
   "settings.error": "Update-Suche fehlgeschlagen:",
   "settings.auto": "Beim Start nach Updates suchen (braucht Internet)",
   "settings.webUpdates": "Die Browser-Version lädt immer den aktuellen Stand – Updates gibt es nur für die Desktop-App.",
-  "settings.show": "Anzeigen"
+  "settings.show": "Anzeigen",
+  "monitor.on": "Beobachten ein",
+  "monitor.off": "Beobachten aus",
+  "monitor.title": "Beobachten ein/aus: Während die Simulation läuft, stehen die aktuellen Werte direkt im Programm – SCL rechts neben jeder Zeile, FUP/KOP an Pins und Leitungen (grün = 1 bzw. Strom, blau = 0).",
+  "monitor.startSim": "Simulation starten, um Werte zu sehen",
+  "monitor.env": "Aufrufumgebung",
+  "monitor.noInstance": "Kein Instanz-DB – lokale Werte nicht sichtbar",
+  "monitor.fc": "FC: nur globale Operanden sichtbar"
 }

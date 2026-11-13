@@ -48,6 +48,8 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { OnlinePanel, type OnlineAccess } from './OnlinePanel';
 import { CrossRefPanel } from './CrossRefPanel';
 import { EMPTY_TABLES, resolveOperand, type OnlineState, type OnlineTables } from '../state/online';
+import { platform } from '@zyklus/platform';
+import type { SclLiveItem } from './SclEditor';
 
 type Tab = 'main' | 'tags' | 'dbs' | 'online' | 'xref';
 
@@ -79,7 +81,19 @@ interface Props {
   };
 }
 
-const REF_RE = /"([^"]+)"(?:\.([A-Za-z_][A-Za-z0-9_]*))?|#([A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*)/g;
+/** Operanden einer SCL-Zeile: "Tag", "DB".Element[.Element|[i]], #lokal[.Element], %I0.0 */
+const OPERAND_RE =
+  /"[^"]+"(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?)*|#[A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*|%[IQM][BWD]?\d+(?:\.[0-7])?/g;
+
+/** Beobachten ein/aus (wie die Brille im TIA-Portal), über Neustarts gemerkt */
+const MONITOR_KEY = 'zyklus.beobachten';
+function loadMonitor(): boolean {
+  try {
+    return platform.storage.getItem(MONITOR_KEY) !== 'aus';
+  } catch {
+    return true;
+  }
+}
 
 /** Bedingungen eines Bausteins aus den Messpunkten: Zeile → TRUE/FALSE */
 function conditionsOf(
@@ -154,6 +168,17 @@ export function ProgramPanel({
   const [showLibrary, setShowLibrary] = useState(false);
   const [jump, setJump] = useState<{ line: number; col: number; nonce: number }>();
   const [fupFocus, setFupFocus] = useState<{ network?: number; box?: string; nonce: number }>();
+  const [monitor, setMonitorState] = useState(loadMonitor);
+  const setMonitor = (on: boolean) => {
+    setMonitorState(on);
+    try {
+      platform.storage.setItem(MONITOR_KEY, on ? 'ein' : 'aus');
+    } catch {
+      /* nur für diese Sitzung */
+    }
+  };
+  /** Aufrufumgebung eines FB beim Beobachten: Instanz-DB, dessen Werte gezeigt werden */
+  const [envSel, setEnvSel] = useState<string>();
 
   useEffect(() => {
     if (!cpus.some((c) => c.id === cpuId)) setCpuId(cpus[0]?.id);
@@ -249,16 +274,26 @@ export function ProgramPanel({
   };
 
   /** Beobachten in FUP/KOP: Wert eines Operanden */
+  const instances =
+    block?.kind === 'FB'
+      ? (project?.blocks ?? [])
+          .filter((b) => b.kind === 'IDB' && b.of.replace(/"/g, '') === block.name)
+          .map((b) => b.name)
+      : [];
+  const env = envSel && instances.includes(envSel) ? envSel : instances[0];
+  const watching = !!watch && monitor;
   const liveOperand =
-    watch && block
+    watch && monitor && block
       ? (text: string) => {
           if (text.startsWith('#')) {
-            return block.kind === 'OB'
-              ? watch(cpuId, {
-                  local: text.slice(1),
-                  block: block.name === MAIN_OB ? undefined : block.name,
-                })
-              : undefined;
+            if (block.kind === 'OB')
+              return watch(cpuId, {
+                local: text.slice(1).split('.')[0]!,
+                block: block.name === MAIN_OB ? undefined : block.name,
+              });
+            // FB: Werte aus dem Instanz-DB der gewählten Aufrufumgebung
+            if (block.kind !== 'FB' || !env) return undefined;
+            text = `"${env}".${text.slice(1)}`;
           }
           const target = resolveOperand(project, text);
           return 'error' in target ? undefined : online?.access?.(cpuId)?.read(target);
@@ -521,6 +556,34 @@ export function ProgramPanel({
                 </button>
               ))}
             </div>
+            <button
+              className={`btn btn-small monitor-toggle ${watching ? 'monitor-live' : ''}`}
+              aria-pressed={monitor}
+              onClick={() => setMonitor(!monitor)}
+              title={t('monitor.title')}
+            >
+              👓 {monitor ? t('monitor.on') : t('monitor.off')}
+            </button>
+            {monitor && !watch && <span className="monitor-hint">{t('monitor.startSim')}</span>}
+            {watching &&
+              block.kind === 'FB' &&
+              (instances.length ? (
+                <label className="monitor-env">
+                  {t('monitor.env')}
+                  <select value={env} onChange={(e) => setEnvSel(e.target.value)}>
+                    {instances.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <span className="monitor-hint">{t('monitor.noInstance')}</span>
+              ))}
+            {watching && block.kind === 'FC' && (
+              <span className="monitor-hint">{t('monitor.fc')}</span>
+            )}
             <button className="iface-toggle" onClick={() => setShowIface(!showIface)}>
               {showIface ? '▾' : '▸'} {t('program.interface')}{' '}
               <span className="muted">
@@ -622,43 +685,34 @@ export function ProgramPanel({
             <Suspense fallback={<div className="muted editor-loading">…</div>}>
               <SclEditor
                 live={
-                  watch &&
-                  ((line) => {
-                    const code = line.replace(/\/\/.*$/, '');
-                    const parts: string[] = [];
+                  liveOperand &&
+                  ((line): SclLiveItem[] | undefined => {
+                    const code = line.replace(/\/\/.*$/, '').replace(/'[^']*'/g, "''");
+                    const items: SclLiveItem[] = [];
                     const seen = new Set<string>();
-                    for (const m of code.matchAll(REF_RE)) {
-                      const [all, name, member, local] = m;
-                      if (seen.has(all) || parts.length >= 4) continue;
-                      seen.add(all);
-                      const isDb =
-                        !!member ||
-                        project.blocks.some(
-                          (b) =>
-                            b.name === name &&
-                            b.kind !== 'OB' &&
-                            b.kind !== 'FB' &&
-                            b.kind !== 'FC',
-                        );
-                      const v = local
-                        ? block.kind === 'OB'
-                          ? watch(cpuId, {
-                              local,
-                              block: block.name === MAIN_OB ? undefined : block.name,
-                            })
-                          : undefined
-                        : isDb && member
-                          ? watch(cpuId, { db: name, member })
-                          : watch(cpuId, { tag: name });
-                      if (v === undefined) continue;
-                      parts.push(
-                        `${local ? `#${local}` : member ? `${name}.${member}` : name} = ${formatValue(v, boolFormat, typeof v === 'number' && !Number.isInteger(v) ? 2 : 0)}`,
-                      );
+                    for (const [op] of code.matchAll(OPERAND_RE)) {
+                      if (seen.has(op) || items.length >= 8) continue;
+                      seen.add(op);
+                      const v = liveOperand(op);
+                      if (v === undefined || typeof v === 'object') continue;
+                      items.push({
+                        label: op.replace(/"/g, ''),
+                        value: formatValue(
+                          v,
+                          boolFormat,
+                          typeof v === 'number' && !Number.isInteger(v) ? 2 : 0,
+                        ),
+                        kind: typeof v === 'boolean' ? (v ? 'on' : 'off') : 'num',
+                      });
                     }
-                    return parts.length ? parts.join('   ') : undefined;
+                    return items.length ? items : undefined;
                   })
                 }
-                conditions={conditionsOf(result?.program?.probes, probes?.(cpuId), block.name)}
+                conditions={
+                  watching
+                    ? conditionsOf(result?.program?.probes, probes?.(cpuId), block.name)
+                    : undefined
+                }
                 breakpoints={breakpoints?.lines(cpuId, block.name)}
                 onToggleBreakpoint={
                   breakpoints && ((line) => breakpoints.toggle(cpuId, block.name, line))

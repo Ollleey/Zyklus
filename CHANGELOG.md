@@ -1,5 +1,18 @@
 # Changelog
 
+## M19 – Beobachten im Programm wie im TIA-Portal (2026-11-13)
+
+- **👓 Beobachten ein/aus** direkt über dem Programmeditor (gespeichert), Hinweis, wenn keine
+  Simulation läuft
+- **SCL**: Wertespalte rechts neben dem Code mit allen Operanden einer Zeile (bis 8), 1 grün, 0 blau,
+  Zahlen gelb – auch Elemente wie `"T1".ET`, Felder und Adressen (`%I0.0`)
+- **KOP**: Stromfluss von der linken Schiene – Kontakte, Leitungen, Boxen und Spulen grün bzw. blau
+  gestrichelt; Werte an Box-Pins, bei Zeiten/Zählern aus dem Instanz-DB
+- **FUP**: Verbindungslinien grün bzw. blau gestrichelt aus dem ausgewerteten Signalfluss (UND, ODER,
+  XOR, Vergleicher, Speicher, Instanzen); unbelegte Instanz-Ausgänge zeigen ihren Wert
+- **FB**: Aufrufumgebung wählbar – lokale Variablen aus dem gewählten Instanz-DB
+- Handbuch „Online-Funktionen“ (Deutsch/Englisch) ergänzt
+
 ## M18 – Veröffentlichung, Updates und Installation per Befehl (2026-11-04)
 
 - Öffentliches Repository github.com/Ollleey/Zyklus; persönliche Angaben aus Dateien und der

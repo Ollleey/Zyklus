@@ -4424,3 +4424,99 @@ text.fup-live-num {
   align-items: center;
   gap: var(--s-2);
 }
+
+/* Beobachten wie im TIA-Portal: Schalter, Wertespalte in SCL, Signalfluss in FUP und KOP */
+.monitor-toggle[aria-pressed='true'] {
+  border-color: var(--amber-dim);
+}
+.monitor-toggle.monitor-live {
+  border-color: #50c878;
+  color: #50c878;
+  box-shadow: 0 0 0 1px rgba(80, 200, 120, 0.35);
+}
+.monitor-hint {
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+.monitor-env {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+  color: var(--muted);
+}
+.monitor-env select {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: inherit;
+  font: inherit;
+  padding: 2px 6px;
+}
+.live-name {
+  color: #8a96a3 !important;
+  font-style: normal;
+}
+.live-v {
+  font-weight: 700;
+  font-style: normal;
+}
+.live-v-on {
+  color: #50c878 !important;
+}
+.live-v-off {
+  color: #5a8ce6 !important;
+}
+.live-v-num {
+  color: var(--amber) !important;
+}
+.fup-wire.fup-wire-on {
+  stroke: #1f9d55;
+  stroke-width: 2.6;
+}
+.fup-wire.fup-wire-off {
+  stroke: #3a6fd8;
+  stroke-dasharray: 5 3;
+}
+.lad-rail.lad-pf-on {
+  background: #1f9d55;
+}
+.lad-wire.lad-pf-on {
+  background: #1f9d55;
+  height: 3px;
+}
+.lad-wire.lad-pf-off {
+  background: repeating-linear-gradient(90deg, #3a6fd8 0 5px, transparent 5px 9px);
+}
+.lad-contact.lad-pf-on,
+.lad-coil.lad-pf-on {
+  color: #1f9d55;
+  font-weight: 700;
+}
+.lad-contact.lad-pf-off,
+.lad-coil.lad-pf-off {
+  color: #3a6fd8;
+}
+.lad-box.lad-pf-on {
+  border-color: #1f9d55;
+  border-width: 2px;
+}
+.lad-box.lad-pf-off {
+  border-color: #3a6fd8;
+  border-style: dashed;
+}
+.lad-live {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 2px;
+}
+.lad-live-on {
+  color: #1f9d55;
+}
+.lad-live-off {
+  color: #3a6fd8;
+}
+.lad-live-num {
+  color: #b86b00;
+}

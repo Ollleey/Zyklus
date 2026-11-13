@@ -540,5 +540,12 @@
   "settings.error": "Update check failed:",
   "settings.auto": "Check for updates on start (needs internet)",
   "settings.webUpdates": "The browser version always loads the current state – updates are only for the desktop app.",
-  "settings.show": "Show"
+  "settings.show": "Show",
+  "monitor.on": "Monitoring on",
+  "monitor.off": "Monitoring off",
+  "monitor.title": "Monitoring on/off: while the simulation runs, current values are shown right in the program – SCL to the right of each line, FBD/LAD at pins and wires (green = 1 or power, blue = 0).",
+  "monitor.startSim": "Start the simulation to see values",
+  "monitor.env": "Call environment",
+  "monitor.noInstance": "No instance DB – local values not visible",
+  "monitor.fc": "FC: only global operands visible"
 }

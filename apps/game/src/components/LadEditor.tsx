@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ladFlow, liveText, operandValue } from './liveFlow';
 import { tx } from '../i18n';
 import type { Block, CodeBlock, PlcProject } from '@zyklus/sim-core';
 import type { ProjectDiagnostic } from '@zyklus/scl-compiler';
@@ -55,7 +56,11 @@ const LAD_BOXES = [
 ];
 
 const COILS: [CoilKind, string, string][] = [
-  ['=', '( )', tx('Spule: Operand = Verknüpfungsergebnis', 'Coil: operand = result of logic operation')],
+  [
+    '=',
+    '( )',
+    tx('Spule: Operand = Verknüpfungsergebnis', 'Coil: operand = result of logic operation'),
+  ],
   ['/=', '(/)', tx('negierte Spule', 'negated coil')],
   ['S', '(S)', tx('Setzen', 'Set')],
   ['R', '(R)', tx('Rücksetzen', 'Reset')],
@@ -258,6 +263,17 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
   };
 
   const value = (op: string | undefined) => (live && op?.trim() ? live(op.trim()) : undefined);
+  // Beobachten: Stromfluss je Netzwerk (grün = Strom, blau gestrichelt = kein Strom)
+  const flows = live ? body.lad.map((nw) => ladFlow(nw, live)) : undefined;
+  const pf = (i: number, id: string) => {
+    const f = flows?.[i]?.get(id);
+    return f === true ? 'lad-pf-on' : f === false ? 'lad-pf-off' : '';
+  };
+  /** beobachteter Wert neben einem Pin */
+  const pinLive = (v: ReturnType<typeof operandValue>) => {
+    const lt = live ? liveText(v) : undefined;
+    return lt ? <span className={`lad-live lad-live-${lt.cls}`}>{lt.text}</span> : null;
+  };
 
   /** Kontakt bzw. Box (Strompfad von links nach rechts) */
   const renderNode = (n: LadNode, i: number): React.ReactNode => {
@@ -282,15 +298,13 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
           {n.branches.map((b, k) => (
             <div key={k} className="lad-branch">
               {b.map((x) => renderNode(x, i))}
-              <span className="lad-wire" />
+              <span className={`lad-wire ${pf(i, `${n.id}:${k}`)}`} />
             </div>
           ))}
         </div>
       );
     }
     if (n.k === 'contact' || n.k === 'edge') {
-      const v = value(n.operand);
-      const on = typeof v === 'boolean' ? (n.k === 'contact' && n.neg ? !v : v) : undefined;
       return (
         <div key={n.id} className={cls} onClick={pick} title={title}>
           <input
@@ -302,7 +316,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
             onFocus={() => setSel({ network: i, id: n.id })}
             onChange={(e) => upd((x) => ({ ...x, operand: e.target.value }) as LadNode)}
           />
-          <span className={`lad-contact ${on === true ? 'lad-on' : on === false ? 'lad-off' : ''}`}>
+          <span className={`lad-contact ${pf(i, n.id)}`}>
             ─┤{n.k === 'edge' ? n.dir : n.neg ? '/' : ' '}├─
           </span>
           {n.k === 'edge' && (
@@ -338,7 +352,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
             onChange={(e) => upd((x) => ({ ...x, operand: e.target.value }) as LadNode)}
           />
         )}
-        <div className="lad-box">
+        <div className={`lad-box ${pf(i, n.id)}`}>
           <div className="lad-box-head">{spec.label}</div>
           {pins.map((p) => (
             <label key={p.name} className="lad-pin">
@@ -354,10 +368,18 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
                 }
               />
               {p.name}
+              {pinLive(operandValue(value, n.inputs[p.name]))}
             </label>
           ))}
           {outs.map((p) => (
             <label key={p.name} className="lad-pin lad-pin-out">
+              {pinLive(
+                n.outputs[p.name]?.trim()
+                  ? value(n.outputs[p.name])
+                  : n.operand?.trim()
+                    ? value(`${n.operand.trim()}.${p.name}`)
+                    : undefined,
+              )}
               {p.name}
               <input
                 value={n.outputs[p.name] ?? ''}
@@ -382,7 +404,6 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
   const renderCoil = (c: LadCoil, i: number) => {
     const selected = sel?.network === i && sel.id === c.id;
     const errs = byId.get(`${i}:${c.id}`) ?? [];
-    const v = value(c.operand);
     const upd = (patch: Partial<LadCoil>) =>
       setNetwork(i, {
         ...body.lad[i]!,
@@ -406,9 +427,7 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => upd({ operand: e.target.value })}
         />
-        <span className={`lad-coil ${v === true ? 'lad-on' : v === false ? 'lad-off' : ''}`}>
-          ─{COILS.find(([k]) => k === c.kind)![1]}
-        </span>
+        <span className={`lad-coil ${pf(i, 'end')}`}>─{COILS.find(([k]) => k === c.kind)![1]}</span>
         {(c.kind === 'P' || c.kind === 'N') && (
           <input
             className="lad-op lad-mem"
@@ -426,10 +445,18 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
   return (
     <div className="lad">
       <div className="lad-tools" role="toolbar" aria-label="KOP-Elemente">
-        <button className="btn btn-small" onClick={() => addContact(false)} title={tx('Schließer', 'Normally open contact')}>
+        <button
+          className="btn btn-small"
+          onClick={() => addContact(false)}
+          title={tx('Schließer', 'Normally open contact')}
+        >
           ┤ ├
         </button>
-        <button className="btn btn-small" onClick={() => addContact(true)} title={tx('Öffner', 'Normally closed contact')}>
+        <button
+          className="btn btn-small"
+          onClick={() => addContact(true)}
+          title={tx('Öffner', 'Normally closed contact')}
+        >
           ┤/├
         </button>
         <button
@@ -480,7 +507,11 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
             </optgroup>
           )}
         </select>
-        <button className="btn btn-small" onClick={addBox} title={tx('Box hinter der Auswahl einfügen', 'Insert box after the selection')}>
+        <button
+          className="btn btn-small"
+          onClick={addBox}
+          title={tx('Box hinter der Auswahl einfügen', 'Insert box after the selection')}
+        >
           + Box
         </button>
         <span className="lad-sep" />
@@ -532,9 +563,9 @@ export function LadEditor({ project, block, diagnostics, onChange, live }: Props
                 setSel({ network: i, id: '' });
               }}
             >
-              <span className="lad-rail" />
+              <span className={`lad-rail ${live ? 'lad-pf-on' : ''}`} />
               {nw.items.map((n) => renderNode(n, i))}
-              <span className="lad-wire lad-grow" />
+              <span className={`lad-wire lad-grow ${pf(i, 'end')}`} />
               <div className="lad-coils">
                 {nw.coils.length ? (
                   nw.coils.map((c) => renderCoil(c, i))

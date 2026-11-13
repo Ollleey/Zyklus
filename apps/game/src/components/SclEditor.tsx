@@ -4,14 +4,21 @@ import { SCL_LANGUAGE_ID, toMonacoMarkers, type ProjectDiagnostic } from '@zyklu
 import { monaco } from '../monaco-setup';
 import { TOKENS } from '../theme';
 
+/** beobachteter Operand einer Zeile */
+export interface SclLiveItem {
+  label: string;
+  value: string;
+  kind: 'on' | 'off' | 'num';
+}
+
 interface Props {
   value: string;
   onChange: (v: string) => void;
   diagnostics: ProjectDiagnostic[];
   /** Zeile, zu der gesprungen werden soll (ändert sich bei Klick auf eine Meldung) */
   jump?: { line: number; col: number; nonce: number };
-  /** Beobachten: Werte zu einer Codezeile (während der Simulation) */
-  live?: (line: string) => string | undefined;
+  /** Beobachten: Operanden und Werte einer Codezeile (während der Simulation) */
+  live?: (line: string) => SclLiveItem[] | undefined;
   /** Beobachten: Ergebnis der Bedingung je Zeile (TRUE grün, FALSE blau) */
   conditions?: Map<number, boolean>;
   /** Haltepunkte (Zeilen); Klick in den Rand schaltet um */
@@ -60,23 +67,45 @@ export function SclEditor({
 
   useEffect(applyMarkers, [diagnostics]);
 
-  // Werte am Zeilenende wie „Beobachten ein“; nur neu setzen, wenn sich etwas geändert hat
+  // Beobachten wie im TIA-Portal: Werte aller Operanden einer Zeile in einer Spalte rechts
+  // neben dem Code (1 grün, 0 blau); nur neu setzen, wenn sich etwas geändert hat
   useEffect(() => {
     const ed = editorRef.current;
     const model = ed?.getModel();
     if (!ed || !model) return;
     const decos: monaco.editor.IModelDeltaDecoration[] = [];
     if (live) {
-      for (let n = 1; n <= model.getLineCount(); n++) {
-        const text = live(model.getLineContent(n));
-        if (!text) continue;
+      const lines = model.getLinesContent();
+      const perLine = lines.map((l) => live(l));
+      // Spalte hinter der längsten Zeile mit Werten (höchstens 60 Zeichen; längere schieben nach rechts)
+      const column =
+        Math.min(
+          60,
+          Math.max(16, ...lines.map((l, k) => (perLine[k]?.length ? l.trimEnd().length : 0))),
+        ) + 3;
+      for (let n = 1; n <= lines.length; n++) {
+        const items = perLine[n - 1];
+        if (!items?.length) continue;
+        const len = lines[n - 1]!.trimEnd().length;
         const col = model.getLineMaxColumn(n);
-        decos.push({
-          range: new monaco.Range(n, col, n, col),
-          options: {
-            showIfCollapsed: true,
-            after: { content: `   ${text}`, inlineClassName: 'live-value' },
-          },
+        items.forEach((it, k) => {
+          const pad = k === 0 ? ' '.repeat(Math.max(2, column - len)) + '│ ' : '  ';
+          decos.push(
+            {
+              range: new monaco.Range(n, col, n, col),
+              options: {
+                showIfCollapsed: true,
+                after: { content: `${pad}${it.label} `, inlineClassName: 'live-name' },
+              },
+            },
+            {
+              range: new monaco.Range(n, col, n, col),
+              options: {
+                showIfCollapsed: true,
+                after: { content: it.value, inlineClassName: `live-v live-v-${it.kind}` },
+              },
+            },
+          );
         });
       }
     }

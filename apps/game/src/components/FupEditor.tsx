@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { fupValues, liveText, type LiveValue } from './liveFlow';
 import type { Block, CodeBlock, PlcProject } from '@zyklus/sim-core';
 import { LIBRARY, type ProjectDiagnostic } from '@zyklus/scl-compiler';
 import { t, tx } from '../i18n';
@@ -439,6 +440,12 @@ function NetworkCanvas({
     onChange({ ...network, boxes: network.boxes.map((b) => (b.id === id ? f(b) : b)) });
 
   const wiredInputs = new Set(network.wires.map((w) => `${w.to.box}.${w.to.pin}`));
+  // Beobachten: Werte aller Box-Ausgänge (auch verbundener) für Leitungen und Pins
+  const outVals = live ? fupValues(network, live) : undefined;
+  const liveCls = (v: LiveValue) => {
+    const lt = liveText(v);
+    return lt ? { text: lt.text, cls: `fup-live-${lt.cls}` } : undefined;
+  };
   const wiredOutputs = new Set(network.wires.map((w) => `${w.from.box}.${w.from.pin}`));
 
   /** Nächster Bool-Eingang zum Zeiger (Fangradius 14 px) */
@@ -551,7 +558,13 @@ function NetworkCanvas({
               onPointerDown={(e) => (e.stopPropagation(), onSelect({ network: index, wire: k }))}
             >
               <path d={d} className="fup-wire-hit" />
-              <path d={d} className={`fup-wire ${sel ? 'fup-wire-sel' : ''}`} />
+              <path
+                d={d}
+                className={`fup-wire ${sel ? 'fup-wire-sel' : ''} ${(() => {
+                  const v = outVals?.get(`${w.from.box}.${w.from.pin}`);
+                  return v === true ? 'fup-wire-on' : v === false ? 'fup-wire-off' : '';
+                })()}`}
+              />
             </g>
           );
         })}
@@ -666,7 +679,9 @@ function NetworkCanvas({
                   spec.kind === 'compare' ||
                   p.name === 'ENO'
                 );
-                const lv = liveOf(live, b.outputs[p.name]);
+                const lv = b.outputs[p.name]?.trim()
+                  ? liveOf(live, b.outputs[p.name])
+                  : liveCls(outVals?.get(`${b.id}.${p.name}`));
                 return (
                   <g key={p.name}>
                     <line
@@ -710,7 +725,12 @@ function NetworkCanvas({
                         }}
                         onDoubleClick={() => toggleNeg(p.name)}
                       >
-                        <title>{tx('Ziehen zum Verbinden · Doppelklick negiert', 'Drag to connect · double-click negates')}</title>
+                        <title>
+                          {tx(
+                            'Ziehen zum Verbinden · Doppelklick negiert',
+                            'Drag to connect · double-click negates',
+                          )}
+                        </title>
                       </circle>
                     )}
                     {operandAllowed && (!wired || b.outputs[p.name]) && (

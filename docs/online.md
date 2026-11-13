@@ -4,10 +4,25 @@ Alle Funktionen arbeiten mit der laufenden Simulation (Handbetrieb, Testfall ode
 
 ## Beobachten
 
-- **SCL**: Werte der Operanden stehen am Zeilenende. Bedingungen von `IF`, `ELSIF`, `WHILE` und
-  `UNTIL` sind eingefärbt: **grün** erfüllt, **blau** nicht erfüllt (Wert aus dem letzten Zyklus).
-- **FUP**: Werte an den Operanden der Ein- und Ausgänge; Bool-Pins grün (1) bzw. blau gestrichelt
-  (0).
+Über dem Programmeditor schaltet **👓 Beobachten ein/aus** die Anzeige um (wie die Brille im
+TIA-Portal; die Einstellung bleibt gespeichert). Solange die Simulation läuft oder angehalten ist,
+stehen die Werte direkt im Programm – beim Anhalten oder im Einzelzyklus der Stand dieses Zyklus.
+
+- **SCL**: rechts neben jeder Zeile eine Spalte mit allen Operanden der Zeile und ihren Werten
+  (**1 grün**, **0 blau**, Zahlen gelb). Bedingungen von `IF`, `ELSIF`, `WHILE` und `UNTIL` sind
+  eingefärbt: grün erfüllt, blau nicht erfüllt.
+- **KOP**: der **Stromfluss** von der linken Schiene – Kontakte, Leitungen, Boxen und Spulen grün,
+  wo Strom fließt, blau (gestrichelt), wo nicht. An den Pins der Boxen stehen die Werte, bei Zeiten
+  und Zählern auch `ET`, `Q`, `CV` aus dem Instanz-DB.
+- **FUP**: Werte an Operanden und Pins, **Verbindungslinien** grün (1) bzw. blau gestrichelt (0);
+  unbelegte Ausgänge von Zeiten und Zählern zeigen ihren Wert aus dem Instanz-DB.
+- **GRAPH**: Der aktive Schritt ist grün umrandet.
+- **FB**: Lokale Variablen (`#…`) zeigt das Spiel aus dem Instanz-DB der gewählten
+  **Aufrufumgebung** (Auswahl neben dem Schalter). In einer **FC** sind nur globale Operanden
+  sichtbar.
+
+Lässt sich ein Wert nicht bestimmen (z. B. eine Flanke mitten im Strompfad), bleibt die Stelle
+neutral grau statt falsch eingefärbt.
 
 ## Beobachtungstabelle und Forcetabelle
 
