@@ -50,8 +50,11 @@ import { CrossRefPanel } from './CrossRefPanel';
 import { EMPTY_TABLES, resolveOperand, type OnlineState, type OnlineTables } from '../state/online';
 import { platform } from '@zyklus/platform';
 import type { SclLiveItem } from './SclEditor';
+import { DiagnosisPanel } from './DiagnosisPanel';
+import type { BoardAnalysis } from '@zyklus/sim-core';
+import type { RunView } from '../sim/types';
 
-type Tab = 'main' | 'tags' | 'dbs' | 'online' | 'xref';
+type Tab = 'main' | 'tags' | 'dbs' | 'online' | 'xref' | 'diag';
 
 /** Wert eines Operanden in der laufenden Simulation */
 export type WatchReader = (
@@ -74,6 +77,8 @@ interface Props {
   /** Beobachten: Werte der Messpunkte einer CPU (während einer Simulation) */
   probes?: (cpu: string) => readonly (boolean | number | string)[] | undefined;
   /** Beobachtungs- und Forcetabellen je CPU; `access` nur während einer Simulation */
+  /** Online & Diagnose: laufende Simulation und Zuordnung der Baugruppen */
+  diagnosis?: { run: RunView | null; analysis: Pick<BoardAnalysis, 'cpuOf' | 'channelAddress'> };
   online?: {
     state: OnlineState;
     onChange: (cpu: string, t: OnlineTables) => void;
@@ -157,6 +162,7 @@ export function ProgramPanel({
   probes,
   online,
   breakpoints,
+  diagnosis,
 }: Props) {
   const boolFormat = useBoolFormat();
   const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
@@ -391,6 +397,17 @@ export function ProgramPanel({
         >
           {t('program.xref')}
         </button>
+        {diagnosis && (
+          <button
+            className={`tab ${tab === 'diag' ? 'tab-active' : ''}`}
+            onClick={() => setTab('diag')}
+          >
+            {t('diag.tab')}
+            {!!diagnosis.run?.cpus.get(cpuId)?.diagActive && (
+              <span className="badge badge-warn">!</span>
+            )}
+          </button>
+        )}
         {online && (
           <button
             className={`tab ${tab === 'online' ? 'tab-active' : ''}`}
@@ -773,6 +790,16 @@ export function ProgramPanel({
               setTab('main');
               setJump({ line, col: 1, nonce: Math.random() });
             }}
+          />
+        </div>
+      )}
+      {tab === 'diag' && diagnosis && (
+        <div className="scroll">
+          <DiagnosisPanel
+            cpuId={cpuId}
+            solution={solution}
+            analysis={diagnosis.analysis}
+            run={diagnosis.run}
           />
         </div>
       )}

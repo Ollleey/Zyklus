@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { moduleHealth } from '../components/DiagnosisPanel';
 import {
   analyzeBoard,
   emptySolution,
@@ -428,6 +429,9 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
               : undefined
           }
           moduleFaults={run ? (module) => run.moduleFaults(module) : undefined}
+          health={
+            run ? (module) => moduleHealth(solution, compiled.analysis, run, module) : undefined
+          }
           onCpuSwitch={(cpu, mode) => {
             if (mode === 'RESTART') run?.powerCycle(cpu);
             else run?.setCpuSwitch(cpu, mode);
@@ -457,6 +461,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             },
             hit: breakHit ?? undefined,
           }}
+          diagnosis={{ run, analysis: compiled.analysis }}
           online={{
             state: online,
             onChange: (cpu, tb) => setOnline({ ...online, [cpu]: tb }),

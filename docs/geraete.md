@@ -90,6 +90,19 @@ Aufruf in Sekunden. **Spielregel:** Rechenzeit ergibt sich aus der Zahl der ausg
   Zykluszeitfehler und Baugruppenmeldungen mit Zeit.
 - **ERROR** (rot): STOP durch einen Fehler oder anstehende Diagnose. **MAINT** (gelb): Forcen aktiv.
 
+## Online & Diagnose
+
+Reiter **„Online & Diagnose“** im Programmbereich (während der Simulation), je CPU:
+
+- **CPU**: Betriebszustand (bei STOP mit Ursache), Zykluslast, anstehende Diagnosen, Forceaufträge.
+- **Baugruppen** mit Diagnose-Symbol und Text: ✓ in Ordnung, ⚠ Lastspannung fehlt bzw. Analogkanal
+  mit Drahtbruch oder Überlauf (mit Kanal und Adresse), ✕ Baugruppe gezogen oder Station ausgefallen.
+- **Diagnosepuffer** vollständig (bis 50 Einträge, neueste oben), filterbar nach Fehler, Diagnose und
+  Betrieb.
+
+Dieselben Symbole erscheinen im Schaltschrank oben rechts an der betroffenen Baugruppe; der Text
+steht im Tooltip.
+
 ## Störungen testen
 
 - Aufträge geben Störungen im Testfall vor: Drahtbruch am Geber, **Baugruppe gezogen**,

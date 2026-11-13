@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { HEALTH_ICON, type ModuleHealth } from './DiagnosisPanel';
 import {
   DEFAULT_UPDATE_TIME,
   HSC_BASE,
@@ -67,6 +68,8 @@ interface Props {
   /** Störungen von Hand: Baugruppe ziehen, Lastspannung wegnehmen */
   onModuleFault?: (module: string, kind: 'pulled' | 'noLoad', on: boolean) => void;
   moduleFaults?: (module: string) => Set<ModuleFaultKind>;
+  /** Diagnose-Symbol je Baugruppe (während der Simulation) */
+  health?: (module: string) => ModuleHealth;
   /** geforcte Geräte (Markierung „F“) */
   forced?: (deviceId: string) => boolean;
 }
@@ -92,6 +95,7 @@ export function Cabinet({
   onCpuSwitch,
   onModuleFault,
   moduleFaults,
+  health,
   forced,
 }: Props) {
   const [tool, setTool] = useState<Tool>(null);
@@ -488,6 +492,23 @@ export function Cabinet({
                       }
                     />
                   )}
+                  {(() => {
+                    // Diagnose-Symbol wie in der Online-Ansicht des TIA-Portals (oben rechts)
+                    if (!health || mt.kind === 'cpu') return null;
+                    const h = health(m.id);
+                    if (h.level === 'ok' || h.level === 'off') return null;
+                    const x = colX(l, m.x + mt.width) - 3.2;
+                    const y = G.module.y + 3.2;
+                    return (
+                      <g className={`hw-health hw-health-${h.level}`}>
+                        <title>{h.texts.join('\n')}</title>
+                        <circle cx={x} cy={y} r={2.6} />
+                        <text x={x} y={y + 1.2} textAnchor="middle">
+                          {HEALTH_ICON[h.level]}
+                        </text>
+                      </g>
+                    );
+                  })()}
                   {isSel && (
                     <rect
                       x={colX(l, m.x) - 0.4}

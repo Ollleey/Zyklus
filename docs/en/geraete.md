@@ -89,6 +89,19 @@ time / instruction budget per instruction).
   time errors and module messages with time.
 - **ERROR** (red): STOP due to an error or pending diagnostics. **MAINT** (yellow): forcing active.
 
+## Online & diagnostics
+
+Tab **“Online & diagnostics”** in the program area (while the simulation runs), per CPU:
+
+- **CPU**: operating state (on STOP with its cause), cycle load, pending diagnostics, force jobs.
+- **Modules** with a diagnostic symbol and text: ✓ OK, ⚠ load voltage missing or analogue channel with
+  wire break or overflow (with channel and address), ✕ module pulled or station failed.
+- **Diagnostic buffer** complete (up to 50 entries, newest first), filterable by error, diagnostic and
+  operation.
+
+The same symbols appear in the cabinet at the top right of the affected module; the text is in the
+tooltip.
+
 ## Testing faults
 
 - Jobs specify faults in the test case: wire break at the sensor, **module pulled**, **load voltage

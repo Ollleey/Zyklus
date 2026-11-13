@@ -1,5 +1,14 @@
 # Changelog
 
+## M22 – Online & Diagnose (2026-11-13)
+
+- Neuer Reiter **„Online & Diagnose“** im Programmbereich: Betriebszustand mit STOP-Ursache,
+  Zykluslast, anstehende Diagnosen, Forceaufträge; Baugruppen mit Diagnose-Symbol (✓ ⚠ ✕) und Text
+  (gezogen, Lastspannung, Station, Drahtbruch/Überlauf je Analogkanal); vollständiger
+  Diagnosepuffer mit Filter
+- **Diagnose-Symbole an den Baugruppen** im Schaltschrank, Text im Tooltip
+- Handbuch „Geräte und Fehler“ ergänzt (Deutsch/Englisch)
+
 ## M21 – GRAPH vollständig (2026-11-13)
 
 - **Simultanverzweigung** (Transition mit mehreren Zielen) und **Synchronisation** (Transition wartet
