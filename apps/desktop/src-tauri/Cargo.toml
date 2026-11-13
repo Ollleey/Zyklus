@@ -1,6 +1,6 @@
 [package]
 name = "zyklus"
-version = "0.1.0"
+version = "0.1.1"
 description = "ZYKLUS – Steuerungsbau nach Auftrag"
 edition = "2021"
 license = "Unlicense"

@@ -10,7 +10,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const exe = resolve(here, '../src-tauri/target/release/zyklus.exe');
+// ZYKLUS_EXE: andere Programmdatei testen (z. B. eine ältere Version für die Update-Suche)
+const exe = process.env.ZYKLUS_EXE ?? resolve(here, '../src-tauri/target/release/zyklus.exe');
 const tmp = resolve(here, '.tmp');
 const data = join(tmp, 'daten');
 const docs = join(tmp, 'dokumente');

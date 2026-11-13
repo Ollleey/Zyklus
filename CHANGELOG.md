@@ -12,6 +12,7 @@
   XOR, Vergleicher, Speicher, Instanzen); unbelegte Instanz-Ausgänge zeigen ihren Wert
 - **FB**: Aufrufumgebung wählbar – lokale Variablen aus dem gewählten Instanz-DB
 - Handbuch „Online-Funktionen“ (Deutsch/Englisch) ergänzt
+- Veröffentlicht als **v0.1.1** (Update über 🔧 Einstellungen)
 
 ## M18 – Veröffentlichung, Updates und Installation per Befehl (2026-11-04)
 
