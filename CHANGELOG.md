@@ -13,6 +13,7 @@
   mit `--uninstall`); Linux-AppImage signiert aus `scripts/linux-appimage.sh`
 - CI-Workflow mit Typprüfung und Tests bei jedem Push
 - README neu: Download, Installation, Updates, Spielstände, Entwicklung, Englisch, Hinweis zu Marken
+- Lizenz: gemeinfrei (Unlicense) – jeder darf alles damit machen
 
 ## M17 – Grundkurs für Einsteiger und Schrittketten (2026-11-04)
 

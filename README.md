@@ -137,6 +137,16 @@ download, install and restart. Save games are kept across updates.
 
 ---
 
+## Lizenz / License
+
+**Gemeinfrei** ([Unlicense](LICENSE)): Jeder darf ZYKLUS kopieren, ändern, weitergeben und
+verwenden – auch kommerziell, ohne Nachfrage und ohne Namensnennung. / **Public domain**: anyone may
+copy, modify, distribute and use ZYKLUS for any purpose, without asking and without attribution.
+
+Mitgelieferte Fremdbestandteile behalten ihre eigenen Lizenzen, z. B. die Schriften IBM Plex (SIL
+Open Font License) und die npm- und Rust-Pakete. / Bundled third-party parts keep their own licences,
+e.g. the IBM Plex fonts (SIL Open Font License) and the npm and Rust packages.
+
 ZYKLUS ist ein eigenständiges Hobbyprojekt mit eigenen Grafiken und Texten. Es ist nicht mit der
 Siemens AG verbunden und nicht von ihr unterstützt; die Spiel-SPS ist an verbreitete
 Programmiersprachen nach IEC 61131-3 angelehnt, ohne Anspruch auf Kompatibilität. Genannte Marken
