@@ -437,7 +437,7 @@
   "graph.target": "Target step",
   "graph.transition": "Transition",
   "graph.step": "Step",
-  "graph.hint": "At most one transition of the active step fires per cycle. In conditions, “Schrittzeit” is the time since the step became active. N and D only apply while the step is active, S and R are stored.",
+  "graph.hint": "A transition switches at most once per cycle; if a step has several outgoing transitions, the first one that is true wins (alternative branch). In conditions “Schrittzeit” stands for the time since the step became active. N and D only apply in the active step, S and R store.",
   "problem.network": "NW",
   "problem.line": "l.",
   "problem.row": "row",
@@ -547,5 +547,18 @@
   "monitor.startSim": "Start the simulation to see values",
   "monitor.env": "Call environment",
   "monitor.noInstance": "No instance DB – local values not visible",
-  "monitor.fc": "FC: only global operands visible"
+  "monitor.fc": "FC: only global operands visible",
+  "graph.pre": "Permanent instructions before the sequence",
+  "graph.post": "Permanent instructions after the sequence",
+  "graph.mode": "Mode",
+  "graph.faultIn": "Fault in step {no} – acknowledge with ACK_EF",
+  "graph.interlock": "Interlock (SCL), e.g. \"Door_closed\"",
+  "graph.supervision": "Supervision (SCL), e.g. Schrittzeit > T#5s",
+  "graph.interlockHint": "C – interlock: the actions of the step only take effect while the condition holds; otherwise fault (ERR_FLT).",
+  "graph.supervisionHint": "V – supervision: if the condition becomes true, the step reports a fault and the sequence does not advance until acknowledged with ACK_EF.",
+  "graph.targetHint": "Target step(s): one number, or several (\"3, 4\") for a simultaneous branch – all become active at once.",
+  "graph.join": "and",
+  "graph.joinHint": "Synchronisation: further steps that must be active too (\"5, 7\") – the transition only switches when all are active.",
+  "graph.split": "simultaneous branch",
+  "graph.paramsHint": "The sequence FB also has the parameters OFF_SQ, INIT_SQ, ACK_EF, SW_AUTO/SW_TAP/SW_MAN, T_PUSH, S_SEL/S_ON (inputs) and ERR_FLT, S_NO, AUTO_ON/TAP_ON/MAN_ON (outputs), e.g. \"Bohren_DB\"(ACK_EF := \"Quittieren\");"
 }

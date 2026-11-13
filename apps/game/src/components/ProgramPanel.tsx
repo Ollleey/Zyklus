@@ -656,10 +656,15 @@ export function ProgramPanel({
               block={block}
               diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
               onChange={(p) => change(() => p)}
-              activeStep={(() => {
-                const idb = project.blocks.find((b) => b.kind === 'IDB' && b.of === block.name);
-                const v = idb ? liveOperand?.(`"${idb.name}".__Schritt`) : undefined;
-                return typeof v === 'number' ? v : undefined;
+              live={(() => {
+                // Beobachten: Zustand der Kette in der gewählten Aufrufumgebung (Instanz-DB)
+                if (!liveOperand || !env) return undefined;
+                const read = (m: string) => liveOperand(`"${env}".${m}`);
+                return {
+                  active: (no: number) => read(`__X${no}`) === true,
+                  fault: Number(read('__Fehler') ?? 0),
+                  mode: Number(read('__Betrieb') ?? 0),
+                };
               })()}
             />
           ) : block.lang === 'KOP' ? (

@@ -437,7 +437,7 @@
   "graph.target": "Zielschritt",
   "graph.transition": "Transition",
   "graph.step": "Schritt",
-  "graph.hint": "Je Zyklus wird höchstens eine Transition des aktiven Schritts geschaltet. In Bedingungen steht „Schrittzeit“ für die Zeit seit Aktivierung des Schritts. N und D gelten nur im aktiven Schritt, S und R speichern.",
+  "graph.hint": "Je Zyklus schaltet eine Transition höchstens einmal; bei mehreren abgehenden Transitionen eines Schritts gilt die erste erfüllte (Alternativverzweigung). In Bedingungen steht „Schrittzeit“ für die Zeit seit Aktivierung des Schritts. N und D gelten nur im aktiven Schritt, S und R speichern.",
   "problem.network": "NW",
   "problem.line": "Z.",
   "problem.row": "Zeile",
@@ -547,5 +547,18 @@
   "monitor.startSim": "Simulation starten, um Werte zu sehen",
   "monitor.env": "Aufrufumgebung",
   "monitor.noInstance": "Kein Instanz-DB – lokale Werte nicht sichtbar",
-  "monitor.fc": "FC: nur globale Operanden sichtbar"
+  "monitor.fc": "FC: nur globale Operanden sichtbar",
+  "graph.pre": "Dauernde Anweisungen vor der Kette",
+  "graph.post": "Dauernde Anweisungen nach der Kette",
+  "graph.mode": "Betriebsart",
+  "graph.faultIn": "Störung in Schritt {no} – mit ACK_EF quittieren",
+  "graph.interlock": "Verriegelung (SCL), z. B. \"Tuer_zu\"",
+  "graph.supervision": "Überwachung (SCL), z. B. Schrittzeit > T#5s",
+  "graph.interlockHint": "C – Verriegelung: Die Aktionen des Schritts wirken nur, solange die Bedingung erfüllt ist; sonst Störung (ERR_FLT).",
+  "graph.supervisionHint": "V – Überwachung: Wird die Bedingung wahr, meldet der Schritt eine Störung und die Kette schaltet nicht weiter, bis mit ACK_EF quittiert ist.",
+  "graph.targetHint": "Zielschritt(e): eine Nummer, oder mehrere („3, 4“) für eine Simultanverzweigung – alle werden gleichzeitig aktiv.",
+  "graph.join": "und",
+  "graph.joinHint": "Synchronisation: weitere Schritte, die ebenfalls aktiv sein müssen („5, 7“) – die Transition schaltet erst, wenn alle aktiv sind.",
+  "graph.split": "Simultanverzweigung",
+  "graph.paramsHint": "Der Ketten-FB hat zusätzlich die Parameter OFF_SQ, INIT_SQ, ACK_EF, SW_AUTO/SW_TAP/SW_MAN, T_PUSH, S_SEL/S_ON (Eingänge) und ERR_FLT, S_NO, AUTO_ON/TAP_ON/MAN_ON (Ausgänge), z. B. \"Bohren_DB\"(ACK_EF := \"Quittieren\");"
 }

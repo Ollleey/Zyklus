@@ -60,8 +60,9 @@ einen Schritt weiter – auch wenn die nächste Transition schon erfüllt wäre.
 - **Rücksprung**: Eine Transition darf auf einen früheren Schritt zeigen (Schleife, z. B. „nächstes
   Teil“).
 - **Gleichzeitige Abläufe (UND-Verzweigung)**: zwei unabhängige Teilabläufe, etwa Bohren und
-  Prüfen. Am einfachsten als zwei Ketten mit eigener Schrittvariable, die sich über einen
-  Warteschritt treffen („beide fertig“).
+  Prüfen. In GRAPH als **Simultanverzweigung** (eine Transition mit mehreren Zielen) und
+  **Synchronisation** (eine Transition, die auf mehrere Schritte wartet); in SCL als zwei Ketten mit
+  eigener Schrittvariable, die sich über einen Warteschritt treffen („beide fertig“).
 
 ## Betriebsarten
 

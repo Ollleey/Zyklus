@@ -1,5 +1,20 @@
 # Changelog
 
+## M21 – GRAPH vollständig (2026-11-13)
+
+- **Simultanverzweigung** (Transition mit mehreren Zielen) und **Synchronisation** (Transition wartet
+  auf mehrere Vorgänger); Alternativverzweigung: erste erfüllte Transition gilt
+- Je Schritt **Verriegelung** (C, Aktionen nur bei erfüllter Bedingung) und **Überwachung** (V,
+  Störung, Kette steht bis `ACK_EF`)
+- **Betriebsarten** Automatik, Tippen (`T_PUSH`) und Hand (`S_SEL`/`S_ON`), dazu `INIT_SQ`, `OFF_SQ`;
+  Ausgänge `ERR_FLT`, `S_NO`, `AUTO_ON`/`TAP_ON`/`MAN_ON` – wie bei S7-GRAPH
+- **Dauernde Anweisungen** vor und nach der Kette
+- Beobachten: alle aktiven Schritte grün, gestörter Schritt rot, Betriebsart und Störung über der
+  Kette; Aufrufumgebung wählbar
+- Absenkung mit Aktiv-Bit und Schrittzeit je Schritt; bestehende Ketten und Auftrag 10 laufen
+  unverändert
+- Handbuch „GRAPH“ und „Schrittketten verstehen“ ergänzt (Deutsch/Englisch)
+
 ## M20 – FUP-Editor: Ziehen aus der Liste, Mehrfachauswahl (2026-11-13)
 
 - Boxen lassen sich aus der Anweisungsliste ins Netzwerk **ziehen** – jetzt auch in der Desktop-App

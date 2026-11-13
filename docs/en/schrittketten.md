@@ -58,8 +58,9 @@ one step – even if the next transition were already true.
   transitions below the step (the first true one wins).
 - **Jump back**: a transition may point to an earlier step (loop, e.g. “next part”).
 - **Simultaneous processes (AND branch)**: two independent partial processes, such as drilling and
-  testing. Easiest as two sequences with their own step variable that meet in a waiting step (“both
-  done”).
+  testing. In GRAPH as a **simultaneous branch** (one transition with several targets) and
+  **synchronisation** (one transition waiting for several steps); in SCL as two sequences with their
+  own step variable that meet in a waiting step (“both done”).
 
 ## Operating modes
 
