@@ -13,7 +13,11 @@
 - Write **operands** directly at the pin: `"Start"`, `%I0.0`, `"Daten".Wert`, `T#2s`, `100`. For
   assignments, memory and edge boxes and instances the operand is above the box.
 - **Extend:** ✚ under &, >=1, X, ADD, MUL, MIN, MAX, MUX adds an input, ━ removes it.
-- **Delete:** click a box or connection, press Del.
+- **Select:** click a box; with **Shift** or **Ctrl** add more boxes (or remove them); **drag a
+  frame** on free space to select all boxes inside; **Ctrl+A** selects all boxes of the network.
+- **Move:** drag the selected boxes together or nudge them with the **arrow keys** (with Shift in
+  larger steps).
+- **Delete:** select boxes or click a connection, press Del – connections of deleted boxes go too.
 
 As in TIA, connections only carry Bool signals. Numeric values go through operands, e.g. through a
 variable in a global DB.

@@ -1,5 +1,13 @@
 # Changelog
 
+## M20 – FUP-Editor: Ziehen aus der Liste, Mehrfachauswahl (2026-11-13)
+
+- Boxen lassen sich aus der Anweisungsliste ins Netzwerk **ziehen** – jetzt auch in der Desktop-App
+  (das HTML5-Ziehen wurde dort von der Dateiablage des Fensters abgefangen); Vorschau am Zeiger
+- **Mehrfachauswahl**: Umschalt/Strg-Klick, Auswahlrahmen auf freier Fläche, Strg+A
+- Markierte Boxen **gemeinsam verschieben** (Maus oder Pfeiltasten, Umschalt = größere Schritte) und
+  gemeinsam löschen
+
 ## M19 – Beobachten im Programm wie im TIA-Portal (2026-11-13)
 
 - **👓 Beobachten ein/aus** direkt über dem Programmeditor (gespeichert), Hinweis, wenn keine

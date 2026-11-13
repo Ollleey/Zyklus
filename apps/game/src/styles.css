@@ -4520,3 +4520,32 @@ text.fup-live-num {
 .lad-live-num {
   color: #b86b00;
 }
+
+/* FUP: Ziehen aus der Liste, Auswahlrahmen */
+.fup-item {
+  touch-action: none;
+  user-select: none;
+}
+.fup-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  padding: 3px 10px;
+  border: 1.5px solid #d48a00;
+  border-radius: 3px;
+  background: #fdfdfd;
+  color: #1d232a;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.fup-band {
+  fill: rgba(212, 138, 0, 0.12);
+  stroke: #d48a00;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+.fup-canvas {
+  touch-action: none;
+}

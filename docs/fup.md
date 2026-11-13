@@ -13,7 +13,13 @@
 - **Operanden** direkt an den Pin schreiben: `"Start"`, `%I0.0`, `"Daten".Wert`, `T#2s`, `100`.
   Über Zuweisungen, Speicher- und Flankenboxen sowie Instanzen steht der Operand über der Box.
 - **Erweitern:** ✚ unter &, >=1, X, ADD, MUL, MIN, MAX, MUX fügt einen Eingang hinzu, ━ entfernt ihn.
-- **Löschen:** Box oder Verbindung anklicken, Entf.
+- **Markieren:** Klick auf eine Box; mit **Umschalt** oder **Strg** weitere Boxen dazu (oder wieder
+  weg); auf freier Fläche einen **Rahmen aufziehen** markiert alle Boxen darin; **Strg+A** markiert
+  alle Boxen des Netzwerks.
+- **Verschieben:** markierte Boxen gemeinsam ziehen oder mit den **Pfeiltasten** schieben (mit
+  Umschalt in größeren Schritten).
+- **Löschen:** Boxen markieren bzw. Verbindung anklicken, Entf – Verbindungen an gelöschten Boxen
+  fallen mit weg.
 
 Wie in TIA tragen Verbindungen nur Bool-Signale. Zahlenwerte laufen über Operanden, z. B. über eine
 Variable im Global-DB.

@@ -114,7 +114,11 @@ interface Props {
   live?: (operand: string) => boolean | number | string | undefined;
 }
 
-type Selection = { network: number; box?: string; wire?: number } | null;
+/** Auswahl: mehrere Boxen eines Netzwerks oder eine Verbindung */
+type Selection = { network: number; boxes?: string[]; wire?: number } | null;
+
+/** Box aus der Liste ins Netzwerk ziehen (Zeiger-Ereignisse – HTML5-Ziehen fängt die Desktop-App ab) */
+type PaletteDrag = { type: string; label: string; x: number; y: number; started: boolean };
 
 export function FupEditor({ project, block, diagnostics, onChange, focus, live }: Props) {
   const body: FupBody = isFupBody(block.fup) ? block.fup : { networks: [] };
@@ -144,40 +148,109 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
 
   useEffect(() => {
     if (!focus || focus.network === undefined) return;
-    setSelection({ network: focus.network, box: focus.box });
+    setSelection({ network: focus.network, boxes: focus.box ? [focus.box] : [] });
     netRefs.current[focus.network]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [focus]);
 
-  // Entf löscht die ausgewählte Box oder Verbindung
+  // Entf löscht die markierten Boxen bzw. die Verbindung; Strg+A markiert alle Boxen des
+  // Netzwerks; Pfeiltasten verschieben die markierten Boxen (mit Umschalt in größeren Schritten)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!selection || (e.key !== 'Delete' && e.key !== 'Backspace')) return;
+      if (!selection) return;
       const target = e.target as HTMLElement;
       if (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
         target.closest('.monaco-editor')
       )
         return;
       const nw = body.networks[selection.network];
       if (!nw) return;
-      if (selection.box) {
+      const ids = new Set(selection.boxes ?? []);
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (ids.size) {
+          setNetwork(selection.network, {
+            ...nw,
+            boxes: nw.boxes.filter((b) => !ids.has(b.id)),
+            wires: nw.wires.filter((w) => !ids.has(w.from.box) && !ids.has(w.to.box)),
+          });
+        } else if (selection.wire !== undefined) {
+          setNetwork(selection.network, {
+            ...nw,
+            wires: nw.wires.filter((_, k) => k !== selection.wire),
+          });
+        }
+        setSelection(null);
+        e.preventDefault();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        setSelection({ network: selection.network, boxes: nw.boxes.map((b) => b.id) });
+        e.preventDefault();
+      } else if (ids.size && e.key.startsWith('Arrow')) {
+        const step = SNAP * (e.shiftKey ? 4 : 1);
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
         setNetwork(selection.network, {
           ...nw,
-          boxes: nw.boxes.filter((b) => b.id !== selection.box),
-          wires: nw.wires.filter((w) => w.from.box !== selection.box && w.to.box !== selection.box),
+          boxes: nw.boxes.map((b) =>
+            ids.has(b.id)
+              ? { ...b, x: Math.max(STUB + OPW + 10, b.x + dx), y: Math.max(28, b.y + dy) }
+              : b,
+          ),
         });
-      } else if (selection.wire !== undefined) {
-        setNetwork(selection.network, {
-          ...nw,
-          wires: nw.wires.filter((_, k) => k !== selection.wire),
-        });
+        e.preventDefault();
       }
-      setSelection(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  // Ziehen aus der Liste: Vorschau folgt dem Zeiger, Loslassen über einem Netzwerk fügt ein
+  const [paletteDrag, setPaletteDrag] = useState<PaletteDrag | null>(null);
+  const dragRef = useRef<PaletteDrag | null>(null);
+  const suppressClick = useRef(false);
+  const addBoxRef = useRef<(i: number, type: string, x: number, y: number) => void>(() => {});
+  useEffect(() => {
+    if (!paletteDrag) return;
+    const move = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const started = d.started || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4;
+      dragRef.current = started ? { ...d, x: e.clientX, y: e.clientY, started } : d;
+      setPaletteDrag(dragRef.current);
+    };
+    const up = (e: PointerEvent) => {
+      const d = dragRef.current;
+      dragRef.current = null;
+      setPaletteDrag(null);
+      if (!d?.started) return;
+      suppressClick.current = true;
+      const svg = document
+        .elementFromPoint(e.clientX, e.clientY)
+        ?.closest<SVGSVGElement>('svg.fup-canvas');
+      const idx = Number(svg?.dataset.network);
+      if (!svg || !Number.isInteger(idx)) return;
+      const r = svg.getBoundingClientRect();
+      addBoxRef.current(
+        idx,
+        d.type,
+        e.clientX - r.left - boxWidth(d.type) / 2,
+        e.clientY - r.top - 10,
+      );
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+  }, [paletteDrag !== null]);
+  const startPaletteDrag = (e: React.PointerEvent, type: string, label: string) => {
+    if (e.button !== 0) return;
+    suppressClick.current = false;
+    dragRef.current = { type, label, x: e.clientX, y: e.clientY, started: false };
+    setPaletteDrag(dragRef.current);
+  };
 
   const addBox = (networkIdx: number, type: string, x: number, y: number) => {
     const nw = body.networks[networkIdx]!;
@@ -206,8 +279,9 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
       box.operand = `"${name}"`;
     }
     setNetwork(networkIdx, { ...nw, boxes: [...nw.boxes, box] }, extra);
-    setSelection({ network: networkIdx, box: box.id });
+    setSelection({ network: networkIdx, boxes: [box.id] });
   };
+  addBoxRef.current = addBox;
 
   const byBox = useMemo(() => {
     const m = new Map<string, ProjectDiagnostic[]>();
@@ -247,10 +321,10 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
                     <div
                       key={s.type}
                       className="fup-item"
-                      draggable
                       title={`${boxDescription(s.type, s.description)}\n${tx('Ziehen ins Netzwerk oder klicken zum Einfügen', 'Drag into a network or click to insert')}`}
-                      onDragStart={(e) => e.dataTransfer.setData('application/x-fup-box', s.type)}
+                      onPointerDown={(e) => startPaletteDrag(e, s.type, s.label)}
                       onClick={() => {
+                        if (suppressClick.current) return void (suppressClick.current = false);
                         const target = selection?.network ?? lastNetwork;
                         const nw = body.networks[target];
                         if (!nw) return;
@@ -286,13 +360,10 @@ export function FupEditor({ project, block, diagnostics, onChange, focus, live }
                     <div
                       key={b.name}
                       className="fup-item"
-                      draggable
-                      title={`${b.kind} „${b.name}“${b.kind === 'FB' ? tx(' – legt einen Instanz-DB an', ' – creates an instance DB') : ''}
-Ziehen ins Netzwerk oder klicken zum Einfügen`}
-                      onDragStart={(e) =>
-                        e.dataTransfer.setData('application/x-fup-box', callType(b.name))
-                      }
+                      title={`${b.kind} „${b.name}“${b.kind === 'FB' ? tx(' – legt einen Instanz-DB an', ' – creates an instance DB') : ''}\n${tx('Ziehen ins Netzwerk oder klicken zum Einfügen', 'Drag into a network or click to insert')}`}
+                      onPointerDown={(e) => startPaletteDrag(e, callType(b.name), b.name)}
                       onClick={() => {
+                        if (suppressClick.current) return void (suppressClick.current = false);
                         const target = selection?.network ?? lastNetwork;
                         const nw = body.networks[target];
                         if (!nw) return;
@@ -360,7 +431,6 @@ Ziehen ins Netzwerk oder klicken zum Einfügen`}
               errors={byBox}
               onSelect={setSelection}
               onChange={(next) => setNetwork(i, next)}
-              onDropBox={(type, x, y) => addBox(i, type, x, y)}
               live={live}
             />
           </div>
@@ -378,6 +448,15 @@ Ziehen ins Netzwerk oder klicken zum Einfügen`}
           + Netzwerk
         </button>
       </div>
+      {paletteDrag?.started && (
+        <div
+          className="fup-drag-ghost"
+          style={{ left: paletteDrag.x + 8, top: paletteDrag.y + 8 }}
+          aria-hidden
+        >
+          {paletteDrag.label}
+        </div>
+      )}
     </div>
   );
 }
@@ -389,7 +468,6 @@ interface CanvasProps {
   errors: Map<string, ProjectDiagnostic[]>;
   onSelect: (s: Selection) => void;
   onChange: (nw: FupNetwork) => void;
-  onDropBox: (type: string, x: number, y: number) => void;
   live?: Props['live'];
 }
 
@@ -405,8 +483,11 @@ function liveOf(live: Props['live'], operand: string | undefined) {
 }
 
 type Drag =
-  | { kind: 'box'; id: string; dx: number; dy: number; x: number; y: number; moved: boolean }
-  | { kind: 'wire'; from: PinRef; x: number; y: number };
+  /** markierte Boxen gemeinsam verschieben: Versatz seit dem Anfassen */
+  | { kind: 'box'; ids: string[]; sx: number; sy: number; ddx: number; ddy: number; moved: boolean }
+  | { kind: 'wire'; from: PinRef; x: number; y: number }
+  /** Auswahlrahmen auf freier Fläche; `add` = zur Auswahl hinzufügen (Umschalt/Strg) */
+  | { kind: 'band'; x0: number; y0: number; x1: number; y1: number; add: boolean };
 
 function NetworkCanvas({
   network,
@@ -415,7 +496,6 @@ function NetworkCanvas({
   errors,
   onSelect,
   onChange,
-  onDropBox,
   live,
 }: CanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -427,9 +507,14 @@ function NetworkCanvas({
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
-  // Box während des Ziehens an der neuen Stelle zeigen
+  const selected = new Set(selection?.boxes ?? []);
+  const clampX = (x: number) => Math.max(STUB + OPW + 10, Math.round(x / SNAP) * SNAP);
+  const clampY = (y: number) => Math.max(28, Math.round(y / SNAP) * SNAP);
+  // markierte Boxen während des Ziehens an der neuen Stelle zeigen
   const boxes = network.boxes.map((b) =>
-    drag?.kind === 'box' && drag.id === b.id ? { ...b, x: drag.x, y: drag.y } : b,
+    drag?.kind === 'box' && drag.ids.includes(b.id)
+      ? { ...b, x: clampX(b.x + drag.ddx), y: clampY(b.y + drag.ddy) }
+      : b,
   );
   const find = (id: string) => boxes.find((b) => b.id === id);
 
@@ -470,9 +555,11 @@ function NetworkCanvas({
     if (!drag) return;
     const p = local(e);
     if (drag.kind === 'box') {
-      const x = Math.max(STUB + OPW + 10, Math.round((p.x - drag.dx) / SNAP) * SNAP);
-      const y = Math.max(28, Math.round((p.y - drag.dy) / SNAP) * SNAP);
-      setDrag({ ...drag, x, y, moved: drag.moved || x !== drag.x || y !== drag.y });
+      const ddx = p.x - drag.sx;
+      const ddy = p.y - drag.sy;
+      setDrag({ ...drag, ddx, ddy, moved: drag.moved || Math.hypot(ddx, ddy) > 3 });
+    } else if (drag.kind === 'band') {
+      setDrag({ ...drag, x1: p.x, y1: p.y });
     } else {
       setDrag({ ...drag, x: p.x, y: p.y });
       setHoverIn(nearestInput(p));
@@ -481,7 +568,32 @@ function NetworkCanvas({
 
   const onUp = (e: RPointerEvent) => {
     if (drag?.kind === 'box' && drag.moved) {
-      updateBox(drag.id, (b) => ({ ...b, x: drag.x, y: drag.y }));
+      onChange({
+        ...network,
+        boxes: network.boxes.map((b) =>
+          drag.ids.includes(b.id)
+            ? { ...b, x: clampX(b.x + drag.ddx), y: clampY(b.y + drag.ddy) }
+            : b,
+        ),
+      });
+    }
+    if (drag?.kind === 'band') {
+      const r = {
+        x0: Math.min(drag.x0, drag.x1),
+        x1: Math.max(drag.x0, drag.x1),
+        y0: Math.min(drag.y0, drag.y1),
+        y1: Math.max(drag.y0, drag.y1),
+      };
+      const hit = network.boxes
+        .filter(
+          (b) =>
+            b.x < r.x1 && b.x + boxWidth(b.type) > r.x0 && b.y < r.y1 && b.y + boxHeight(b) > r.y0,
+        )
+        .map((b) => b.id);
+      const tiny = r.x1 - r.x0 < 4 && r.y1 - r.y0 < 4;
+      const base = drag.add ? [...selected] : [];
+      const ids = tiny ? base : [...new Set([...base, ...hit])];
+      onSelect(ids.length ? { network: index, boxes: ids } : null);
     }
     const hoverIn = drag?.kind === 'wire' ? nearestInput(local(e)) : null;
     if (drag?.kind === 'wire' && hoverIn && hoverIn.box !== drag.from.box) {
@@ -523,18 +635,19 @@ function NetworkCanvas({
           if (drag?.kind === 'wire') setDrag(null);
           setHoverIn(null);
         }}
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('application/x-fup-box')) e.preventDefault();
-        }}
-        onDrop={(e) => {
-          const type = e.dataTransfer.getData('application/x-fup-box');
-          if (!type) return;
-          e.preventDefault();
-          const p = local(e);
-          onDropBox(type, p.x - boxWidth(type) / 2, p.y - 10);
-        }}
+        data-network={index}
         onPointerDown={(e) => {
-          if (e.target === svgRef.current) onSelect(null);
+          if (e.target !== svgRef.current || e.button !== 0) return;
+          svgRef.current.setPointerCapture?.(e.pointerId);
+          const p = local(e);
+          setDrag({
+            kind: 'band',
+            x0: p.x,
+            y0: p.y,
+            x1: p.x,
+            y1: p.y,
+            add: e.shiftKey || e.ctrlKey || e.metaKey,
+          });
         }}
       >
         <defs>
@@ -579,6 +692,15 @@ function NetworkCanvas({
             ) : null;
           })()}
 
+        {drag?.kind === 'band' && (
+          <rect
+            x={Math.min(drag.x0, drag.x1)}
+            y={Math.min(drag.y0, drag.y1)}
+            width={Math.abs(drag.x1 - drag.x0)}
+            height={Math.abs(drag.y1 - drag.y0)}
+            className="fup-band"
+          />
+        )}
         {boxes.map((b) => {
           const spec = boxSpec(b.type);
           const w = boxWidth(b.type);
@@ -589,7 +711,7 @@ function NetworkCanvas({
           const hasError = errs.some((d) => d.severity === 'error');
           const pinError = (pin: string) =>
             errs.some((d) => d.location.pin === pin && d.severity === 'error');
-          const sel = selection?.box === b.id;
+          const sel = selected.has(b.id);
           const set = (f: (x: FupBox) => FupBox) => updateBox(b.id, f);
           const toggleNeg = (pin: string) =>
             set((x) => ({
@@ -636,17 +758,19 @@ function NetworkCanvas({
                 className="fup-box-body"
                 onPointerDown={(e) => {
                   e.stopPropagation();
-                  onSelect({ network: index, box: b.id });
+                  // Umschalt/Strg: zur Auswahl hinzufügen bzw. entfernen; sonst Box markieren
+                  // (ist sie schon markiert, bleiben die anderen markiert und ziehen mit)
+                  let ids: string[];
+                  if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                    ids = selected.has(b.id)
+                      ? [...selected].filter((x) => x !== b.id)
+                      : [...selected, b.id];
+                  } else ids = selected.has(b.id) ? [...selected] : [b.id];
+                  onSelect(ids.length ? { network: index, boxes: ids } : null);
+                  if (!ids.includes(b.id)) return;
+                  svgRef.current?.setPointerCapture?.(e.pointerId);
                   const p = local(e);
-                  setDrag({
-                    kind: 'box',
-                    id: b.id,
-                    dx: p.x - b.x,
-                    dy: p.y - b.y,
-                    x: b.x,
-                    y: b.y,
-                    moved: false,
-                  });
+                  setDrag({ kind: 'box', ids, sx: p.x, sy: p.y, ddx: 0, ddy: 0, moved: false });
                 }}
               />
               <text x={b.x + w / 2} y={b.y + 16} className="fup-box-label" pointerEvents="none">
