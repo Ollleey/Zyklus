@@ -1,0 +1,648 @@
+{
+  "id": "p2-vereinzelung-ablauf",
+  "order": 102,
+  "title": {
+    "de": "Vereinzelung – automatischer Ablauf"
+  },
+  "customer": {
+    "de": "Lehrwerkstatt Mechatronik"
+  },
+  "mail": {
+    "from": {
+      "de": "Lehrwerkstatt Mechatronik"
+    },
+    "subject": {
+      "de": "Vereinzelung – automatischer Ablauf"
+    },
+    "body": {
+      "de": "Hallo,\n\nder Funktionstest war erfolgreich – jetzt soll die Vereinzelungsstation **automatisch** laufen. Grundstellung, Ablauf und Sicherheitsbedingungen stehen im Datenblatt.\n\nKurz zusammengefasst: Ein Druck auf S1 holt **genau ein** Teil aus dem Magazin und legt es an der Folgestation ab, danach steht der Arm wieder am Magazin. Der AUS-Taster S0 bricht jederzeit ab und schaltet alle Ausgänge ab.\n\nPlane den Ablauf zuerst als **Schrittkette** (GRAFCET: Schritte, Aktionen, Übergänge) – auf Papier oder gleich im GRAPH-Editor. Unter **💡 Tipps** findest du Hilfe bis zum fertigen Lösungsweg.\n\nGrüße aus der Lehrwerkstatt"
+    }
+  },
+  "datasheet": {
+    "de": "## Die Anlage\n\nEine Vereinzelungsstation holt Werkstücke einzeln aus einem **Stapelmagazin** und legt sie an der **Folgestation** ab.\n\n- **Ausschiebezylinder** unter dem Magazin (doppeltwirkend, 5/2-Ventil mit Federrückstellung): 1Y1 = 1 fährt ihn **ein**, ohne Signal fährt er **aus**. Ausgefahren hält er das Magazin geschlossen (Grundstellung). Ganz eingefahren fällt das unterste Teil in die Entnahmestelle. Endlagen: 1B1 eingefahren, 1B2 ausgefahren (Reedkontakte).\n- **Schwenkarm** mit Vakuumsauger (Rotationszylinder, zwei 3/2-Ventile): 3Y1 schwenkt zum Magazin, 3Y2 zur Folgestation. Ohne Signal bleibt der Arm stehen (drucklos), mit beiden Signalen verspannt er sich und bleibt ebenfalls stehen. Endlagen: 3S1 am Magazin, 3S2 an der Folgestation. Ein Schwenk dauert etwa 0,7 s.\n- **Vakuum**: 2Y1 saugt. Nur wenn der Sauger auf einem Teil sitzt, baut sich Vakuum auf; dann meldet der Vakuumschalter 2B1 und das Teil hält. 2Y2 ist der **Abwurfimpuls**: das Vakuum bricht sofort zusammen. Ohne 2Y1 und 2Y2 fällt das Vakuum langsam ab (etwa 0,2 s). Ein Teil, das zwischen Magazin und Folgestation abfällt, ist **verloren**.\n- **Lichtschranke B3** am Magazin: 1 = **Magazin leer**.\n- **Meldelampe P1** am Bedienpult.\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S0 | DI | AUS-Taster – **Öffner** (1 = nicht gedrückt) |\n| S1 | DI | Start-Taster |\n| B3 | DI | Magazin leer (1 = leer) |\n| 1B1 | DI | Ausschiebezylinder eingefahren |\n| 1B2 | DI | Ausschiebezylinder ausgefahren |\n| 3S1 | DI | Schwenkarm am Magazin |\n| 3S2 | DI | Schwenkarm an der Folgestation |\n| 2B1 | DI | Vakuum ist ein |\n| 1Y1 | DO | Ausschiebezylinder einfahren |\n| 3Y1 | DO | Schwenkantrieb zum Magazin |\n| 3Y2 | DO | Schwenkantrieb zur Folgestation |\n| 2Y1 | DO | Vakuum ein |\n| 2Y2 | DO | Vakuum aus (Abwurfimpuls) |\n| P1 | DO | Meldelampe |\n\n## Grundstellung\n\nArm am Magazin (3S1), Vakuum aus, Ausschiebezylinder **ausgefahren** (1B2). Liegen Teile im Magazin, leuchtet P1; ist es leer, blinkt P1 mit 2 Hz.\n\n## Ablauf (ein Zyklus)\n\n1. Start mit S1 – nur aus der Grundstellung und mit Teilen im Magazin.\n2. Arm schwenkt zur Folgestation.\n3. Liegt ein Teil im Magazin, fährt der Ausschiebezylinder ein.\n4. Arm schwenkt zum Magazin, **gleichzeitig** Vakuum ein.\n5. Der Sauger hält das Teil, der Ausschiebezylinder fährt wieder aus.\n6. Arm trägt das Teil zur Folgestation, dort Vakuum aus.\n7. Arm schwenkt zurück zum Magazin – Zyklus fertig.\n\n## Sicherheit\n\n- Ein Druck auf S1 = **genau ein Zyklus**, auch wenn S1 gehalten wird.\n- **AUS-Taster S0** bricht den Ablauf ab und schaltet **alle Ausgänge** ab. Danach steht die Anlage (zum Weitermachen Simulation zurücksetzen – an der echten Anlage stellt man die Grundstellung von Hand her).\n"
+  },
+  "board": {
+    "width": 20,
+    "ductCapacity": 16
+  },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "cpu-kompakt", "di4", "do4", "dio8"],
+  "toleranceMs": 30,
+  "par": {
+    "cost": 8,
+    "energy": 31912,
+    "size": 27
+  },
+  "plant": {
+    "type": "separator",
+    "params": {
+      "retract": "1Y1",
+      "vacOn": "2Y1",
+      "vacOff": "2Y2",
+      "toMag": "3Y1",
+      "toNext": "3Y2",
+      "retracted": "1B1",
+      "extended": "1B2",
+      "vacuum": "2B1",
+      "atMag": "3S1",
+      "atNext": "3S2",
+      "empty": "B3",
+      "parts": 4
+    }
+  },
+  "devices": [
+    {
+      "id": "S0",
+      "tag": "S0",
+      "name": {
+        "de": "AUS-Taster (S0) – Öffner"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button",
+      "nc": true
+    },
+    {
+      "id": "S1",
+      "tag": "S1",
+      "name": {
+        "de": "Taster S1"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "B3",
+      "tag": "B3",
+      "name": {
+        "de": "Magazin leer (B3, Lichtschranke) – 1 = leer"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor"
+    },
+    {
+      "id": "1B1",
+      "tag": "_1B1",
+      "name": {
+        "de": "Ausschiebezylinder eingefahren (1B1)"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor"
+    },
+    {
+      "id": "1B2",
+      "tag": "_1B2",
+      "name": {
+        "de": "Ausschiebezylinder ausgefahren (1B2)"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor"
+    },
+    {
+      "id": "3S1",
+      "tag": "_3S1",
+      "name": {
+        "de": "Schwenkarm am Magazin (3S1)"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor"
+    },
+    {
+      "id": "3S2",
+      "tag": "_3S2",
+      "name": {
+        "de": "Schwenkarm an der Folgestation (3S2)"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor"
+    },
+    {
+      "id": "2B1",
+      "tag": "_2B1",
+      "name": {
+        "de": "Vakuum ist ein (2B1)"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor"
+    },
+    {
+      "id": "1Y1",
+      "tag": "_1Y1",
+      "name": {
+        "de": "Ausschiebezylinder einfahren (1Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "3Y1",
+      "tag": "_3Y1",
+      "name": {
+        "de": "Schwenkantrieb zum Magazin (3Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "3Y2",
+      "tag": "_3Y2",
+      "name": {
+        "de": "Schwenkantrieb zur Folgestation (3Y2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "2Y1",
+      "tag": "_2Y1",
+      "name": {
+        "de": "Vakuum ein (2Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "2Y2",
+      "tag": "_2Y2",
+      "name": {
+        "de": "Vakuum aus / Abwurfimpuls (2Y2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "P1",
+      "tag": "P1",
+      "name": {
+        "de": "Meldelampe (P1)"
+      },
+      "kind": "DO",
+      "side": "left",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "ein-teil",
+      "name": {
+        "de": "Ein Start, ein Teil"
+      },
+      "durationMs": 6000,
+      "seeds": [1, 2],
+      "plant": {
+        "parts": 3
+      },
+      "stimuli": {
+        "S1": [
+          [300, true],
+          [400, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": {
+            "de": "P1 leuchtet in Grundstellung"
+          },
+          "signal": "P1",
+          "value": true,
+          "from": 100,
+          "to": 300
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Genau ein Teil an der Folgestation"
+          },
+          "signal": "plant.delivered",
+          "min": 1,
+          "max": 1,
+          "from": 5900,
+          "to": 6000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Kein Teil fällt herunter"
+          },
+          "signal": "plant.lost",
+          "min": 0,
+          "max": 0,
+          "from": 0,
+          "to": 6000
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "3Y1 und 3Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["3Y1", "3Y2"]
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "2Y1 und 2Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["2Y1", "2Y2"]
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Am Ende Grundstellung: Arm am Magazin"
+          },
+          "signal": "plant.arm",
+          "min": 0,
+          "max": 0,
+          "from": 5600,
+          "to": 6000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Am Ende Grundstellung: Zylinder ausgefahren"
+          },
+          "signal": "plant.pusher",
+          "min": 1,
+          "max": 1,
+          "from": 5600,
+          "to": 6000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Am Ende Grundstellung: Vakuum aus"
+          },
+          "signal": "2Y1",
+          "value": false,
+          "from": 5600,
+          "to": 6000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "P1 leuchtet wieder in Grundstellung"
+          },
+          "signal": "P1",
+          "value": true,
+          "from": 5600,
+          "to": 6000
+        }
+      ]
+    },
+    {
+      "id": "festgehalten",
+      "name": {
+        "de": "Start festgehalten"
+      },
+      "durationMs": 9000,
+      "seeds": [1],
+      "plant": {
+        "parts": 3
+      },
+      "stimuli": {
+        "S1": [
+          [300, true],
+          [7000, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Nur ein Zyklus je Start"
+          },
+          "signal": "plant.delivered",
+          "min": 1,
+          "max": 1,
+          "from": 8900,
+          "to": 9000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Kein Teil fällt herunter"
+          },
+          "signal": "plant.lost",
+          "min": 0,
+          "max": 0,
+          "from": 0,
+          "to": 9000
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "3Y1 und 3Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["3Y1", "3Y2"]
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "2Y1 und 2Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["2Y1", "2Y2"]
+        }
+      ]
+    },
+    {
+      "id": "zwei",
+      "name": {
+        "de": "Zwei Starts bis das Magazin leer ist"
+      },
+      "durationMs": 11000,
+      "seeds": [1],
+      "plant": {
+        "parts": 2
+      },
+      "stimuli": {
+        "S1": [
+          [300, true],
+          [400, false],
+          [5000, true],
+          [5100, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "range",
+          "name": {
+            "de": "Beide Teile an der Folgestation"
+          },
+          "signal": "plant.delivered",
+          "min": 2,
+          "max": 2,
+          "from": 10900,
+          "to": 11000
+        },
+        {
+          "kind": "range",
+          "name": {
+            "de": "Kein Teil fällt herunter"
+          },
+          "signal": "plant.lost",
+          "min": 0,
+          "max": 0,
+          "from": 0,
+          "to": 11000
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "3Y1 und 3Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["3Y1", "3Y2"]
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "2Y1 und 2Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["2Y1", "2Y2"]
+        },
+        {
+          "kind": "duty",
+          "name": {
+            "de": "P1 blinkt (Hälfte der Zeit an)"
+          },
+          "signal": "P1",
+          "periodMs": 500,
+          "duty": [[0, 50]],
+          "tolerance": 12,
+          "from": 10000,
+          "to": 11000
+        },
+        {
+          "kind": "maxChanges",
+          "name": {
+            "de": "P1 blinkt mit 2 Hz, nicht schneller"
+          },
+          "signal": "P1",
+          "max": 6,
+          "from": 10000,
+          "to": 11000
+        }
+      ]
+    },
+    {
+      "id": "aus",
+      "name": {
+        "de": "AUS mitten im Ablauf"
+      },
+      "durationMs": 4000,
+      "seeds": [1],
+      "plant": {
+        "parts": 3
+      },
+      "stimuli": {
+        "S1": [
+          [300, true],
+          [400, false]
+        ],
+        "S0": [
+          [1500, true],
+          [1700, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": {
+            "de": "Nach AUS: 1Y1 aus"
+          },
+          "signal": "1Y1",
+          "value": false,
+          "from": 1520,
+          "to": 4000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Nach AUS: 3Y1 aus"
+          },
+          "signal": "3Y1",
+          "value": false,
+          "from": 1520,
+          "to": 4000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Nach AUS: 3Y2 aus"
+          },
+          "signal": "3Y2",
+          "value": false,
+          "from": 1520,
+          "to": 4000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Nach AUS: 2Y1 aus"
+          },
+          "signal": "2Y1",
+          "value": false,
+          "from": 1520,
+          "to": 4000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Nach AUS: 2Y2 aus"
+          },
+          "signal": "2Y2",
+          "value": false,
+          "from": 1520,
+          "to": 4000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Während AUS: P1 aus"
+          },
+          "signal": "P1",
+          "value": false,
+          "from": 1520,
+          "to": 1700
+        }
+      ]
+    },
+    {
+      "id": "leer",
+      "name": {
+        "de": "Start bei leerem Magazin"
+      },
+      "durationMs": 3000,
+      "seeds": [1],
+      "plant": {
+        "parts": 0
+      },
+      "stimuli": {
+        "S1": [
+          [300, true],
+          [400, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": {
+            "de": "Kein Start ohne Teile: Arm bleibt am Magazin"
+          },
+          "signal": "3Y2",
+          "value": false,
+          "from": 0,
+          "to": 3000
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Kein Start ohne Teile: Zylinder bleibt aus"
+          },
+          "signal": "1Y1",
+          "value": false,
+          "from": 0,
+          "to": 3000
+        },
+        {
+          "kind": "duty",
+          "name": {
+            "de": "P1 blinkt (Hälfte der Zeit an)"
+          },
+          "signal": "P1",
+          "periodMs": 500,
+          "duty": [[0, 50]],
+          "tolerance": 12,
+          "from": 500,
+          "to": 3000
+        },
+        {
+          "kind": "maxChanges",
+          "name": {
+            "de": "P1 blinkt mit 2 Hz, nicht schneller"
+          },
+          "signal": "P1",
+          "max": 12,
+          "from": 500,
+          "to": 3000
+        }
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "title": {
+        "de": "Symboltabelle und S0"
+      },
+      "text": {
+        "de": "Verdrahte alle 8 Eingänge und 6 Ausgänge; die Adressen stehen danach in **PLC-Variablen**. Achtung: **S0 ist ein Öffner** – nicht gedrückt liefert er 1, gedrückt (oder bei Drahtbruch) 0. „AUS gedrückt“ heißt im Programm also `NOT \"S0\"`."
+      }
+    },
+    {
+      "title": {
+        "de": "Grundstellung als eine Bedingung"
+      },
+      "text": {
+        "de": "Fasse die Grundstellung in einer Variable zusammen, dann bleiben Start und Meldelampe übersichtlich:\n\n```\n\"Kette\".Grundstellung := \"_3S1\" AND \"_1B2\" AND NOT \"_2B1\";\n```"
+      }
+    },
+    {
+      "title": {
+        "de": "Die Schrittkette (GRAFCET)"
+      },
+      "text": {
+        "de": "| Schritt | Aktion | Übergang zum nächsten Schritt |\n|---|---|---|\n| 0 Grundstellung | – | Flanke S1 · Grundstellung · NOT B3 |\n| 1 | 3Y2 (zur Folgestation) | 3S2 · NOT B3 |\n| 2 | 1Y1 (einfahren) | 1B1 |\n| 3 | 1Y1, 3Y1, 2Y1 | 3S1 · 2B1 |\n| 4 | 2Y1 (Zylinder fährt aus) | 1B2 |\n| 5 | 2Y1, 3Y2 | 3S2 |\n| 6 | 2Y2 (Abwurf) | NOT 2B1 |\n| 7 | 3Y1 (zurück) | 3S1 → Schritt 0 |\n\nIn Schritt 3 bleibt 1Y1 an, damit das Teil in der Entnahmestelle liegen bleibt, bis der Sauger es hält."
+      }
+    },
+    {
+      "title": {
+        "de": "Nur ein Zyklus je Start"
+      },
+      "text": {
+        "de": "Starte nur mit der **steigenden Flanke** von S1 und nur aus Schritt 0. Wer S1 festhält, löst so keinen zweiten Zyklus aus. Ein `R_TRIG` erledigt das:\n\n```\n\"StartFlanke\"(CLK := \"S1\");\n... IF \"StartFlanke\".Q AND \"Kette\".Grundstellung AND NOT \"B3\" THEN ...\n```"
+      }
+    },
+    {
+      "title": {
+        "de": "Ausgänge aus der Schrittnummer"
+      },
+      "text": {
+        "de": "Schreibe die Weiterschaltung mit `CASE \"Kette\".Schritt OF … END_CASE;` und bilde **danach** jeden Ausgang in genau einer Zuweisung aus der Schrittnummer:\n\n```\n\"_3Y2\" := \"Kette\".Schritt = 1 OR \"Kette\".Schritt = 5;\n\"_2Y1\" := \"Kette\".Schritt >= 3 AND \"Kette\".Schritt <= 5;\n```\n\nSo schaltet AUS automatisch alles ab, sobald die Kette auf 0 steht – kein Rücksetzen an vielen Stellen."
+      }
+    },
+    {
+      "title": {
+        "de": "Teil fällt herunter?"
+      },
+      "text": {
+        "de": "Nach „Vakuum aus“ hängt das Teil noch kurz am Sauger. Schwenkt der Arm zu früh zurück, nimmt er es mit und es fällt unterwegs herunter. Warte deshalb, bis der Vakuumschalter **2B1 abgefallen** ist – mit dem Abwurfimpuls 2Y2 geht das sofort."
+      }
+    },
+    {
+      "title": {
+        "de": "AUS-Taster"
+      },
+      "text": {
+        "de": "Nach dem `END_CASE`:\n\n```\nIF NOT \"S0\" THEN        // Öffner gedrückt\n    \"Kette\".Schritt := 0;\nEND_IF;\n```\n\nWeil die Ausgänge aus der Schrittnummer kommen, sind damit alle Ventile aus. P1 bekommt noch `\"S0\" AND …`, damit auch die Lampe während AUS dunkel ist."
+      }
+    },
+    {
+      "title": {
+        "de": "Lösungsweg (vollständig)"
+      },
+      "text": {
+        "de": "Datenbaustein `\"Kette\"` mit `Schritt : Int` und `Grundstellung : Bool`, ein `R_TRIG` `\"StartFlanke\"`, Taktmerker auf MB0:\n\n```\n\"StartFlanke\"(CLK := \"S1\");\n\"Kette\".Grundstellung := \"_3S1\" AND \"_1B2\" AND NOT \"_2B1\";\nCASE \"Kette\".Schritt OF\n    0: IF \"StartFlanke\".Q AND \"Kette\".Grundstellung AND NOT \"B3\" THEN \"Kette\".Schritt := 1; END_IF;\n    1: IF \"_3S2\" AND NOT \"B3\" THEN \"Kette\".Schritt := 2; END_IF;\n    2: IF \"_1B1\" THEN \"Kette\".Schritt := 3; END_IF;\n    3: IF \"_3S1\" AND \"_2B1\" THEN \"Kette\".Schritt := 4; END_IF;\n    4: IF \"_1B2\" THEN \"Kette\".Schritt := 5; END_IF;\n    5: IF \"_3S2\" THEN \"Kette\".Schritt := 6; END_IF;\n    6: IF NOT \"_2B1\" THEN \"Kette\".Schritt := 7; END_IF;\n    7: IF \"_3S1\" THEN \"Kette\".Schritt := 0; END_IF;\nEND_CASE;\nIF NOT \"S0\" THEN \"Kette\".Schritt := 0; END_IF;\n\"_3Y2\" := \"Kette\".Schritt = 1 OR \"Kette\".Schritt = 5;\n\"_1Y1\" := \"Kette\".Schritt = 2 OR \"Kette\".Schritt = 3;\n\"_3Y1\" := \"Kette\".Schritt = 3 OR \"Kette\".Schritt = 7;\n\"_2Y1\" := \"Kette\".Schritt >= 3 AND \"Kette\".Schritt <= 5;\n\"_2Y2\" := \"Kette\".Schritt = 6;\n\"P1\" := \"S0\" AND \"Kette\".Schritt = 0 AND \"Kette\".Grundstellung AND (NOT \"B3\" OR %M0.3);\n```"
+      }
+    }
+  ]
+}

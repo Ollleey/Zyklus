@@ -626,5 +626,166 @@
       "Störlampe während der Störung": "Fault lamp during the fault",
       "keine Meldung": "no alarm"
     }
+  },
+  "p1-vereinzelung-funktionstest": {
+    "title": "Separating station – actuator function test",
+    "customer": "Mechatronics training workshop",
+    "mail.from": "Mechatronics training workshop",
+    "mail.subject": "Separating station – actuator function test",
+    "mail.body": "Hello,\n\nour new separating station is assembled and piped. Before it goes into the line we need a **program for the function test of the actuators**:\n\n- Every solenoid valve gets its own button.\n- A short press switches the valve on, another short press switches it off.\n- Mind the **interlock**: the swivel drive must not be driven in both directions at once, and vacuum on and vacuum off must not be on together either.\n\nFor the test: with parts in the magazine the indicator lamp P1 is lit and the vacuum can be switched on. With an empty magazine P1 flashes at 2 Hz and the vacuum stays off.\n\nAll devices and the mechanics are in the datasheet. If you get stuck: **💡 Hints** help you step by step, all the way to a worked solution.\n\nRegards from the training workshop",
+    "datasheet": "## The plant\n\nA separating station takes workpieces one by one out of a **stack magazine** and places them at the **next station**.\n\n- **Push-out cylinder** under the magazine (double-acting, 5/2 valve with spring return): 1Y1 = 1 **retracts** it, without a signal it **extends**. Extended, it keeps the magazine closed (home position). Fully retracted, the bottom part drops into the pick-up place. End positions: 1B1 retracted, 1B2 extended (reed switches).\n- **Swivel arm** with vacuum suction cup (rotary cylinder, two 3/2 valves): 3Y1 swivels to the magazine, 3Y2 to the next station. Without a signal the arm stands still (no pressure); with both signals it is braced and stands still as well. End positions: 3S1 at the magazine, 3S2 at the next station. One swivel takes about 0.7 s.\n- **Vacuum**: 2Y1 sucks. Vacuum only builds up when the cup sits on a part; then the vacuum switch 2B1 reports and the part holds. 2Y2 is the **eject pulse**: the vacuum collapses at once. Without 2Y1 and 2Y2 the vacuum decays slowly (about 0.2 s). A part that drops between magazine and next station is **lost**.\n- **Light barrier B3** at the magazine: 1 = **magazine empty**.\n- **Indicator lamp P1** on the control panel.\n\n## Field devices\n\n| Device | Type | Description |\n|---|---|---|\n| S1 | DI | Button – retract push-out cylinder |\n| S2 | DI | Button – swivel arm to magazine |\n| S3 | DI | Button – swivel arm to next station |\n| S4 | DI | Button – vacuum off |\n| S5 | DI | Button – vacuum on |\n| B3 | DI | Magazine empty (1 = empty) |\n| 1Y1 | DO | Retract push-out cylinder |\n| 3Y1 | DO | Swivel drive to magazine |\n| 3Y2 | DO | Swivel drive to next station |\n| 2Y1 | DO | Vacuum on |\n| 2Y2 | DO | Vacuum off (eject pulse) |\n| P1 | DO | Indicator lamp |\n\n## Function test\n\n| Button | Valve |\n|---|---|\n| S1 | 1Y1 |\n| S2 | 3Y1 |\n| S3 | 3Y2 |\n| S4 | 2Y2 |\n| S5 | 2Y1 |\n\n- A short press switches the valve **on**, another short press switches it **off** (toggle).\n- 3Y1/3Y2 and 2Y1/2Y2 must **never** be on at the same time.\n- Parts in the magazine: P1 is lit, the vacuum can be switched on.\n- Magazine empty: P1 **flashes at 2 Hz**, the vacuum does **not** switch on.\n\n## Symbol table\n\nThe PLC tag table is your symbol table: as soon as a device is wired, its absolute address (e.g. `%I0.0`) appears there. The tag names follow the device codes (`_1Y1` for 1Y1 – a name must not start with a digit).\n",
+    "devices": {
+      "S1": "Button S1",
+      "S2": "Button S2 – swivel arm to magazine",
+      "S3": "Button S3 – swivel arm to next station",
+      "S4": "Button S4 – vacuum off",
+      "S5": "Button S5 – vacuum on",
+      "B3": "Magazine empty (B3, light barrier) – 1 = empty",
+      "1Y1": "Retract push-out cylinder (1Y1)",
+      "3Y1": "Swivel drive to magazine (3Y1)",
+      "3Y2": "Swivel drive to next station (3Y2)",
+      "2Y1": "Vacuum on (2Y1)",
+      "2Y2": "Vacuum off / eject pulse (2Y2)",
+      "P1": "Indicator lamp (P1)"
+    },
+    "tests": {
+      "tasten": "Every button switches its valve",
+      "verriegelung": "Opposite direction while a valve is on",
+      "leer": "Magazine empty"
+    },
+    "checks": {
+      "S1 schaltet 1Y1 ein": "S1 switches 1Y1 on",
+      "S1 schaltet 1Y1 wieder aus": "S1 switches 1Y1 off again",
+      "S2 schaltet 3Y1 ein": "S2 switches 3Y1 on",
+      "S2 schaltet 3Y1 wieder aus": "S2 switches 3Y1 off again",
+      "S3 schaltet 3Y2 ein": "S3 switches 3Y2 on",
+      "S3 schaltet 3Y2 wieder aus": "S3 switches 3Y2 off again",
+      "S4 schaltet 2Y2 ein": "S4 switches 2Y2 on",
+      "S4 schaltet 2Y2 wieder aus": "S4 switches 2Y2 off again",
+      "S5 schaltet 2Y1 ein": "S5 switches 2Y1 on",
+      "S5 schaltet 2Y1 wieder aus": "S5 switches 2Y1 off again",
+      "P1 leuchtet, solange Teile im Magazin sind": "P1 is lit while there are parts in the magazine",
+      "3Y1 und 3Y2 nie gleichzeitig (Verriegelung)": "3Y1 and 3Y2 never at the same time (interlock)",
+      "2Y1 und 2Y2 nie gleichzeitig (Verriegelung)": "2Y1 and 2Y2 never at the same time (interlock)",
+      "Nach S2 ist 3Y1 an": "After S2, 3Y1 is on",
+      "Nach S5 ist 2Y1 an": "After S5, 2Y1 is on",
+      "Vakuum schaltet bei leerem Magazin nicht ein": "Vacuum does not switch on with an empty magazine",
+      "P1 blinkt (Hälfte der Zeit an)": "P1 flashes (on half the time)",
+      "P1 blinkt mit 2 Hz, nicht schneller": "P1 flashes at 2 Hz, not faster"
+    },
+    "hints": [
+      {
+        "title": "Where do I start?",
+        "text": "Plug in a CPU plus one input and one output module (8 DI are enough for the 6 inputs, 8 DO for the 6 outputs) and wire all devices. Afterwards **PLC tags** shows the address of every device – that is the symbol table from the job."
+      },
+      {
+        "title": "Short press – on, again – off",
+        "text": "That is a **toggle (impulse) switch**. You need the **rising edge** of the button, otherwise the valve toggles in every cycle while you hold it (10 ms cycle!).\n\n```\nIF \"S1\" AND NOT \"Alt\".S1 THEN   // edge: 1 now, 0 in the last cycle\n    \"_1Y1\" := NOT \"_1Y1\";\nEND_IF;\n\"Alt\".S1 := \"S1\";               // remember for the next cycle\n```\n\n`\"Alt\"` is a data block with one Bool per button. Alternative: one `R_TRIG` per button."
+      },
+      {
+        "title": "What does interlock mean here?",
+        "text": "3Y1 and 3Y2 push the swivel drive in opposite directions – both at once brace it. The same goes for vacuum on (2Y1) and eject (2Y2). Two common solutions:\n\n- **Change over**: switching one on switches the opposite valve off.\n- **Block**: switching on only works while the opposite valve is off.\n\nBoth are fine – they just must never be on together."
+      },
+      {
+        "title": "Vacuum only with parts in the magazine",
+        "text": "B3 reports **1 = magazine empty**. So add `NOT \"B3\"` to switching 2Y1 on – or simply switch 2Y1 off as long as B3 = 1:\n\n```\nIF \"B3\" THEN\n    \"_2Y1\" := FALSE;\nEND_IF;\n```"
+      },
+      {
+        "title": "P1 flashes at 2 Hz",
+        "text": "Easiest with the **clock memory**: click the CPU and enable the clock memory byte in its properties (e.g. MB0). Then `%M0.3` alternates at **2 Hz** (bit 0 = 10 Hz … bit 7 = 0.5 Hz).\n\n```\n\"P1\" := NOT \"B3\" OR %M0.3;   // parts = steady light, empty = flashing\n```\n\nWithout clock memory a self-restarting timer (TON, 250 ms) works too."
+      },
+      {
+        "title": "Worked solution (complete)",
+        "text": "A data block `\"Alt\"` with `S1` … `S5 : Bool`, clock memory on MB0, then:\n\n```\nIF \"S1\" AND NOT \"Alt\".S1 THEN \"_1Y1\" := NOT \"_1Y1\"; END_IF;\nIF \"S2\" AND NOT \"Alt\".S2 THEN\n    \"_3Y1\" := NOT \"_3Y1\";\n    IF \"_3Y1\" THEN \"_3Y2\" := FALSE; END_IF;\nEND_IF;\nIF \"S3\" AND NOT \"Alt\".S3 THEN\n    \"_3Y2\" := NOT \"_3Y2\";\n    IF \"_3Y2\" THEN \"_3Y1\" := FALSE; END_IF;\nEND_IF;\nIF \"S4\" AND NOT \"Alt\".S4 THEN\n    \"_2Y2\" := NOT \"_2Y2\";\n    IF \"_2Y2\" THEN \"_2Y1\" := FALSE; END_IF;\nEND_IF;\nIF \"S5\" AND NOT \"Alt\".S5 THEN\n    \"_2Y1\" := NOT \"_2Y1\";\n    IF \"_2Y1\" THEN \"_2Y2\" := FALSE; END_IF;\nEND_IF;\nIF \"B3\" THEN \"_2Y1\" := FALSE; END_IF;\n\"Alt\".S1 := \"S1\"; \"Alt\".S2 := \"S2\"; \"Alt\".S3 := \"S3\";\n\"Alt\".S4 := \"S4\"; \"Alt\".S5 := \"S5\";\n\"P1\" := NOT \"B3\" OR %M0.3;\n```"
+      }
+    ]
+  },
+  "p2-vereinzelung-ablauf": {
+    "title": "Separating station – automatic sequence",
+    "customer": "Mechatronics training workshop",
+    "mail.from": "Mechatronics training workshop",
+    "mail.subject": "Separating station – automatic sequence",
+    "mail.body": "Hello,\n\nthe function test went well – now the separating station is to run **automatically**. Home position, sequence and safety conditions are in the datasheet.\n\nIn short: one press of S1 takes **exactly one** part out of the magazine and places it at the next station; afterwards the arm is back at the magazine. The OFF button S0 aborts at any time and switches all outputs off.\n\nPlan the sequence as a **step chain** first (GRAFCET: steps, actions, transitions) – on paper or straight in the GRAPH editor. **💡 Hints** help you all the way to a worked solution.\n\nRegards from the training workshop",
+    "datasheet": "## The plant\n\nA separating station takes workpieces one by one out of a **stack magazine** and places them at the **next station**.\n\n- **Push-out cylinder** under the magazine (double-acting, 5/2 valve with spring return): 1Y1 = 1 **retracts** it, without a signal it **extends**. Extended, it keeps the magazine closed (home position). Fully retracted, the bottom part drops into the pick-up place. End positions: 1B1 retracted, 1B2 extended (reed switches).\n- **Swivel arm** with vacuum suction cup (rotary cylinder, two 3/2 valves): 3Y1 swivels to the magazine, 3Y2 to the next station. Without a signal the arm stands still (no pressure); with both signals it is braced and stands still as well. End positions: 3S1 at the magazine, 3S2 at the next station. One swivel takes about 0.7 s.\n- **Vacuum**: 2Y1 sucks. Vacuum only builds up when the cup sits on a part; then the vacuum switch 2B1 reports and the part holds. 2Y2 is the **eject pulse**: the vacuum collapses at once. Without 2Y1 and 2Y2 the vacuum decays slowly (about 0.2 s). A part that drops between magazine and next station is **lost**.\n- **Light barrier B3** at the magazine: 1 = **magazine empty**.\n- **Indicator lamp P1** on the control panel.\n\n## Field devices\n\n| Device | Type | Description |\n|---|---|---|\n| S0 | DI | OFF button – **normally closed** (1 = not pressed) |\n| S1 | DI | Start button |\n| B3 | DI | Magazine empty (1 = empty) |\n| 1B1 | DI | Push-out cylinder retracted |\n| 1B2 | DI | Push-out cylinder extended |\n| 3S1 | DI | Swivel arm at magazine |\n| 3S2 | DI | Swivel arm at next station |\n| 2B1 | DI | Vacuum is on |\n| 1Y1 | DO | Retract push-out cylinder |\n| 3Y1 | DO | Swivel drive to magazine |\n| 3Y2 | DO | Swivel drive to next station |\n| 2Y1 | DO | Vacuum on |\n| 2Y2 | DO | Vacuum off (eject pulse) |\n| P1 | DO | Indicator lamp |\n\n## Home position\n\nArm at the magazine (3S1), vacuum off, push-out cylinder **extended** (1B2). With parts in the magazine P1 is lit; with an empty magazine P1 flashes at 2 Hz.\n\n## Sequence (one cycle)\n\n1. Start with S1 – only from the home position and with parts in the magazine.\n2. The arm swivels to the next station.\n3. If there is a part in the magazine, the push-out cylinder retracts.\n4. The arm swivels to the magazine, vacuum on **at the same time**.\n5. The cup holds the part, the push-out cylinder extends again.\n6. The arm carries the part to the next station, vacuum off there.\n7. The arm swivels back to the magazine – cycle done.\n\n## Safety\n\n- One press of S1 = **exactly one cycle**, even if S1 is held.\n- The **OFF button S0** aborts the sequence and switches **all outputs** off. The plant then stands still (reset the simulation to carry on – on the real plant the home position is restored by hand).\n",
+    "devices": {
+      "S0": "OFF button (S0) – normally closed",
+      "S1": "Button S1",
+      "B3": "Magazine empty (B3, light barrier) – 1 = empty",
+      "1B1": "Push-out cylinder retracted (1B1)",
+      "1B2": "Push-out cylinder extended (1B2)",
+      "3S1": "Swivel arm at magazine (3S1)",
+      "3S2": "Swivel arm at next station (3S2)",
+      "2B1": "Vacuum is on (2B1)",
+      "1Y1": "Retract push-out cylinder (1Y1)",
+      "3Y1": "Swivel drive to magazine (3Y1)",
+      "3Y2": "Swivel drive to next station (3Y2)",
+      "2Y1": "Vacuum on (2Y1)",
+      "2Y2": "Vacuum off / eject pulse (2Y2)",
+      "P1": "Indicator lamp (P1)"
+    },
+    "tests": {
+      "ein-teil": "One start, one part",
+      "festgehalten": "Start held down",
+      "zwei": "Two starts until the magazine is empty",
+      "aus": "OFF in the middle of the sequence",
+      "leer": "Magazine empty"
+    },
+    "checks": {
+      "P1 leuchtet in Grundstellung": "P1 is lit in the home position",
+      "Genau ein Teil an der Folgestation": "Exactly one part at the next station",
+      "Kein Teil fällt herunter": "No part drops off",
+      "3Y1 und 3Y2 nie gleichzeitig (Verriegelung)": "3Y1 and 3Y2 never at the same time (interlock)",
+      "2Y1 und 2Y2 nie gleichzeitig (Verriegelung)": "2Y1 and 2Y2 never at the same time (interlock)",
+      "Am Ende Grundstellung: Arm am Magazin": "Home position at the end: arm at magazine",
+      "Am Ende Grundstellung: Zylinder ausgefahren": "Home position at the end: cylinder extended",
+      "Am Ende Grundstellung: Vakuum aus": "Home position at the end: vacuum off",
+      "P1 leuchtet wieder in Grundstellung": "P1 is lit again in the home position",
+      "Nur ein Zyklus je Start": "Only one cycle per start",
+      "Beide Teile an der Folgestation": "Both parts at the next station",
+      "P1 blinkt (Hälfte der Zeit an)": "P1 flashes (on half the time)",
+      "P1 blinkt mit 2 Hz, nicht schneller": "P1 flashes at 2 Hz, not faster",
+      "Nach AUS: 1Y1 aus": "After OFF: 1Y1 off",
+      "Nach AUS: 3Y1 aus": "After OFF: 3Y1 off",
+      "Nach AUS: 3Y2 aus": "After OFF: 3Y2 off",
+      "Nach AUS: 2Y1 aus": "After OFF: 2Y1 off",
+      "Nach AUS: 2Y2 aus": "After OFF: 2Y2 off",
+      "Während AUS: P1 aus": "During OFF: P1 off",
+      "Kein Start ohne Teile: Arm bleibt am Magazin": "No start without parts: arm stays at magazine",
+      "Kein Start ohne Teile: Zylinder bleibt aus": "No start without parts: cylinder stays extended"
+    },
+    "hints": [
+      {
+        "title": "Symbol table and S0",
+        "text": "Wire all 8 inputs and 6 outputs; the addresses then appear in **PLC tags**. Careful: **S0 is normally closed** – not pressed it delivers 1, pressed (or with a broken wire)\n0. \"OFF pressed\" therefore means `NOT \"S0\"` in the program."
+      },
+      {
+        "title": "Home position as one condition",
+        "text": "Combine the home position in one variable, then start and indicator lamp stay readable:\n\n```\n\"Kette\".Grundstellung := \"_3S1\" AND \"_1B2\" AND NOT \"_2B1\";\n```"
+      },
+      {
+        "title": "The step chain (GRAFCET)",
+        "text": "| Step | Action | Transition to the next step |\n|---|---|---|\n| 0 Home | – | edge S1 · home · NOT B3 |\n| 1 | 3Y2 (to next station) | 3S2 · NOT B3 |\n| 2 | 1Y1 (retract) | 1B1 |\n| 3 | 1Y1, 3Y1, 2Y1 | 3S1 · 2B1 |\n| 4 | 2Y1 (cylinder extends) | 1B2 |\n| 5 | 2Y1, 3Y2 | 3S2 |\n| 6 | 2Y2 (eject) | NOT 2B1 |\n| 7 | 3Y1 (back) | 3S1 → step 0 |\n\nIn step 3, 1Y1 stays on so the part stays in the pick-up place until the cup holds it."
+      },
+      {
+        "title": "Only one cycle per start",
+        "text": "Start only on the **rising edge** of S1 and only from step 0. Holding S1 then does not trigger a second cycle. An `R_TRIG` does the job:\n\n```\n\"StartFlanke\"(CLK := \"S1\");\n... IF \"StartFlanke\".Q AND \"Kette\".Grundstellung AND NOT \"B3\" THEN ...\n```"
+      },
+      {
+        "title": "Outputs from the step number",
+        "text": "Write the transitions with `CASE \"Kette\".Schritt OF … END_CASE;` and **afterwards** set each output in exactly one assignment from the step number:\n\n```\n\"_3Y2\" := \"Kette\".Schritt = 1 OR \"Kette\".Schritt = 5;\n\"_2Y1\" := \"Kette\".Schritt >= 3 AND \"Kette\".Schritt <= 5;\n```\n\nThat way OFF switches everything off as soon as the chain is at 0 – no resetting in many places."
+      },
+      {
+        "title": "Part drops off?",
+        "text": "After \"vacuum off\" the part still sticks to the cup for a moment. If the arm swivels back too early, it takes the part along and drops it on the way. So wait until the vacuum switch **2B1 has dropped out** – with the eject pulse 2Y2 that happens at once."
+      },
+      {
+        "title": "OFF button",
+        "text": "After `END_CASE`:\n\n```\nIF NOT \"S0\" THEN        // NC button pressed\n    \"Kette\".Schritt := 0;\nEND_IF;\n```\n\nBecause the outputs come from the step number, all valves are off now. P1 also gets `\"S0\" AND …` so the lamp is dark during OFF as well."
+      },
+      {
+        "title": "Worked solution (complete)",
+        "text": "Data block `\"Kette\"` with `Schritt : Int` and `Grundstellung : Bool`, an `R_TRIG` `\"StartFlanke\"`, clock memory on MB0:\n\n```\n\"StartFlanke\"(CLK := \"S1\");\n\"Kette\".Grundstellung := \"_3S1\" AND \"_1B2\" AND NOT \"_2B1\";\nCASE \"Kette\".Schritt OF\n    0: IF \"StartFlanke\".Q AND \"Kette\".Grundstellung AND NOT \"B3\" THEN \"Kette\".Schritt := 1; END_IF;\n    1: IF \"_3S2\" AND NOT \"B3\" THEN \"Kette\".Schritt := 2; END_IF;\n    2: IF \"_1B1\" THEN \"Kette\".Schritt := 3; END_IF;\n    3: IF \"_3S1\" AND \"_2B1\" THEN \"Kette\".Schritt := 4; END_IF;\n    4: IF \"_1B2\" THEN \"Kette\".Schritt := 5; END_IF;\n    5: IF \"_3S2\" THEN \"Kette\".Schritt := 6; END_IF;\n    6: IF NOT \"_2B1\" THEN \"Kette\".Schritt := 7; END_IF;\n    7: IF \"_3S1\" THEN \"Kette\".Schritt := 0; END_IF;\nEND_CASE;\nIF NOT \"S0\" THEN \"Kette\".Schritt := 0; END_IF;\n\"_3Y2\" := \"Kette\".Schritt = 1 OR \"Kette\".Schritt = 5;\n\"_1Y1\" := \"Kette\".Schritt = 2 OR \"Kette\".Schritt = 3;\n\"_3Y1\" := \"Kette\".Schritt = 3 OR \"Kette\".Schritt = 7;\n\"_2Y1\" := \"Kette\".Schritt >= 3 AND \"Kette\".Schritt <= 5;\n\"_2Y2\" := \"Kette\".Schritt = 6;\n\"P1\" := \"S0\" AND \"Kette\".Schritt = 0 AND \"Kette\".Grundstellung AND (NOT \"B3\" OR %M0.3);\n```"
+      }
+    ]
   }
 }

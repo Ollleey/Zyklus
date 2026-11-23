@@ -1,5 +1,20 @@
 # Changelog
 
+## M24 – Übungsaufträge mit Tipps: Teilevereinzelung (2026-11-23)
+
+- Neuer Abschnitt **„Übungsaufträge“** im Posteingang, immer offen, außerhalb der Kampagne
+- **Ü1 Vereinzelung – Funktionstest der Aktoren**: je Ventil ein Taster als Stromstoßschalter,
+  gegenseitige Verriegelung, Meldelampe mit Dauerlicht bzw. 2 Hz bei leerem Magazin, kein Vakuum
+  ohne Teile
+- **Ü2 Vereinzelung – automatischer Ablauf**: Grundstellung, Schrittkette mit einem Zyklus je
+  Start, AUS-Taster (Öffner) schaltet alle Ausgänge ab
+- Neues Anlagenmodell **Vereinzelung** (Stapelmagazin, Ausschiebezylinder, Schwenkarm mit
+  Vakuumsauger, Folgestation) mit Animation; Teile, die unterwegs abfallen, zählen als verloren
+- **Tipps zum Aufdecken** als allgemeine Auftragsfunktion (`hints` im Level): Reiter „💡 Tipps“
+  neben Auftrag und Datenblatt, der Reihe nach aufdecken, der letzte zeigt den Lösungsweg; der
+  Stand bleibt je Auftrag gespeichert
+- Musterlösungen und Fehllösungen als Tests, Texte auf Deutsch und Englisch
+
 ## M23 – Programmstatus: Steuern, Trigger, Online/Offline-Vergleich (2026-11-23)
 
 - **Steuern aus dem Editor**: Rechtsklick auf einen Operanden (SCL-Kontextmenü „Operand steuern …“,

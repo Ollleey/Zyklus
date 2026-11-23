@@ -18,6 +18,7 @@ import {
 import { projectToSource } from '@zyklus/scl-compiler';
 import { compileSolution, givenSolution, levelById } from '@zyklus/levels';
 import { LevelGuide } from '../components/LevelGuide';
+import { HintList } from '../components/HintList';
 import { msg, t, tx } from '../i18n';
 import { Cabinet, type CpuStatus } from '../components/Cabinet';
 import { LogicAnalyzer } from '../components/LogicAnalyzer';
@@ -136,7 +137,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
     const saved = loadSolution(level);
     return saved.modules.length ? saved : startSolution(level);
   });
-  const [brief, setBrief] = useState<'mail' | 'datasheet' | null>(() =>
+  const [brief, setBrief] = useState<'mail' | 'datasheet' | 'hints' | null>(() =>
     (solution.modules.length && !fresh) || plant ? null : sandbox ? 'datasheet' : 'mail',
   );
   const [result, setResult] = useState<Verification | null>(null);
@@ -695,7 +696,13 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
         <div className="topbar-title">
           <span className="topbar-name">
             {!sandbox && (
-              <span className="level-no">{level.id.startsWith('eigen-') ? '★' : level.order}</span>
+              <span className="level-no">
+                {level.id.startsWith('eigen-')
+                  ? '★'
+                  : level.order > 100
+                    ? `Ü${level.order - 100}`
+                    : level.order}
+              </span>
             )}
             {tr(level.title)}
           </span>
@@ -716,6 +723,15 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
           >
             {t('level.datasheet')}
           </button>
+          {!!level.hints?.length && (
+            <button
+              className={`seg ${brief === 'hints' ? 'seg-active' : ''}`}
+              aria-pressed={brief === 'hints'}
+              onClick={() => setBrief(brief === 'hints' ? null : 'hints')}
+            >
+              💡 {t('hints.title')}
+            </button>
+          )}
         </div>
         <div className="topbar-actions">
           <dl className="hdr-metrics">
@@ -812,6 +828,14 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             >
               {t('level.datasheet')}
             </button>
+            {!!level.hints?.length && (
+              <button
+                className={`tab ${brief === 'hints' ? 'tab-active' : ''}`}
+                onClick={() => setBrief('hints')}
+              >
+                💡 {t('hints.title')}
+              </button>
+            )}
             <span className="tab-spacer" />
             <button
               className="icon-btn"
@@ -834,6 +858,8 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
               </div>
               <Markdown text={tr(level.mail.body)} />
             </div>
+          ) : brief === 'hints' && level.hints?.length ? (
+            <HintList levelId={level.id} hints={level.hints} />
           ) : (
             <div className="datasheet">
               <Markdown text={tr(level.datasheet)} />

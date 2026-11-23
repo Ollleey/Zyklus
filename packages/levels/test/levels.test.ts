@@ -13,7 +13,14 @@ import {
   type Wire,
 } from '@zyklus/sim-core';
 import { formatDiagnostic, sourceToProject } from '@zyklus/scl-compiler';
-import { LEVELS, compileSolution, givenSolution, levelById, lineChanges } from '../src';
+import {
+  EXTRA_LEVELS,
+  LEVELS,
+  compileSolution,
+  givenSolution,
+  levelById,
+  lineChanges,
+} from '../src';
 import { FUP_REFERENCES } from './fup-references';
 
 const DATA = join(__dirname, '..', 'data', 'reference');
@@ -849,7 +856,7 @@ describe('KOP-Lösung', () => {
 describe('Englisch', () => {
   it('jeder Auftrag hat englische Texte für Mail, Datenblatt, Geräte, Tests und Kriterien', () => {
     const missing: string[] = [];
-    for (const l of LEVELS) {
+    for (const l of [...LEVELS, ...EXTRA_LEVELS]) {
       for (const [k, v] of Object.entries({
         title: l.title,
         customer: l.customer,
@@ -861,11 +868,88 @@ describe('Englisch', () => {
         if (!v.en) missing.push(`${l.id} ${k}`);
       }
       for (const d of l.devices) if (!d.name.en) missing.push(`${l.id} ${d.id}`);
+      (l.hints ?? []).forEach((h, i) => {
+        if (!h.title.en || !h.text.en) missing.push(`${l.id} Tipp ${i + 1}`);
+      });
       for (const t of l.tests) {
         if (!t.name.en) missing.push(`${l.id} test ${t.id}`);
         for (const c of t.checks ?? []) if (!c.name.en) missing.push(`${l.id} ${c.name.de}`);
       }
     }
     expect(missing).toEqual([]);
+  });
+});
+
+describe('Übungsaufträge (Teilevereinzelung)', () => {
+  const failedChecks = (level: Level, src: string) => {
+    const v = verify(level, solutionFor(level, src));
+    return [
+      ...new Set(
+        v.runs.flatMap((r) => [
+          ...Object.entries(r.checks)
+            .filter(([, c]) => !c.ok)
+            .map(([k]) => `${r.testId}:${k}`),
+          ...r.criteria.filter((c) => !c.ok).map((c) => `${r.testId}:${c.name.de}`),
+        ]),
+      ),
+    ];
+  };
+  const ref = (id: string) => readFileSync(join(DATA, `${id}.scl`), 'utf8');
+  const p1 = levelById('p1-vereinzelung-funktionstest')!;
+  const p2 = levelById('p2-vereinzelung-ablauf')!;
+
+  it('sind gültig, mit Tipps und außerhalb der Kampagne', () => {
+    expect(EXTRA_LEVELS.map((l) => l.id)).toEqual([p1.id, p2.id]);
+    for (const l of EXTRA_LEVELS) {
+      expect(l.hints!.length).toBeGreaterThanOrEqual(5);
+      expect(LEVELS).not.toContain(l);
+    }
+  });
+
+  it.each(EXTRA_LEVELS.map((l) => [l.id, l] as const))(
+    'Referenzlösung %s besteht alle Tests',
+    (_, level) => {
+      expect(failedChecks(level, ref(level.id))).toEqual([]);
+      expect(verify(level, reference(level)).metrics).toEqual(level.par);
+    },
+  );
+
+  it('Funktionstest: ohne Flanke flattert das Ventil, solange der Taster gedrückt ist', () => {
+    const src = ref(p1.id).replace('IF "S1" AND NOT "Alt".S1 THEN', 'IF "S1" THEN');
+    expect(failedChecks(p1, src).some((f) => f.includes('1Y1'))).toBe(true);
+  });
+
+  it('Funktionstest: ohne Verriegelung sind beide Schwenkventile an', () => {
+    const src = ref(p1.id).replace(/IF "_3Y2" THEN\s*"_3Y1" := FALSE;\s*END_IF;/, '');
+    expect(failedChecks(p1, src)).toContain(
+      'verriegelung:3Y1 und 3Y2 nie gleichzeitig (Verriegelung)',
+    );
+  });
+
+  it('Funktionstest: Vakuum bei leerem Magazin und Dauerlicht statt Blinken fallen auf', () => {
+    const src = ref(p1.id)
+      .replace(/IF "B3" THEN\s*"_2Y1" := FALSE;\s*END_IF;/, '')
+      .replace('"P1" := NOT "B3" OR %M0.3;', '"P1" := TRUE;');
+    const f = failedChecks(p1, src);
+    expect(f).toContain('leer:Vakuum schaltet bei leerem Magazin nicht ein');
+    expect(f).toContain('leer:P1 blinkt (Hälfte der Zeit an)');
+  });
+
+  it('Ablauf: Start ohne Flanke läuft bei gehaltenem S1 einen zweiten Zyklus', () => {
+    const src = ref(p2.id).replace('IF "StartFlanke".Q AND', 'IF "S1" AND');
+    expect(failedChecks(p2, src)).toEqual(['festgehalten:Nur ein Zyklus je Start']);
+  });
+
+  it('Ablauf: wer nach „Vakuum aus“ nicht auf 2B1 wartet, verliert das Teil', () => {
+    const src = ref(p2.id)
+      .replace(/IF NOT "_2B1" THEN(\s*"Kette".Schritt := 7;)/, 'IF TRUE THEN$1')
+      .replace('"_2Y2" := "Kette".Schritt = 6;', '"_2Y2" := FALSE;');
+    expect(src).toContain('IF TRUE THEN');
+    expect(failedChecks(p2, src)).toContain('ein-teil:Kein Teil fällt herunter');
+  });
+
+  it('Ablauf: ohne AUS-Taster laufen die Ventile weiter', () => {
+    const src = ref(p2.id).replace(/IF NOT "S0" THEN\s*"Kette".Schritt := 0;\s*END_IF;/, '');
+    expect(failedChecks(p2, src).filter((f) => f.startsWith('aus:')).length).toBeGreaterThan(0);
   });
 });

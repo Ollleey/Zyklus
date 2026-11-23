@@ -204,7 +204,15 @@ export interface Level {
   extends?: string;
   /** geführter Einstieg: Schrittkarte im Auftrag (Einführung) */
   guide?: boolean;
+  /** Hilfestellungen, im Auftrag einzeln aufzudecken – vom kleinen Anstoß bis zum Lösungsweg */
+  hints?: Hint[];
   tests: TestCase[];
+}
+
+/** Ein Tipp: kurzer Titel (sichtbar, bevor er aufgedeckt wird) und Text in Markdown */
+export interface Hint {
+  title: Text;
+  text: Text;
 }
 
 export class LevelError extends Error {
@@ -238,6 +246,13 @@ export function validateLevel(json: unknown): Level {
   if (!Array.isArray(l.allowedModules) || !l.allowedModules.length) p.push('allowedModules fehlt');
   else for (const m of l.allowedModules) if (!MODULE_TYPES[m]) p.push(`unbekanntes Modul ${m}`);
   if (!(l.toleranceMs >= 0)) p.push('toleranceMs fehlt');
+  if (l.hints !== undefined) {
+    if (!Array.isArray(l.hints)) p.push('hints muss eine Liste sein');
+    else
+      l.hints.forEach((h, i) => {
+        if (!isText(h?.title) || !isText(h?.text)) p.push(`Tipp ${i + 1}: title und text fehlen`);
+      });
+  }
 
   const devices = new Map<string, Device>();
   if (!Array.isArray(l.devices)) p.push('devices fehlt');

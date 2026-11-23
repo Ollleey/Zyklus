@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LEVELS, levelById } from '@zyklus/levels';
+import { EXTRA_LEVELS, LEVELS, levelById } from '@zyklus/levels';
 import { FILE_TYPES, platform, type Command, type OpenedFile } from '@zyklus/platform';
 import { t } from './i18n';
 import { SANDBOX } from './sandbox';
@@ -190,6 +190,7 @@ export function App() {
     screen = (
       <Inbox
         levels={LEVELS}
+        extras={EXTRA_LEVELS}
         progress={progress}
         onOpen={setLevelId}
         onPlace={setPlace}

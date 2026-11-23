@@ -25,6 +25,8 @@ export const PATIENCE_UNLOCK = 3;
 
 interface Props {
   levels: Level[];
+  /** Übungsaufträge außerhalb der Kampagne (immer offen) */
+  extras?: Level[];
   progress: Record<string, LevelProgress>;
   onOpen: (id: string) => void;
   onPlace: (p: Place) => void;
@@ -33,7 +35,15 @@ interface Props {
   onCustom: (list: CustomLevel[]) => void;
 }
 
-export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom }: Props) {
+export function Inbox({
+  levels,
+  extras = [],
+  progress,
+  onOpen,
+  onPlace,
+  custom: all,
+  onCustom,
+}: Props) {
   // Zufallsaufträge haben einen eigenen Abschnitt
   const custom = all.filter((c) => !c.random);
   const random = all.filter((c) => c.random);
@@ -196,6 +206,32 @@ export function Inbox({ levels, progress, onOpen, onPlace, custom: all, onCustom
           );
         })}
       </ul>
+      {extras.length > 0 && (
+        <>
+          <h2>{t('extras.title')}</h2>
+          <p className="muted">{t('extras.text')}</p>
+          <ul className="mail-list">
+            {extras.map((l, i) => {
+              const p = progress[l.id];
+              return (
+                <li key={l.id}>
+                  <button
+                    className={`mail-item ${p?.solved ? 'solved' : ''}`}
+                    onClick={() => onOpen(l.id)}
+                  >
+                    <span className="mail-no">Ü{i + 1}</span>
+                    <span className="mail-from">{tr(l.customer)}</span>
+                    <span className="mail-subject">{tr(l.mail.subject)}</span>
+                    <span className="mail-status">
+                      {p?.solved ? `✓ ${t('inbox.solved')}` : t('inbox.open')}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
       <RandomJobs list={random} progress={progress} onOpen={onOpen} onChange={onCustom} />
       <h2 className="custom-head">
         {t('custom.title')}

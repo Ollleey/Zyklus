@@ -1,0 +1,65 @@
+DATA_BLOCK "Alt"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      S1 : Bool;   // Tasterzustand aus dem letzten Zyklus (für die Flanke)
+      S2 : Bool;
+      S3 : Bool;
+      S4 : Bool;
+      S5 : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	// Funktionstest: jeder Taster schaltet "sein" Ventil mit jeder steigenden Flanke um
+	IF "S1" AND NOT "Alt".S1 THEN
+	    "_1Y1" := NOT "_1Y1";
+	END_IF;
+	// Schwenkantrieb: beim Einschalten der einen Richtung die andere abschalten (Verriegelung)
+	IF "S2" AND NOT "Alt".S2 THEN
+	    "_3Y1" := NOT "_3Y1";
+	    IF "_3Y1" THEN
+	        "_3Y2" := FALSE;
+	    END_IF;
+	END_IF;
+	IF "S3" AND NOT "Alt".S3 THEN
+	    "_3Y2" := NOT "_3Y2";
+	    IF "_3Y2" THEN
+	        "_3Y1" := FALSE;
+	    END_IF;
+	END_IF;
+	// Vakuum: Ein und Aus ebenso gegeneinander verriegelt
+	IF "S4" AND NOT "Alt".S4 THEN
+	    "_2Y2" := NOT "_2Y2";
+	    IF "_2Y2" THEN
+	        "_2Y1" := FALSE;
+	    END_IF;
+	END_IF;
+	IF "S5" AND NOT "Alt".S5 THEN
+	    "_2Y1" := NOT "_2Y1";
+	    IF "_2Y1" THEN
+	        "_2Y2" := FALSE;
+	    END_IF;
+	END_IF;
+	// Magazin leer: kein Vakuum
+	IF "B3" THEN
+	    "_2Y1" := FALSE;
+	END_IF;
+	"Alt".S1 := "S1";
+	"Alt".S2 := "S2";
+	"Alt".S3 := "S3";
+	"Alt".S4 := "S4";
+	"Alt".S5 := "S5";
+
+	// Meldelampe: Teile da = Dauerlicht, Magazin leer = 2 Hz (Taktmerker %MB0, Bit 3)
+	"P1" := NOT "B3" OR %M0.3;
+END_ORGANIZATION_BLOCK

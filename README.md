@@ -18,6 +18,8 @@ _English below._
 - **Sandkasten**: eigene Anlagen bauen (Bänder, Zylinder, Sensoren, Tanks …), mit
   **Szenario-Editor** (Störungen, Stromausfall, Zeitleiste) und als eigener Auftrag veröffentlichen
 - **Zufallsaufträge** mit Auftragscode zum Weitergeben, jeder vorab mit einer Musterlösung geprüft
+- **Übungsaufträge** zur Prüfungsvorbereitung (Teilevereinzelung: Funktionstest der Aktoren und
+  automatischer Ablauf) mit **Tipps zum Aufdecken** – vom Anstoß bis zum Lösungsweg
 - Deutsch und Englisch, läuft komplett offline
 
 ## Installieren
@@ -112,8 +114,9 @@ Dokumentation: Handbuch-Seiten in [docs/](docs) (Englisch in [docs/en/](docs/en)
 
 **ZYKLUS** is a puzzle and learning game about programmable logic controllers (PLCs): read jobs,
 fit modules on a DIN rail, wire field devices, program in SCL, FBD, LAD or GRAPH, simulate and have
-your solution verified. It includes 28 jobs, a basics course for complete beginners, a handbook, a
-sandbox with scenario editor and random jobs. The interface is available in German and English
+your solution verified. It includes 28 jobs, practice jobs for exam preparation with hints to
+reveal, a basics course for complete beginners, a handbook, a sandbox with scenario editor and
+random jobs. The interface is available in German and English
 (choose at the top of the inbox).
 
 **Install on Windows:** download the `…_x64-setup.exe` from the

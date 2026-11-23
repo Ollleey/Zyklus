@@ -1,0 +1,507 @@
+{
+  "id": "p1-vereinzelung-funktionstest",
+  "order": 101,
+  "title": {
+    "de": "Vereinzelung – Funktionstest der Aktoren"
+  },
+  "customer": {
+    "de": "Lehrwerkstatt Mechatronik"
+  },
+  "mail": {
+    "from": {
+      "de": "Lehrwerkstatt Mechatronik"
+    },
+    "subject": {
+      "de": "Vereinzelung – Funktionstest der Aktoren"
+    },
+    "body": {
+      "de": "Hallo,\n\nunsere neue Vereinzelungsstation ist aufgebaut und verschlaucht. Bevor sie in die Linie geht, brauchen wir ein **Programm für den Funktionstest der Aktoren**:\n\n- Jedes Magnetventil bekommt einen eigenen Taster.\n- Kurz drücken schaltet das Ventil ein, noch einmal kurz drücken wieder aus.\n- Denk an die **Verriegelung**: Der Schwenkantrieb darf nicht gleichzeitig in beide Richtungen angesteuert werden, Vakuum ein und Vakuum aus ebenso wenig.\n\nZum Test: Liegen Teile im Magazin, leuchtet die Meldelampe P1 und das Vakuum lässt sich einschalten. Ist das Magazin leer, blinkt P1 mit 2 Hz und das Vakuum bleibt aus.\n\nAlle Geräte und die Mechanik stehen im Datenblatt. Wenn du hängst: unter **💡 Tipps** gibt es Hilfe – Schritt für Schritt bis zum Lösungsweg.\n\nGrüße aus der Lehrwerkstatt"
+    }
+  },
+  "datasheet": {
+    "de": "## Die Anlage\n\nEine Vereinzelungsstation holt Werkstücke einzeln aus einem **Stapelmagazin** und legt sie an der **Folgestation** ab.\n\n- **Ausschiebezylinder** unter dem Magazin (doppeltwirkend, 5/2-Ventil mit Federrückstellung): 1Y1 = 1 fährt ihn **ein**, ohne Signal fährt er **aus**. Ausgefahren hält er das Magazin geschlossen (Grundstellung). Ganz eingefahren fällt das unterste Teil in die Entnahmestelle. Endlagen: 1B1 eingefahren, 1B2 ausgefahren (Reedkontakte).\n- **Schwenkarm** mit Vakuumsauger (Rotationszylinder, zwei 3/2-Ventile): 3Y1 schwenkt zum Magazin, 3Y2 zur Folgestation. Ohne Signal bleibt der Arm stehen (drucklos), mit beiden Signalen verspannt er sich und bleibt ebenfalls stehen. Endlagen: 3S1 am Magazin, 3S2 an der Folgestation. Ein Schwenk dauert etwa 0,7 s.\n- **Vakuum**: 2Y1 saugt. Nur wenn der Sauger auf einem Teil sitzt, baut sich Vakuum auf; dann meldet der Vakuumschalter 2B1 und das Teil hält. 2Y2 ist der **Abwurfimpuls**: das Vakuum bricht sofort zusammen. Ohne 2Y1 und 2Y2 fällt das Vakuum langsam ab (etwa 0,2 s). Ein Teil, das zwischen Magazin und Folgestation abfällt, ist **verloren**.\n- **Lichtschranke B3** am Magazin: 1 = **Magazin leer**.\n- **Meldelampe P1** am Bedienpult.\n\n## Feldgeräte\n\n| Gerät | Art | Beschreibung |\n|---|---|---|\n| S1 | DI | Taster – Ausschiebezylinder einfahren |\n| S2 | DI | Taster – Schwenkarm zum Magazin |\n| S3 | DI | Taster – Schwenkarm zur Folgestation |\n| S4 | DI | Taster – Vakuum aus |\n| S5 | DI | Taster – Vakuum ein |\n| B3 | DI | Magazin leer (1 = leer) |\n| 1Y1 | DO | Ausschiebezylinder einfahren |\n| 3Y1 | DO | Schwenkantrieb zum Magazin |\n| 3Y2 | DO | Schwenkantrieb zur Folgestation |\n| 2Y1 | DO | Vakuum ein |\n| 2Y2 | DO | Vakuum aus (Abwurfimpuls) |\n| P1 | DO | Meldelampe |\n\n## Funktionstest\n\n| Taster | Ventil |\n|---|---|\n| S1 | 1Y1 |\n| S2 | 3Y1 |\n| S3 | 3Y2 |\n| S4 | 2Y2 |\n| S5 | 2Y1 |\n\n- Kurz drücken schaltet das Ventil **ein**, nochmal kurz drücken wieder **aus** (Stromstoß).\n- 3Y1/3Y2 und 2Y1/2Y2 dürfen **nie gleichzeitig** an sein.\n- Teile im Magazin: P1 leuchtet, Vakuum lässt sich einschalten.\n- Magazin leer: P1 **blinkt mit 2 Hz**, Vakuum schaltet **nicht** ein.\n\n## Symboltabelle\n\nDie PLC-Variablentabelle ist deine Symboltabelle: Sobald ein Gerät verdrahtet ist, steht dort seine absolute Adresse (z. B. `%I0.0`). Die Variablennamen entsprechen den Kennzeichen (`_1Y1` für 1Y1 – ein Name darf nicht mit einer Ziffer beginnen).\n"
+  },
+  "board": {
+    "width": 20,
+    "ductCapacity": 16
+  },
+  "allowedModules": ["cpu-klein", "cpu-mittel", "di8", "do8", "cpu-kompakt", "di4", "do4", "dio8"],
+  "toleranceMs": 30,
+  "par": {
+    "cost": 8,
+    "energy": 13547,
+    "size": 26
+  },
+  "plant": {
+    "type": "separator",
+    "params": {
+      "retract": "1Y1",
+      "vacOn": "2Y1",
+      "vacOff": "2Y2",
+      "toMag": "3Y1",
+      "toNext": "3Y2",
+      "retracted": "1B1",
+      "extended": "1B2",
+      "vacuum": "2B1",
+      "atMag": "3S1",
+      "atNext": "3S2",
+      "empty": "B3",
+      "parts": 4
+    }
+  },
+  "devices": [
+    {
+      "id": "S1",
+      "tag": "S1",
+      "name": {
+        "de": "Taster S1"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S2",
+      "tag": "S2",
+      "name": {
+        "de": "Taster S2 – Schwenkarm zum Magazin"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S3",
+      "tag": "S3",
+      "name": {
+        "de": "Taster S3 – Schwenkarm zur Folgestation"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S4",
+      "tag": "S4",
+      "name": {
+        "de": "Taster S4 – Vakuum aus"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "S5",
+      "tag": "S5",
+      "name": {
+        "de": "Taster S5 – Vakuum ein"
+      },
+      "kind": "DI",
+      "side": "left",
+      "role": "button"
+    },
+    {
+      "id": "B3",
+      "tag": "B3",
+      "name": {
+        "de": "Magazin leer (B3, Lichtschranke) – 1 = leer"
+      },
+      "kind": "DI",
+      "side": "right",
+      "role": "sensor"
+    },
+    {
+      "id": "1Y1",
+      "tag": "_1Y1",
+      "name": {
+        "de": "Ausschiebezylinder einfahren (1Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "3Y1",
+      "tag": "_3Y1",
+      "name": {
+        "de": "Schwenkantrieb zum Magazin (3Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "3Y2",
+      "tag": "_3Y2",
+      "name": {
+        "de": "Schwenkantrieb zur Folgestation (3Y2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "2Y1",
+      "tag": "_2Y1",
+      "name": {
+        "de": "Vakuum ein (2Y1)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "2Y2",
+      "tag": "_2Y2",
+      "name": {
+        "de": "Vakuum aus / Abwurfimpuls (2Y2)"
+      },
+      "kind": "DO",
+      "side": "right",
+      "role": "valve"
+    },
+    {
+      "id": "P1",
+      "tag": "P1",
+      "name": {
+        "de": "Meldelampe (P1)"
+      },
+      "kind": "DO",
+      "side": "left",
+      "role": "lamp"
+    }
+  ],
+  "tests": [
+    {
+      "id": "tasten",
+      "name": {
+        "de": "Jeder Taster schaltet sein Ventil"
+      },
+      "durationMs": 10500,
+      "seeds": [1],
+      "stimuli": {
+        "S1": [
+          [300, true],
+          [400, false],
+          [1300, true],
+          [1400, false]
+        ],
+        "S2": [
+          [2300, true],
+          [2400, false],
+          [3300, true],
+          [3400, false]
+        ],
+        "S3": [
+          [4300, true],
+          [4400, false],
+          [5300, true],
+          [5400, false]
+        ],
+        "S4": [
+          [6300, true],
+          [6400, false],
+          [7300, true],
+          [7400, false]
+        ],
+        "S5": [
+          [8300, true],
+          [8400, false],
+          [9300, true],
+          [9400, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": {
+            "de": "S1 schaltet 1Y1 ein"
+          },
+          "signal": "1Y1",
+          "value": true,
+          "from": 450,
+          "to": 1250
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S1 schaltet 1Y1 wieder aus"
+          },
+          "signal": "1Y1",
+          "value": false,
+          "from": 1450,
+          "to": 2200
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S2 schaltet 3Y1 ein"
+          },
+          "signal": "3Y1",
+          "value": true,
+          "from": 2450,
+          "to": 3250
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S2 schaltet 3Y1 wieder aus"
+          },
+          "signal": "3Y1",
+          "value": false,
+          "from": 3450,
+          "to": 4200
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S3 schaltet 3Y2 ein"
+          },
+          "signal": "3Y2",
+          "value": true,
+          "from": 4450,
+          "to": 5250
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S3 schaltet 3Y2 wieder aus"
+          },
+          "signal": "3Y2",
+          "value": false,
+          "from": 5450,
+          "to": 6200
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S4 schaltet 2Y2 ein"
+          },
+          "signal": "2Y2",
+          "value": true,
+          "from": 6450,
+          "to": 7250
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S4 schaltet 2Y2 wieder aus"
+          },
+          "signal": "2Y2",
+          "value": false,
+          "from": 7450,
+          "to": 8200
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S5 schaltet 2Y1 ein"
+          },
+          "signal": "2Y1",
+          "value": true,
+          "from": 8450,
+          "to": 9250
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "S5 schaltet 2Y1 wieder aus"
+          },
+          "signal": "2Y1",
+          "value": false,
+          "from": 9450,
+          "to": 10200
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "P1 leuchtet, solange Teile im Magazin sind"
+          },
+          "signal": "P1",
+          "value": true,
+          "from": 100,
+          "to": 10400
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "3Y1 und 3Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["3Y1", "3Y2"]
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "2Y1 und 2Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["2Y1", "2Y2"]
+        }
+      ]
+    },
+    {
+      "id": "verriegelung",
+      "name": {
+        "de": "Gegenrichtung bei eingeschaltetem Ventil"
+      },
+      "durationMs": 3500,
+      "seeds": [1],
+      "stimuli": {
+        "S2": [
+          [300, true],
+          [400, false]
+        ],
+        "S3": [
+          [1000, true],
+          [1100, false]
+        ],
+        "S5": [
+          [2000, true],
+          [2100, false]
+        ],
+        "S4": [
+          [2600, true],
+          [2700, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "3Y1 und 3Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["3Y1", "3Y2"]
+        },
+        {
+          "kind": "exclusive",
+          "name": {
+            "de": "2Y1 und 2Y2 nie gleichzeitig (Verriegelung)"
+          },
+          "signals": ["2Y1", "2Y2"]
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Nach S2 ist 3Y1 an"
+          },
+          "signal": "3Y1",
+          "value": true,
+          "from": 450,
+          "to": 950
+        },
+        {
+          "kind": "always",
+          "name": {
+            "de": "Nach S5 ist 2Y1 an"
+          },
+          "signal": "2Y1",
+          "value": true,
+          "from": 2150,
+          "to": 2550
+        }
+      ]
+    },
+    {
+      "id": "leer",
+      "name": {
+        "de": "Magazin leer"
+      },
+      "durationMs": 3500,
+      "seeds": [1],
+      "plant": {
+        "parts": 0
+      },
+      "stimuli": {
+        "S5": [
+          [300, true],
+          [400, false],
+          [1200, true],
+          [1300, false]
+        ]
+      },
+      "checks": [
+        {
+          "kind": "always",
+          "name": {
+            "de": "Vakuum schaltet bei leerem Magazin nicht ein"
+          },
+          "signal": "2Y1",
+          "value": false,
+          "from": 0,
+          "to": 3500
+        },
+        {
+          "kind": "duty",
+          "name": {
+            "de": "P1 blinkt (Hälfte der Zeit an)"
+          },
+          "signal": "P1",
+          "periodMs": 500,
+          "duty": [[0, 50]],
+          "tolerance": 12,
+          "from": 500,
+          "to": 3500
+        },
+        {
+          "kind": "maxChanges",
+          "name": {
+            "de": "P1 blinkt mit 2 Hz, nicht schneller"
+          },
+          "signal": "P1",
+          "max": 14,
+          "from": 500,
+          "to": 3500
+        }
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "title": {
+        "de": "Wo fange ich an?"
+      },
+      "text": {
+        "de": "Stecke eine CPU und je eine Eingangs- und Ausgangsbaugruppe (8 DI reichen für die 6 Eingänge, 8 DO für die 6 Ausgänge) und verdrahte alle Geräte. Danach steht in **PLC-Variablen** zu jedem Gerät die Adresse – das ist die Symboltabelle aus dem Auftrag."
+      }
+    },
+    {
+      "title": {
+        "de": "Kurz drücken – an, nochmal – aus"
+      },
+      "text": {
+        "de": "Das ist ein **Stromstoßschalter**. Du brauchst die **steigende Flanke** des Tasters, sonst schaltet das Ventil in jedem Zyklus um, solange du drückst (10 ms Zyklus!).\n\n```\nIF \"S1\" AND NOT \"Alt\".S1 THEN   // Flanke: jetzt 1, im letzten Zyklus 0\n    \"_1Y1\" := NOT \"_1Y1\";\nEND_IF;\n\"Alt\".S1 := \"S1\";               // für den nächsten Zyklus merken\n```\n\n`\"Alt\"` ist ein Datenbaustein mit einer Bool-Variable je Taster. Alternativ: ein `R_TRIG` je Taster."
+      }
+    },
+    {
+      "title": {
+        "de": "Was heißt hier Verriegelung?"
+      },
+      "text": {
+        "de": "3Y1 und 3Y2 drücken den Schwenkantrieb in entgegengesetzte Richtungen – beide gleichzeitig verspannen ihn. Ebenso Vakuum ein (2Y1) und Abwurf (2Y2). Zwei übliche Lösungen:\n\n- **Umschalten**: Wer einschaltet, schaltet das Gegenventil aus.\n- **Sperren**: Einschalten geht nur, wenn das Gegenventil aus ist.\n\nBeides ist erlaubt – nur gleichzeitig an dürfen sie nie sein."
+      }
+    },
+    {
+      "title": {
+        "de": "Vakuum nur mit Teilen im Magazin"
+      },
+      "text": {
+        "de": "B3 meldet **1 = Magazin leer**. Hänge also an das Einschalten von 2Y1 die Bedingung `NOT \"B3\"` – oder schalte 2Y1 einfach aus, solange B3 = 1:\n\n```\nIF \"B3\" THEN\n    \"_2Y1\" := FALSE;\nEND_IF;\n```"
+      }
+    },
+    {
+      "title": {
+        "de": "P1 blinkt mit 2 Hz"
+      },
+      "text": {
+        "de": "Am einfachsten mit dem **Taktmerker**: CPU anklicken, unter den Eigenschaften das Taktmerkerbyte einschalten (z. B. MB0). Dann wechselt `%M0.3` mit **2 Hz** (Bit 0 = 10 Hz … Bit 7 = 0,5 Hz).\n\n```\n\"P1\" := NOT \"B3\" OR %M0.3;   // Teile da = Dauerlicht, leer = Blinken\n```\n\nOhne Taktmerker geht es auch mit einer Zeit (TON, 250 ms), die sich selbst neu startet."
+      }
+    },
+    {
+      "title": {
+        "de": "Lösungsweg (vollständig)"
+      },
+      "text": {
+        "de": "Ein Datenbaustein `\"Alt\"` mit `S1` … `S5 : Bool`, Taktmerker auf MB0, dann:\n\n```\nIF \"S1\" AND NOT \"Alt\".S1 THEN \"_1Y1\" := NOT \"_1Y1\"; END_IF;\nIF \"S2\" AND NOT \"Alt\".S2 THEN\n    \"_3Y1\" := NOT \"_3Y1\";\n    IF \"_3Y1\" THEN \"_3Y2\" := FALSE; END_IF;\nEND_IF;\nIF \"S3\" AND NOT \"Alt\".S3 THEN\n    \"_3Y2\" := NOT \"_3Y2\";\n    IF \"_3Y2\" THEN \"_3Y1\" := FALSE; END_IF;\nEND_IF;\nIF \"S4\" AND NOT \"Alt\".S4 THEN\n    \"_2Y2\" := NOT \"_2Y2\";\n    IF \"_2Y2\" THEN \"_2Y1\" := FALSE; END_IF;\nEND_IF;\nIF \"S5\" AND NOT \"Alt\".S5 THEN\n    \"_2Y1\" := NOT \"_2Y1\";\n    IF \"_2Y1\" THEN \"_2Y2\" := FALSE; END_IF;\nEND_IF;\nIF \"B3\" THEN \"_2Y1\" := FALSE; END_IF;\n\"Alt\".S1 := \"S1\"; \"Alt\".S2 := \"S2\"; \"Alt\".S3 := \"S3\";\n\"Alt\".S4 := \"S4\"; \"Alt\".S5 := \"S5\";\n\"P1\" := NOT \"B3\" OR %M0.3;\n```"
+      }
+    }
+  ]
+}

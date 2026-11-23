@@ -382,6 +382,142 @@ class Axis implements Plant {
   }
 }
 
+/**
+ * Teilevereinzelung: Stapelmagazin mit Ausschiebezylinder, Schwenkarm mit Vakuumsauger, Ablage an
+ * der Folgestation.
+ * - Ausschiebezylinder (5/2 monostabil): Ausgang `retract` = 1 fährt ein, sonst fährt er aus
+ *   (Grundstellung ausgefahren, Magazin zu). Ganz eingefahren fällt das unterste Teil aus dem
+ *   Magazin in die Entnahmestelle.
+ * - Schwenkarm mit zwei 3/2-Ventilen: `toMag` schwenkt zum Magazin, `toNext` zur Folgestation;
+ *   beide aus = drucklos (Arm bleibt stehen), beide an = verspannt (Arm bleibt stehen).
+ * - Vakuum: `vacOn` saugt; nur mit einem Teil am Sauger baut sich Vakuum auf (Sensor `vacuum`).
+ *   `vacOff` ist der Abwurfimpuls (Teil fällt sofort ab); ohne beides fällt das Vakuum langsam ab.
+ *   Ein Teil, das außerhalb von Magazin und Folgestation abfällt, ist verloren.
+ * params: retract, vacOn, vacOff, toMag, toNext (Ausgänge); retracted, extended, vacuum, atMag,
+ * atNext, empty (Sensoren; `empty` = 1 bei leerem Magazin); parts (Teile im Magazin), pushMs,
+ * swingMs, suckMs, releaseMs, ejectMs
+ */
+/** Vakuum, ab dem das Teil am Sauger hält und der Vakuumschalter meldet */
+const HOLD = 0.6;
+
+class Separator implements Plant {
+  /** Ausschiebezylinder 0 = eingefahren … 1 = ausgefahren */
+  private push = 1;
+  /** Schwenkarm 0 = Magazin … 1 = Folgestation */
+  private arm = 0;
+  /** Vakuum am Sauger 0…1 */
+  private vac = 0;
+  private stack: number;
+  /** Teil liegt lose in der Entnahmestelle */
+  private slot = false;
+  /** Teil hängt am Sauger */
+  private held = false;
+  private delivered = 0;
+  private lost = 0;
+  private readonly ids: Record<
+    | 'retract'
+    | 'vacOn'
+    | 'vacOff'
+    | 'toMag'
+    | 'toNext'
+    | 'retracted'
+    | 'extended'
+    | 'vacuum'
+    | 'atMag'
+    | 'atNext'
+    | 'empty',
+    string
+  >;
+  private readonly pushMs: number;
+  private readonly swingMs: number;
+  private readonly suckMs: number;
+  private readonly releaseMs: number;
+  private readonly ejectMs: number;
+
+  constructor(p: Params) {
+    this.ids = {
+      retract: String(p.retract),
+      vacOn: String(p.vacOn),
+      vacOff: String(p.vacOff),
+      toMag: String(p.toMag),
+      toNext: String(p.toNext),
+      retracted: String(p.retracted),
+      extended: String(p.extended),
+      vacuum: String(p.vacuum),
+      atMag: String(p.atMag),
+      atNext: String(p.atNext),
+      empty: String(p.empty),
+    };
+    this.stack = Math.max(0, Math.round(Number(p.parts ?? 4)));
+    this.pushMs = Number(p.pushMs ?? 300);
+    this.swingMs = Number(p.swingMs ?? 700);
+    this.suckMs = Number(p.suckMs ?? 120);
+    this.releaseMs = Number(p.releaseMs ?? 400);
+    this.ejectMs = Number(p.ejectMs ?? 30);
+  }
+
+  inputs() {
+    return {
+      [this.ids.retracted]: this.push <= EPS,
+      [this.ids.extended]: this.push >= 1 - EPS,
+      [this.ids.vacuum]: this.vac >= HOLD,
+      [this.ids.atMag]: this.arm <= EPS,
+      [this.ids.atNext]: this.arm >= 1 - EPS,
+      [this.ids.empty]: this.stack === 0,
+    };
+  }
+
+  step(_t: number, out: Record<string, Value>) {
+    const on = (id: string) => out[id] === true;
+    // Ausschiebezylinder: Feder (monostabil) fährt ihn ohne Signal aus
+    this.push = on(this.ids.retract)
+      ? Math.max(0, this.push - 1 / this.pushMs)
+      : Math.min(1, this.push + 1 / this.pushMs);
+    const atMag = this.arm <= EPS;
+    // Entnahmestelle frei (das gehaltene Teil steht noch darin, solange der Arm am Magazin ist)
+    const slotFree = !this.slot && !(this.held && this.arm < 0.1);
+    if (this.push <= EPS && slotFree && this.stack > 0) {
+      this.stack--;
+      this.slot = true;
+    }
+    // Schwenkarm: nur mit genau einem Ventil
+    const toMag = on(this.ids.toMag);
+    const toNext = on(this.ids.toNext);
+    if (toMag && !toNext) this.arm = Math.max(0, this.arm - 1 / this.swingMs);
+    else if (toNext && !toMag) this.arm = Math.min(1, this.arm + 1 / this.swingMs);
+    // Vakuum
+    if (on(this.ids.vacOff)) this.vac = Math.max(0, this.vac - 1 / this.ejectMs);
+    else if (on(this.ids.vacOn) && (this.held || (atMag && this.slot)))
+      this.vac = Math.min(1, this.vac + 1 / this.suckMs);
+    else this.vac = Math.max(0, this.vac - 1 / this.releaseMs);
+    // Teil hält ab derselben Schwelle, ab der der Vakuumschalter meldet
+    if (!this.held && this.vac >= HOLD && atMag && this.slot) {
+      this.held = true;
+      this.slot = false;
+    }
+    if (this.held && this.vac < HOLD) {
+      this.held = false;
+      this.vac = 0;
+      if (this.arm >= 1 - EPS) this.delivered++;
+      else if (this.arm <= EPS && !this.slot) this.slot = true;
+      else this.lost++;
+    }
+  }
+
+  state() {
+    return {
+      pusher: Math.round(this.push * 100) / 100,
+      arm: Math.round(this.arm * 100) / 100,
+      vacuum: Math.round(this.vac * 100) / 100,
+      stack: this.stack,
+      slot: this.slot ? 1 : 0,
+      held: this.held ? 1 : 0,
+      delivered: this.delivered,
+      lost: this.lost,
+    };
+  }
+}
+
 export type PlantFactory = (p: Params, level: Level, seed: number) => Plant;
 
 const MODELS: Record<string, PlantFactory> = {
@@ -392,6 +528,7 @@ const MODELS: Record<string, PlantFactory> = {
   thermal: (p, l) => new Thermal(p, l),
   drive: (p, l) => new Drive(p, l),
   axis: (p) => new Axis(p),
+  separator: (p) => new Separator(p),
 };
 
 /** Weitere Anlagenmodelle anmelden (z. B. die frei gebaute Anlage aus `@zyklus/plant-sim`). */

@@ -1,0 +1,83 @@
+DATA_BLOCK "Kette"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR
+      Schritt : Int;   // 0 Grundstellung … 7 zurück zum Magazin
+      Grundstellung : Bool;
+   END_VAR
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "StartFlanke"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+R_TRIG
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Main"
+TITLE = Main Program Sweep (Cycle)
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+BEGIN
+	"StartFlanke"(CLK := "S1");
+	// Grundstellung: Arm am Magazin, Ausschiebezylinder ausgefahren, kein Vakuum
+	"Kette".Grundstellung := "_3S1" AND "_1B2" AND NOT "_2B1";
+
+	// Weiterschaltbedingungen
+	CASE "Kette".Schritt OF
+	    0:  // ein Start = ein Zyklus: nur die Flanke von S1 zählt
+	        IF "StartFlanke".Q AND "Kette".Grundstellung AND NOT "B3" THEN
+	            "Kette".Schritt := 1;
+	        END_IF;
+	    1:  // Arm zur Folgestation
+	        IF "_3S2" AND NOT "B3" THEN
+	            "Kette".Schritt := 2;
+	        END_IF;
+	    2:  // Ausschiebezylinder einfahren, Teil fällt in die Entnahmestelle
+	        IF "_1B1" THEN
+	            "Kette".Schritt := 3;
+	        END_IF;
+	    3:  // Arm zum Magazin, Vakuum ein
+	        IF "_3S1" AND "_2B1" THEN
+	            "Kette".Schritt := 4;
+	        END_IF;
+	    4:  // Ausschiebezylinder wieder aus
+	        IF "_1B2" THEN
+	            "Kette".Schritt := 5;
+	        END_IF;
+	    5:  // Teil zur Folgestation tragen
+	        IF "_3S2" THEN
+	            "Kette".Schritt := 6;
+	        END_IF;
+	    6:  // Vakuum aus, Abwurfimpuls, bis der Vakuumschalter abfällt
+	        IF NOT "_2B1" THEN
+	            "Kette".Schritt := 7;
+	        END_IF;
+	    7:  // zurück zum Magazin, Zyklus fertig
+	        IF "_3S1" THEN
+	            "Kette".Schritt := 0;
+	        END_IF;
+	END_CASE;
+
+	// AUS-Taster S0 ist ein Öffner: 0 = gedrückt (oder Draht ab) – Ablauf abbrechen
+	IF NOT "S0" THEN
+	    "Kette".Schritt := 0;
+	END_IF;
+
+	// Ausgänge aus der Schrittnummer
+	"_3Y2" := "Kette".Schritt = 1 OR "Kette".Schritt = 5;
+	"_1Y1" := "Kette".Schritt = 2 OR "Kette".Schritt = 3;
+	"_3Y1" := "Kette".Schritt = 3 OR "Kette".Schritt = 7;
+	"_2Y1" := "Kette".Schritt >= 3 AND "Kette".Schritt <= 5;
+	"_2Y2" := "Kette".Schritt = 6;
+	// Meldelampe in Grundstellung: Teile da = Dauerlicht, Magazin leer = 2 Hz (Taktmerker Bit 3)
+	"P1" := "S0" AND "Kette".Schritt = 0 AND "Kette".Grundstellung AND (NOT "B3" OR %M0.3);
+END_ORGANIZATION_BLOCK

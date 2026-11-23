@@ -27,6 +27,8 @@ import level24 from '../data/24-pumpstation.json';
 import level25 from '../data/25-rolltor.json';
 import level26 from '../data/26-saege.json';
 import level27 from '../data/27-hochbehaelter.json';
+import extraP1 from '../data/p1-vereinzelung-funktionstest.json';
+import extraP2 from '../data/p2-vereinzelung-ablauf.json';
 import english from '../data/i18n/en.json';
 
 export * from './compile';
@@ -41,6 +43,8 @@ interface LevelTexts {
   devices: Record<string, string>;
   tests: Record<string, string>;
   checks: Record<string, string>;
+  /** Tipps in derselben Reihenfolge wie im Level */
+  hints?: { title: string; text: string }[];
 }
 
 /** Englische Texte aus `data/i18n/en.json` eintragen (die Level-Dateien bleiben deutsch) */
@@ -57,6 +61,14 @@ function withEnglish(level: Level): Level {
       body: { ...level.mail.body, en: en['mail.body'] },
     },
     datasheet: { ...level.datasheet, en: en.datasheet },
+    ...(level.hints
+      ? {
+          hints: level.hints.map((h, i) => {
+            const e = en.hints?.[i];
+            return e ? { title: { ...h.title, en: e.title }, text: { ...h.text, en: e.text } } : h;
+          }),
+        }
+      : {}),
     devices: level.devices.map((d) =>
       en.devices[d.id] ? { ...d, name: { ...d.name, en: en.devices[d.id] } } : d,
     ),
@@ -108,6 +120,14 @@ export const LEVELS: Level[] = [
   .map((l) => withEnglish(validateLevel(l)))
   .sort((a, b) => a.order - b.order);
 
+/**
+ * Übungsaufträge außerhalb der Kampagne (Prüfungsvorbereitung): immer offen, mit Tipps zum
+ * Aufdecken.
+ */
+export const EXTRA_LEVELS: Level[] = [extraP1, extraP2]
+  .map((l) => withEnglish(validateLevel(l)))
+  .sort((a, b) => a.order - b.order);
+
 export function levelById(id: string): Level | undefined {
-  return LEVELS.find((l) => l.id === id);
+  return LEVELS.find((l) => l.id === id) ?? EXTRA_LEVELS.find((l) => l.id === id);
 }

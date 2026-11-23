@@ -1263,5 +1263,187 @@
         }
       }
     }
+  },
+  "p1-vereinzelung-funktionstest": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do8",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "S2",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "S3",
+        "module": "di1",
+        "channel": 2
+      },
+      {
+        "device": "S4",
+        "module": "di1",
+        "channel": 3
+      },
+      {
+        "device": "S5",
+        "module": "di1",
+        "channel": 4
+      },
+      {
+        "device": "B3",
+        "module": "di1",
+        "channel": 5
+      },
+      {
+        "device": "1Y1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "3Y1",
+        "module": "do1",
+        "channel": 1
+      },
+      {
+        "device": "3Y2",
+        "module": "do1",
+        "channel": 2
+      },
+      {
+        "device": "2Y1",
+        "module": "do1",
+        "channel": 3
+      },
+      {
+        "device": "2Y2",
+        "module": "do1",
+        "channel": 4
+      },
+      {
+        "device": "P1",
+        "module": "do1",
+        "channel": 5
+      }
+    ],
+    "config": {
+      "cpu1": {
+        "clockByte": 0
+      }
+    }
+  },
+  "p2-vereinzelung-ablauf": {
+    "modules": [
+      {
+        "id": "cpu1",
+        "type": "cpu-klein",
+        "x": 0
+      },
+      {
+        "id": "di1",
+        "type": "di8",
+        "x": 6
+      },
+      {
+        "id": "do1",
+        "type": "do8",
+        "x": 7
+      }
+    ],
+    "wires": [
+      {
+        "device": "S0",
+        "module": "di1",
+        "channel": 0
+      },
+      {
+        "device": "S1",
+        "module": "di1",
+        "channel": 1
+      },
+      {
+        "device": "B3",
+        "module": "di1",
+        "channel": 2
+      },
+      {
+        "device": "1B1",
+        "module": "di1",
+        "channel": 3
+      },
+      {
+        "device": "1B2",
+        "module": "di1",
+        "channel": 4
+      },
+      {
+        "device": "3S1",
+        "module": "di1",
+        "channel": 5
+      },
+      {
+        "device": "3S2",
+        "module": "di1",
+        "channel": 6
+      },
+      {
+        "device": "2B1",
+        "module": "di1",
+        "channel": 7
+      },
+      {
+        "device": "1Y1",
+        "module": "do1",
+        "channel": 0
+      },
+      {
+        "device": "3Y1",
+        "module": "do1",
+        "channel": 1
+      },
+      {
+        "device": "3Y2",
+        "module": "do1",
+        "channel": 2
+      },
+      {
+        "device": "2Y1",
+        "module": "do1",
+        "channel": 3
+      },
+      {
+        "device": "2Y2",
+        "module": "do1",
+        "channel": 4
+      },
+      {
+        "device": "P1",
+        "module": "do1",
+        "channel": 5
+      }
+    ],
+    "config": {
+      "cpu1": {
+        "clockByte": 0
+      }
+    }
   }
 }

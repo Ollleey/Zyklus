@@ -127,6 +127,7 @@ export function PlantView({
     drill: ['up', 'down', 'clamped'],
     sorter: ['measure', 'height', 'gate'],
     thermal: ['sensor'],
+    separator: ['retracted', 'extended', 'vacuum', 'atMag', 'atNext', 'empty'],
   };
   const fromPlant = new Set((plantKeys[type ?? ''] ?? []).map((k) => param(k)));
   if (type === 'tanks') for (const g of ['a', 'b']) fromPlant.add(sub(g, 'sensor'));
@@ -292,6 +293,22 @@ export function PlantView({
                 : risingEdges(traces?.get(param('pulses') ?? ''), start, now);
             })()}
             target={Number(level.plant?.params?.target ?? 120)}
+          />
+        )}
+        {type === 'separator' && (
+          <SeparatorView
+            pusher={num(traces?.get('plant.pusher'), 1)}
+            arm={num(traces?.get('plant.arm'), 0)}
+            stack={num(
+              traces?.get('plant.stack'),
+              Number(testParams?.parts ?? level.plant?.params?.parts ?? 4),
+            )}
+            slot={num(traces?.get('plant.slot'), 0) > 0}
+            held={num(traces?.get('plant.held'), 0) > 0}
+            vacuum={num(traces?.get('plant.vacuum'), 0)}
+            delivered={num(traces?.get('plant.delivered'), 0)}
+            lost={num(traces?.get('plant.lost'), 0)}
+            lamp={on(param('lamp') ?? 'P1')}
           />
         )}
       </svg>
@@ -947,6 +964,81 @@ function AxisView({
             : tx('steht', 'stopped')}
         {(fast || slow) && back ? ' ←' : fast || slow ? ' →' : ''}
       </text>
+    </g>
+  );
+}
+
+/**
+ * Vereinzelung: Stapelmagazin mit Ausschiebezylinder links, Schwenkarm mit Sauger in der Mitte,
+ * Ablage der Folgestation rechts. Der Arm schwenkt auf einem Bogen über die Anlage.
+ */
+function SeparatorView(p: {
+  pusher: number;
+  arm: number;
+  stack: number;
+  slot: boolean;
+  held: boolean;
+  vacuum: number;
+  delivered: number;
+  lost: number;
+  lamp: boolean;
+}) {
+  const pivot = { x: 200, y: 112 };
+  const angle = Math.PI * (1 - p.arm);
+  const end = { x: pivot.x + 100 * Math.cos(angle), y: pivot.y - 80 * Math.sin(angle) };
+  const shown = Math.min(5, p.stack);
+  return (
+    <g>
+      {/* Stapelmagazin mit Teilen */}
+      <rect x={84} y={20} width={32} height={84} className="bottle" />
+      {Array.from({ length: shown }, (_, i) => (
+        <rect key={i} x={88} y={92 - i * 13} width={24} height={11} rx={2} className="workpiece" />
+      ))}
+      {p.stack > shown && (
+        <text x={100} y={14} className="plant-label">
+          +{p.stack - shown}
+        </text>
+      )}
+      {/* Ausschiebezylinder: ausgefahren schließt er das Magazin */}
+      <rect x={18} y={108} width={34} height={14} className="frame" />
+      <rect x={52} y={112} width={18 + p.pusher * 30} height={6} className="rod" />
+      <rect x={68 + p.pusher * 30} y={106} width={6} height={18} className="jaw" />
+      {/* Entnahmestelle und Folgestation */}
+      <rect x={84} y={126} width={32} height={4} className="anvil" />
+      {p.slot && <rect x={88} y={114} width={24} height={11} rx={2} className="workpiece" />}
+      <rect x={284} y={126} width={32} height={4} className="anvil" />
+      {p.delivered > 0 && (
+        <rect x={288} y={114} width={24} height={11} rx={2} className="workpiece" />
+      )}
+      {/* Schwenkarm mit Sauger */}
+      <circle cx={pivot.x} cy={pivot.y} r={7} className="motor" />
+      <line x1={pivot.x} y1={pivot.y} x2={end.x} y2={end.y} className="cord" />
+      <rect
+        x={end.x - 9}
+        y={end.y - 8}
+        width={18}
+        height={7}
+        rx={2}
+        className={`valve ${p.vacuum >= 0.6 ? 'valve-on' : ''}`}
+      />
+      {p.held && (
+        <rect x={end.x - 12} y={end.y - 1} width={24} height={11} rx={2} className="workpiece" />
+      )}
+      <circle cx={30} cy={30} r={9} className={`bulb ${p.lamp ? 'bulb-on' : ''}`} />
+      <text x={30} y={56} className="plant-label">
+        P1
+      </text>
+      <text x={100} y={146} className="plant-label">
+        {tx('Magazin', 'magazine')} {p.stack}
+      </text>
+      <text x={300} y={146} className="plant-label">
+        {tx('abgelegt', 'placed')} {p.delivered}
+      </text>
+      {p.lost > 0 && (
+        <text x={350} y={30} className="plant-label plant-alarm">
+          {tx('verloren', 'lost')} {p.lost}
+        </text>
+      )}
     </g>
   );
 }

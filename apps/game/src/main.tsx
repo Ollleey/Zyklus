@@ -36,13 +36,13 @@ async function boot() {
   }
   const { initLanguage } = await import('./i18n');
   initLanguage();
-  const [{ App }, { LEVELS }, { SANDBOX }, { migrate }] = await Promise.all([
+  const [{ App }, { LEVELS, EXTRA_LEVELS }, { SANDBOX }, { migrate }] = await Promise.all([
     import('./App'),
     import('@zyklus/levels'),
     import('./sandbox'),
     import('./state/persistence'),
   ]);
-  migrate([...LEVELS, SANDBOX]);
+  migrate([...LEVELS, ...EXTRA_LEVELS, SANDBOX]);
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
