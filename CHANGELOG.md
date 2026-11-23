@@ -14,6 +14,7 @@
   neben Auftrag und Datenblatt, der Reihe nach aufdecken, der letzte zeigt den Lösungsweg; der
   Stand bleibt je Auftrag gespeichert
 - Musterlösungen und Fehllösungen als Tests, Texte auf Deutsch und Englisch
+- Veröffentlicht als **v0.2.0** (Update über 🔧 Einstellungen) – mit M20 bis M24
 
 ## M23 – Programmstatus: Steuern, Trigger, Online/Offline-Vergleich (2026-11-23)
 
