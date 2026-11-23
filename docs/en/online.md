@@ -78,6 +78,22 @@ Hardware changes and test cases start a new attempt as before.
 - **Breakpoint**: click in the left margin of the SCL editor (red dot). **Game rule:** the
   simulation stops after the cycle in which the line was executed (in TIA in the middle of the
   cycle); the line is highlighted in red. **Start** runs on to the next hit.
+- **Monitoring with trigger** (tab "Watch & force", row "Stop at"): enter an operand, a condition
+  (`=`, `<>`, `>`, `>=`, `<`, `<=`, rising or falling edge) and a value, then **Arm**. The
+  simulation stops after the cycle in which the condition holds; program, watch table and trace
+  show exactly that state. The trigger fires once – arm it again for the next stop.
+
+## Modify from the editor
+
+Right-click an operand (SCL: context menu "Modify operand …", LAD/FBD: right-click the operand
+field) to open **Modify**: bits to 1 or 0, numbers with a value. The value is written once; the next
+cycle overwrites inputs with the field again – only forcing keeps it permanently.
+
+## Online/offline comparison
+
+The tab "Online & diagnostics" compares the blocks in the editor with the ones loaded into the CPU:
+● same, ◐ changed and not loaded, ◑ offline only, ○ online only. The block list shows the same
+symbol. **Load** (or Start after a reset) brings them in line.
 
 ## Existing plants
 

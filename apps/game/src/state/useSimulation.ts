@@ -52,6 +52,8 @@ export interface SimControls {
   pending: { loadable: true; inRun: boolean; reason?: string } | { loadable: false } | null;
   /** geänderte Programme laden */
   load: (opts: { keepValues: boolean; restart: boolean }) => void;
+  /** Online/Offline-Vergleich: Projekte, wie sie in den laufenden Versuch geladen wurden */
+  loaded: Solution['projects'] | null;
 }
 
 const programsKey = (m: Map<string, IrProgram>) => JSON.stringify([...m]);
@@ -113,6 +115,8 @@ export function useSimulation(
     null,
   );
   const [pending, setPending] = useState<SimControls['pending']>(null);
+  /** Stand der Projekte im laufenden Versuch (Online/Offline-Vergleich) */
+  const loadedProjects = useRef<Solution['projects'] | null>(null);
   const pendingPrograms = useRef<Map<string, IrProgram> | null>(null);
   const hw = JSON.stringify([solution.modules, solution.wires]);
   const ctx = `${mode}|${testIdx}|${seed}`;
@@ -146,6 +150,7 @@ export function useSimulation(
     }
     runRef.current = null;
     loadedRef.current = null;
+    loadedProjects.current = null;
     setPending(null);
     setRunning(false);
     setFrame((f) => f + 1);
@@ -156,6 +161,7 @@ export function useSimulation(
     if (!runRef.current || (runRef.current.done && mode === 'test')) {
       runRef.current = create();
       loadedRef.current = runRef.current ? { programs: compiled.programs, hw, ctx } : null;
+      loadedProjects.current = runRef.current ? solution.projects : null;
       setPending(null);
     }
     return runRef.current;
@@ -244,6 +250,7 @@ export function useSimulation(
       setRunning(false);
       runRef.current = null;
       loadedRef.current = null;
+      loadedProjects.current = null;
       pendingPrograms.current = null;
       setPending(null);
       setFrame((f) => f + 1);
@@ -257,12 +264,14 @@ export function useSimulation(
     ensureRun: ensure,
     redraw: () => setFrame((f) => f + 1),
     pending,
+    loaded: runRef.current ? loadedProjects.current : null,
     load: (opts) => {
       const run = runRef.current;
       const programs = pendingPrograms.current;
       if (!run || !programs || !loadedRef.current) return;
       run.load(programs, opts);
       loadedRef.current = { ...loadedRef.current, programs };
+      loadedProjects.current = solution.projects;
       pendingPrograms.current = null;
       setPending(null);
       setFrame((f) => f + 1);

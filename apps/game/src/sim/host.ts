@@ -83,6 +83,9 @@ export class SimHost {
       case 'clearBreak':
         run.clearBreak();
         break;
+      case 'trigger':
+        run.setTrigger(cmd.spec);
+        break;
       case 'load':
         run.load(new Map(cmd.programs), { keepValues: cmd.keepValues, restart: cmd.restart });
         break;

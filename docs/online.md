@@ -80,6 +80,24 @@ Aufbauänderungen und Testfälle starten wie bisher einen neuen Versuch.
 - **Haltepunkt**: Klick in den linken Rand des SCL-Editors (roter Punkt). **Spielregel:** Die
   Simulation hält nach dem Zyklus an, in dem die Zeile ausgeführt wurde (in TIA mitten im Zyklus);
   die Zeile ist rot hinterlegt. **Start** läuft bis zum nächsten Treffer weiter.
+- **Beobachten mit Trigger** (Reiter „Beobachten & Forcen“, Zeile „Halt bei“): Operand, Bedingung
+  (`=`, `<>`, `>`, `>=`, `<`, `<=`, steigende oder fallende Flanke) und Wert eingeben, **Scharf
+  schalten**. Die Simulation hält nach dem Zyklus an, in dem die Bedingung erfüllt ist; Programm,
+  Beobachtungstabelle und Trace zeigen genau diesen Stand. Der Trigger gilt einmal – für den
+  nächsten Halt wieder scharf schalten.
+
+## Steuern aus dem Editor
+
+Rechtsklick auf einen Operanden (SCL: Kontextmenü „Operand steuern …“, KOP/FUP: Rechtsklick auf das
+Operandenfeld) öffnet **Steuern**: Bits auf 1 oder 0, Zahlen mit einem Wert. Der Wert wird einmal
+geschrieben; Eingänge überschreibt der nächste Zyklus wieder mit dem Feld – dauerhaft geht das nur
+mit Forcen.
+
+## Online/Offline-Vergleich
+
+Der Reiter „Online & Diagnose“ vergleicht die Bausteine im Editor mit denen, die in die CPU geladen
+sind: ● gleich, ◐ geändert und nicht geladen, ◑ nur offline, ○ nur online. Die Bausteinliste zeigt
+dasselbe Symbol. **Laden** (bzw. Start nach dem Zurücksetzen) gleicht ab.
 
 ## Bestandsanlagen
 

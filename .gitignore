@@ -10,3 +10,7 @@ apps/desktop/e2e/.tmp/
 apps/desktop/e2e/.drivers/
 release/
 release-notes.md
+
+# Private Unterlagen (z. B. Prüfungsangaben) und daraus gebaute Aufträge: nie ins Repository
+*.pdf
+privat/

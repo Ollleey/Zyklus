@@ -9,6 +9,7 @@ import type {
   RunOptions,
   Solution,
   StopInfo,
+  TriggerSpec,
   Value,
   ModuleFaultKind,
 } from '@zyklus/sim-core';
@@ -200,6 +201,10 @@ export class RemoteRun implements RunView {
   clearBreak(): void {
     this.breakHit = null;
     this.command({ type: 'clearBreak' });
+  }
+
+  setTrigger(spec: TriggerSpec | null): void {
+    this.command({ type: 'trigger', spec });
   }
 
   acknowledgeAlarms(): void {

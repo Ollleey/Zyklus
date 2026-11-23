@@ -4740,3 +4740,97 @@ text.fup-live-num {
   fill: #111;
   pointer-events: none;
 }
+
+/* Steuern, Trigger, Online/Offline-Vergleich */
+.editor-host {
+  display: contents;
+}
+.modify-dialog .mono {
+  font-family: var(--mono);
+}
+.modify-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.modify-actions input {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: inherit;
+  padding: 4px 8px;
+  width: 140px;
+}
+.modify-hint {
+  font-size: var(--t-sm);
+}
+.trigger-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-sm);
+}
+.trigger-bar input,
+.trigger-bar select {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: inherit;
+  font: inherit;
+  padding: 2px 6px;
+}
+.trigger-bar input.mono {
+  font-family: var(--mono);
+  width: 160px;
+}
+.trigger-bar input.trigger-value {
+  width: 70px;
+}
+.trigger-armed {
+  color: var(--amber);
+}
+.trigger-hit {
+  color: var(--green);
+  font-weight: 700;
+}
+.compare-chip {
+  font-size: var(--t-sm);
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.compare-changed,
+.compare-chip.compare-changed {
+  color: var(--amber);
+}
+.compare-offline {
+  color: var(--teal);
+}
+.compare-online {
+  color: var(--muted);
+}
+.compare-same {
+  color: var(--green);
+}
+.compare-list {
+  padding: 8px 12px 0;
+}
+.compare-list h4 {
+  margin: 0 0 4px;
+  font-size: var(--t-sm);
+  color: var(--muted);
+}
+.compare-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--t-sm);
+}
+.compare-icon {
+  display: inline-block;
+  width: 14px;
+}

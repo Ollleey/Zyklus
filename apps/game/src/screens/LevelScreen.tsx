@@ -462,6 +462,7 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             hit: breakHit ?? undefined,
           }}
           diagnosis={{ run, analysis: compiled.analysis }}
+          loaded={sim.loaded}
           online={{
             state: online,
             onChange: (cpu, tb) => setOnline({ ...online, [cpu]: tb }),
@@ -566,8 +567,11 @@ export function LevelScreen({ level, progress, onBack, onProgress, sandbox, plan
             <BoolFormatSwitch />
             {breakHit && (
               <span className="sim-break">
-                ⏸ {t('sim.break', { block: breakHit.block, line: String(breakHit.line) })} (
-                {(breakHit.time / 1000).toFixed(3)} s)
+                ⏸{' '}
+                {breakHit.line === 0
+                  ? t('sim.triggerHit')
+                  : t('sim.break', { block: breakHit.block, line: String(breakHit.line) })}{' '}
+                ({(breakHit.time / 1000).toFixed(3)} s)
               </span>
             )}
             {stopped && (

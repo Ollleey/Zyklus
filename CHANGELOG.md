@@ -1,5 +1,16 @@
 # Changelog
 
+## M23 – Programmstatus: Steuern, Trigger, Online/Offline-Vergleich (2026-11-23)
+
+- **Steuern aus dem Editor**: Rechtsklick auf einen Operanden (SCL-Kontextmenü „Operand steuern …“,
+  KOP/FUP-Operandenfeld) – Bits auf 1/0, Zahlen mit Wert, einmalig geschrieben
+- **Beobachten mit Trigger** („Halt bei“ im Reiter „Beobachten & Forcen“): Vergleich oder Flanke auf
+  einen Operanden, die Simulation hält nach dem Zyklus an, in dem die Bedingung erfüllt ist;
+  einmalig, Flanken auch direkt nach dem Scharfschalten
+- **Online/Offline-Vergleich**: je Baustein gleich / geändert / nur offline / nur online, als Symbol
+  in der Bausteinliste und als Liste unter „Online & Diagnose“
+- Handbuch „Online-Funktionen“ ergänzt (Deutsch/Englisch)
+
 ## M22 – Online & Diagnose (2026-11-13)
 
 - Neuer Reiter **„Online & Diagnose“** im Programmbereich: Betriebszustand mit STOP-Ursache,

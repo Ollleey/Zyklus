@@ -30,6 +30,17 @@ import {
   valueAt,
 } from './signals';
 
+/**
+ * Halt bei Bedingung: Wert eines Operanden nach jedem Takt vergleichen (Bool als 1/0); `rise`/`fall`
+ * = Flanke. Die Simulation hält an (`breakHit` mit `line` 0), der Trigger ist danach aus.
+ */
+export interface TriggerSpec {
+  cpu: string;
+  target: { address: string } | { slot: string } | { instance: string; field: string };
+  op: '=' | '<>' | '>' | '>=' | '<' | '<=' | 'rise' | 'fall';
+  value: number;
+}
+
 export interface RunOptions {
   /** Testfall mit Stimuli; ohne Testfall läuft der Handbetrieb */
   test?: TestCase;
@@ -415,6 +426,64 @@ export class LevelRun {
     if (this.done) return;
     this.sim.tick();
     if (this.breakpoints.size) this.checkBreakpoints();
+    if (this.trigger) this.checkTrigger();
+  }
+
+  /** Halt bei Bedingung („Beobachten mit Trigger“), einmalig; danach neu scharf schalten */
+  private trigger: (TriggerSpec & { last?: number }) | null = null;
+
+  setTrigger(spec: TriggerSpec | null): void {
+    // Ausgangswert gleich beim Scharfschalten merken, sonst ginge eine Flanke im ersten Zyklus verloren
+    this.trigger = spec ? { ...spec, last: this.triggerValue(spec) } : null;
+  }
+
+  get triggerArmed(): boolean {
+    return !!this.trigger;
+  }
+
+  /** aktueller Wert des Trigger-Operanden als Zahl (BOOL → 0/1), `undefined` wenn nicht lesbar */
+  private triggerValue(tr: TriggerSpec): number | undefined {
+    const cpu = this.cpus.get(tr.cpu);
+    if (!cpu) return undefined;
+    try {
+      const raw: Value =
+        'address' in tr.target
+          ? cpu.readImage(tr.target.address)
+          : 'slot' in tr.target
+            ? cpu.readSlot(tr.target.slot)
+            : cpu.readInstance(tr.target.instance, tr.target.field as never);
+      return typeof raw === 'boolean' ? (raw ? 1 : 0) : Number(raw);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private checkTrigger(): void {
+    const tr = this.trigger!;
+    const n = this.triggerValue(tr);
+    if (n === undefined) return;
+    const last = tr.last;
+    tr.last = n;
+    const hit =
+      tr.op === 'rise'
+        ? last !== undefined && last === 0 && n !== 0
+        : tr.op === 'fall'
+          ? last !== undefined && last !== 0 && n === 0
+          : tr.op === '='
+            ? n === tr.value
+            : tr.op === '<>'
+              ? n !== tr.value
+              : tr.op === '>'
+                ? n > tr.value
+                : tr.op === '>='
+                  ? n >= tr.value
+                  : tr.op === '<'
+                    ? n < tr.value
+                    : n <= tr.value;
+    if (hit && !this.breakHit) {
+      this.breakHit = { cpu: tr.cpu, block: '', line: 0, time: this.sim.time - 1 };
+      this.trigger = null;
+    }
   }
 
   /** Haltepunkte je CPU als Messpunkt-Indizes der Anweisungszeilen, mit letztem Zählerstand */

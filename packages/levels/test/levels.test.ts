@@ -554,6 +554,44 @@ describe('Haltepunkte', () => {
   });
 });
 
+describe('Beobachten mit Trigger', () => {
+  it('hält einmalig nach dem Zyklus an, in dem die Bedingung erfüllt ist', () => {
+    const level = levelById('01-foerderband')!;
+    const solution = reference(level);
+    const c = compileSolution(level, solution);
+    const run = new LevelRun(level, solution, c.programs, { test: level.tests[0], seed: 1 });
+    run.setTrigger({ cpu: 'cpu1', target: { address: '%Q0.0' }, op: 'rise', value: 0 });
+    run.runTo(1_000_000);
+    const hit = run.breakHit!;
+    expect(hit).toMatchObject({ cpu: 'cpu1', block: '', line: 0 });
+    // in diesem Zyklus läuft der Motor gerade an
+    expect(run.cpus.get('cpu1')!.readImage('%Q0.0')).toBe(true);
+    expect(run.triggerArmed).toBe(false);
+    run.clearBreak();
+    run.setTrigger({ cpu: 'cpu1', target: { address: '%Q0.0' }, op: '=', value: 0 });
+    run.runTo(1_000_000);
+    expect(run.breakHit!.time).toBeGreaterThan(hit.time);
+    expect(run.cpus.get('cpu1')!.readImage('%Q0.0')).toBe(false);
+  });
+
+  it('erkennt eine Flanke auch im ersten Zyklus nach dem Scharfschalten', () => {
+    const level = levelById('01-foerderband')!;
+    const solution = reference(level);
+    const c = compileSolution(level, solution);
+    const run = new LevelRun(level, solution, c.programs, { seed: 1 });
+    run.setManual('S1', true);
+    run.runTo(200);
+    run.setManual('S1', false);
+    run.runTo(400);
+    expect(run.cpus.get('cpu1')!.readImage('%Q0.0')).toBe(true);
+    // scharf schalten und sofort Stopp drücken: die fallende Flanke kommt im nächsten Zyklus
+    run.setTrigger({ cpu: 'cpu1', target: { address: '%Q0.0' }, op: 'fall', value: 0 });
+    run.setManual('S2', true);
+    run.runTo(800);
+    expect(run.breakHit).toMatchObject({ cpu: 'cpu1', line: 0 });
+  });
+});
+
 describe('Fehllösungen M10', () => {
   const fails = (id: string, src: string) => {
     const level = levelById(id)!;

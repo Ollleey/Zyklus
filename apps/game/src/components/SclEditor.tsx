@@ -3,6 +3,8 @@ import Editor, { type OnMount } from '@monaco-editor/react';
 import { SCL_LANGUAGE_ID, toMonacoMarkers, type ProjectDiagnostic } from '@zyklus/scl-compiler';
 import { monaco } from '../monaco-setup';
 import { TOKENS } from '../theme';
+import { tx } from '../i18n';
+import { operandAt } from './operands';
 
 /** beobachteter Operand einer Zeile */
 export interface SclLiveItem {
@@ -26,6 +28,8 @@ interface Props {
   onToggleBreakpoint?: (line: number) => void;
   /** Zeile des erreichten Haltepunkts */
   hitLine?: number;
+  /** Rechtsklick → „Steuern …“ auf dem Operanden unter dem Cursor (nur beim Beobachten) */
+  onModify?: (operand: string) => void;
 }
 
 export function SclEditor({
@@ -38,7 +42,10 @@ export function SclEditor({
   breakpoints,
   onToggleBreakpoint,
   hitLine,
+  onModify,
 }: Props) {
+  const modifyRef = useRef(onModify);
+  modifyRef.current = onModify;
   const toggleRef = useRef(onToggleBreakpoint);
   toggleRef.current = onToggleBreakpoint;
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -55,6 +62,20 @@ export function SclEditor({
   const onMount: OnMount = (editor) => {
     editorRef.current = editor as unknown as monaco.editor.IStandaloneCodeEditor;
     applyMarkers();
+    // Kontextmenü: Operand unter dem Cursor steuern (wie „Steuern“ im TIA-Portal)
+    editor.addAction({
+      id: 'zyklus.modify',
+      label: tx('Operand steuern …', 'Modify operand …'),
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 0,
+      run: (ed) => {
+        const pos = ed.getPosition();
+        const model = ed.getModel();
+        if (!pos || !model || !modifyRef.current) return;
+        const op = operandAt(model.getLineContent(pos.lineNumber), pos.column);
+        if (op) modifyRef.current(op);
+      },
+    });
     // Klick in den Rand links (Glyphen oder Zeilennummer) setzt bzw. löscht einen Haltepunkt
     editor.onMouseDown((e) => {
       const T = monaco.editor.MouseTargetType;

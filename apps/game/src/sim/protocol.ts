@@ -7,6 +7,7 @@ import type {
   RunOptions,
   Solution,
   StopInfo,
+  TriggerSpec,
   Value,
   AlarmEntry,
   DiagEntry,
@@ -48,6 +49,7 @@ export type Command =
   | { type: 'cpuForce'; cpu: string; address: string; value: Value | undefined }
   | { type: 'breakpoints'; cpu: string; lines: { block: string; line: number }[] }
   | { type: 'clearBreak' }
+  | { type: 'trigger'; spec: TriggerSpec | null }
   | { type: 'ackAlarms' }
   | { type: 'moduleFault'; module: string; kind: 'pulled' | 'noLoad'; on: boolean }
   | {

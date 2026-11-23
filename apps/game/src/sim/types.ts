@@ -6,6 +6,7 @@ import type {
   InstanceField,
   IrProgram,
   StopInfo,
+  TriggerSpec,
   Value,
   ModuleFaultKind,
 } from '@zyklus/sim-core';
@@ -65,6 +66,8 @@ export interface RunView {
   readonly breakHit: { cpu: string; block: string; line: number; time: number } | null;
   setBreakpoints(cpuId: string, lines: { block: string; line: number }[]): void;
   clearBreak(): void;
+  /** Halt bei Bedingung (einmalig), `null` hebt auf */
+  setTrigger(spec: TriggerSpec | null): void;
   acknowledgeAlarms(): void;
   /** geänderte Programme laden (in RUN bzw. mit STOP) */
   load(programs: Map<string, IrProgram>, opts: { keepValues: boolean; restart: boolean }): void;

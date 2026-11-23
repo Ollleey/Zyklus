@@ -51,6 +51,15 @@ import { EMPTY_TABLES, resolveOperand, type OnlineState, type OnlineTables } fro
 import { platform } from '@zyklus/platform';
 import type { SclLiveItem } from './SclEditor';
 import { DiagnosisPanel } from './DiagnosisPanel';
+import { ModifyDialog } from './ModifyDialog';
+import { TriggerBar } from './TriggerBar';
+import {
+  COMPARE_ICON,
+  OPERAND_RE,
+  compareBlocks,
+  looksLikeOperand,
+  type CompareState,
+} from './operands';
 import type { BoardAnalysis } from '@zyklus/sim-core';
 import type { RunView } from '../sim/types';
 
@@ -77,6 +86,8 @@ interface Props {
   /** Beobachten: Werte der Messpunkte einer CPU (während einer Simulation) */
   probes?: (cpu: string) => readonly (boolean | number | string)[] | undefined;
   /** Beobachtungs- und Forcetabellen je CPU; `access` nur während einer Simulation */
+  /** Online/Offline-Vergleich: Projekte im laufenden Versuch (null = kein Versuch) */
+  loaded?: Solution['projects'] | null;
   /** Online & Diagnose: laufende Simulation und Zuordnung der Baugruppen */
   diagnosis?: { run: RunView | null; analysis: Pick<BoardAnalysis, 'cpuOf' | 'channelAddress'> };
   online?: {
@@ -85,10 +96,6 @@ interface Props {
     access?: (cpu: string) => OnlineAccess | undefined;
   };
 }
-
-/** Operanden einer SCL-Zeile: "Tag", "DB".Element[.Element|[i]], #lokal[.Element], %I0.0 */
-const OPERAND_RE =
-  /"[^"]+"(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?)*|#[A-Za-zÄÖÜäöüß_][A-Za-z0-9ÄÖÜäöüß_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*|%[IQM][BWD]?\d+(?:\.[0-7])?/g;
 
 /** Beobachten ein/aus (wie die Brille im TIA-Portal), über Neustarts gemerkt */
 const MONITOR_KEY = 'zyklus.beobachten';
@@ -163,6 +170,7 @@ export function ProgramPanel({
   online,
   breakpoints,
   diagnosis,
+  loaded,
 }: Props) {
   const boolFormat = useBoolFormat();
   const cpus = solution.modules.filter((m) => moduleType(m.type).kind === 'cpu');
@@ -183,6 +191,8 @@ export function ProgramPanel({
       /* nur für diese Sitzung */
     }
   };
+  /** Steuern aus dem Editor: Operand, für den der Dialog offen ist */
+  const [modifyOp, setModifyOp] = useState<string | null>(null);
   /** Aufrufumgebung eines FB beim Beobachten: Instanz-DB, dessen Werte gezeigt werden */
   const [envSel, setEnvSel] = useState<string>();
 
@@ -197,6 +207,13 @@ export function ProgramPanel({
     [result],
   );
   const codeBlocks = project?.blocks.filter(isCode) ?? [];
+  const compare = loaded && cpuId ? compareBlocks(project, loaded[cpuId]) : undefined;
+  const compareText: Record<CompareState, string> = {
+    same: t('compare.same'),
+    changed: t('compare.changed'),
+    offline: t('compare.offline'),
+    online: t('compare.online'),
+  };
   const block =
     codeBlocks.find((b) => b.name === blockName) ?? codeBlocks.find((b) => b.name === MAIN_OB);
 
@@ -459,14 +476,24 @@ export function ProgramPanel({
                 const errs = diagnostics.filter(
                   (d) => d.severity === 'error' && d.location.block === b.name,
                 ).length;
+                const cs = compare?.get(b.name);
                 return (
                   <option key={b.name} value={b.name}>
+                    {cs ? `${COMPARE_ICON[cs]} ` : ''}
                     {blockLabel(b)}
                     {errs ? ` ⚠ ${errs}` : ''}
                   </option>
                 );
               })}
             </select>
+            {compare && compare.get(block.name) !== 'same' && (
+              <span
+                className={`compare-chip compare-${compare.get(block.name)}`}
+                title={t('compare.hint')}
+              >
+                {COMPARE_ICON[compare.get(block.name)!]} {compareText[compare.get(block.name)!]}
+              </span>
+            )}
             <select
               className="block-add"
               value=""
@@ -664,96 +691,108 @@ export function ProgramPanel({
               </fieldset>
             )}
           </div>
-          {block.protected ? (
-            <div className="block-protected">🔒 {t('block.protected')}</div>
-          ) : block.lang === 'GRAPH' ? (
-            <GraphEditor
-              key={block.name}
-              project={project}
-              block={block}
-              diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
-              onChange={(p) => change(() => p)}
-              live={(() => {
-                // Beobachten: Zustand der Kette in der gewählten Aufrufumgebung (Instanz-DB)
-                if (!liveOperand || !env) return undefined;
-                const read = (m: string) => liveOperand(`"${env}".${m}`);
-                return {
-                  active: (no: number) => read(`__X${no}`) === true,
-                  fault: Number(read('__Fehler') ?? 0),
-                  mode: Number(read('__Betrieb') ?? 0),
-                };
-              })()}
-            />
-          ) : block.lang === 'KOP' ? (
-            <LadEditor
-              key={block.name}
-              project={project}
-              block={block}
-              diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
-              onChange={(p) => change(() => p)}
-              live={liveOperand}
-            />
-          ) : block.lang === 'FUP' ? (
-            <FupEditor
-              key={block.name}
-              project={project}
-              block={block}
-              diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
-              onChange={(p) => change(() => p)}
-              focus={fupFocus}
-              live={liveOperand}
-            />
-          ) : (
-            <Suspense fallback={<div className="muted editor-loading">…</div>}>
-              <SclEditor
-                live={
-                  liveOperand &&
-                  ((line): SclLiveItem[] | undefined => {
-                    const code = line.replace(/\/\/.*$/, '').replace(/'[^']*'/g, "''");
-                    const items: SclLiveItem[] = [];
-                    const seen = new Set<string>();
-                    for (const [op] of code.matchAll(OPERAND_RE)) {
-                      if (seen.has(op) || items.length >= 8) continue;
-                      seen.add(op);
-                      const v = liveOperand(op);
-                      if (v === undefined || typeof v === 'object') continue;
-                      items.push({
-                        label: op.replace(/"/g, ''),
-                        value: formatValue(
-                          v,
-                          boolFormat,
-                          typeof v === 'number' && !Number.isInteger(v) ? 2 : 0,
-                        ),
-                        kind: typeof v === 'boolean' ? (v ? 'on' : 'off') : 'num',
-                      });
-                    }
-                    return items.length ? items : undefined;
-                  })
-                }
-                conditions={
-                  watching
-                    ? conditionsOf(result?.program?.probes, probes?.(cpuId), block.name)
-                    : undefined
-                }
-                breakpoints={breakpoints?.lines(cpuId, block.name)}
-                onToggleBreakpoint={
-                  breakpoints && ((line) => breakpoints.toggle(cpuId, block.name, line))
-                }
-                hitLine={
-                  breakpoints?.hit?.cpu === cpuId && breakpoints.hit.block === block.name
-                    ? breakpoints.hit.line
-                    : undefined
-                }
+          <div
+            className="editor-host"
+            onContextMenu={(e) => {
+              // Rechtsklick auf ein Operandenfeld: Steuern (nur beim Beobachten)
+              const el = e.target as HTMLInputElement;
+              if (!liveOperand || el.tagName !== 'INPUT' || !looksLikeOperand(el.value)) return;
+              e.preventDefault();
+              setModifyOp(el.value.trim());
+            }}
+          >
+            {block.protected ? (
+              <div className="block-protected">🔒 {t('block.protected')}</div>
+            ) : block.lang === 'GRAPH' ? (
+              <GraphEditor
                 key={block.name}
-                value={block.source}
-                onChange={(source) => changeBlock((b) => ({ ...b, source }))}
-                diagnostics={diagnostics.filter(
-                  (d) => d.location.part === 'code' && d.location.block === block.name,
-                )}
-                jump={jump}
+                project={project}
+                block={block}
+                diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
+                onChange={(p) => change(() => p)}
+                live={(() => {
+                  // Beobachten: Zustand der Kette in der gewählten Aufrufumgebung (Instanz-DB)
+                  if (!liveOperand || !env) return undefined;
+                  const read = (m: string) => liveOperand(`"${env}".${m}`);
+                  return {
+                    active: (no: number) => read(`__X${no}`) === true,
+                    fault: Number(read('__Fehler') ?? 0),
+                    mode: Number(read('__Betrieb') ?? 0),
+                  };
+                })()}
               />
-            </Suspense>
-          )}
+            ) : block.lang === 'KOP' ? (
+              <LadEditor
+                key={block.name}
+                project={project}
+                block={block}
+                diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
+                onChange={(p) => change(() => p)}
+                live={liveOperand}
+              />
+            ) : block.lang === 'FUP' ? (
+              <FupEditor
+                key={block.name}
+                project={project}
+                block={block}
+                diagnostics={diagnostics.filter((d) => d.location.block === block.name)}
+                onChange={(p) => change(() => p)}
+                focus={fupFocus}
+                live={liveOperand}
+              />
+            ) : (
+              <Suspense fallback={<div className="muted editor-loading">…</div>}>
+                <SclEditor
+                  live={
+                    liveOperand &&
+                    ((line): SclLiveItem[] | undefined => {
+                      const code = line.replace(/\/\/.*$/, '').replace(/'[^']*'/g, "''");
+                      const items: SclLiveItem[] = [];
+                      const seen = new Set<string>();
+                      for (const [op] of code.matchAll(OPERAND_RE)) {
+                        if (seen.has(op) || items.length >= 8) continue;
+                        seen.add(op);
+                        const v = liveOperand(op);
+                        if (v === undefined || typeof v === 'object') continue;
+                        items.push({
+                          label: op.replace(/"/g, ''),
+                          value: formatValue(
+                            v,
+                            boolFormat,
+                            typeof v === 'number' && !Number.isInteger(v) ? 2 : 0,
+                          ),
+                          kind: typeof v === 'boolean' ? (v ? 'on' : 'off') : 'num',
+                        });
+                      }
+                      return items.length ? items : undefined;
+                    })
+                  }
+                  conditions={
+                    watching
+                      ? conditionsOf(result?.program?.probes, probes?.(cpuId), block.name)
+                      : undefined
+                  }
+                  breakpoints={breakpoints?.lines(cpuId, block.name)}
+                  onToggleBreakpoint={
+                    breakpoints && ((line) => breakpoints.toggle(cpuId, block.name, line))
+                  }
+                  onModify={liveOperand ? (op) => setModifyOp(op) : undefined}
+                  hitLine={
+                    breakpoints?.hit?.cpu === cpuId && breakpoints.hit.block === block.name
+                      ? breakpoints.hit.line
+                      : undefined
+                  }
+                  key={block.name}
+                  value={block.source}
+                  onChange={(source) => changeBlock((b) => ({ ...b, source }))}
+                  diagnostics={diagnostics.filter(
+                    (d) => d.location.part === 'code' && d.location.block === block.name,
+                  )}
+                  jump={jump}
+                />
+              </Suspense>
+            )}
+          </div>
         </div>
       )}
       {tab === 'tags' && (
@@ -795,6 +834,19 @@ export function ProgramPanel({
       )}
       {tab === 'diag' && diagnosis && (
         <div className="scroll">
+          {compare && (
+            <section className="compare-list">
+              <h4>{t('compare.title')}</h4>
+              <ul>
+                {[...compare].map(([name, cs]) => (
+                  <li key={name} className={`compare-${cs}`}>
+                    <span className="compare-icon">{COMPARE_ICON[cs]}</span> {name}{' '}
+                    <span className="muted">{compareText[cs]}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <DiagnosisPanel
             cpuId={cpuId}
             solution={solution}
@@ -805,6 +857,7 @@ export function ProgramPanel({
       )}
       {tab === 'online' && online && (
         <div className="scroll">
+          <TriggerBar project={project} cpuId={cpuId} run={diagnosis?.run ?? null} />
           <OnlinePanel
             project={project}
             tables={online.state[cpuId] ?? EMPTY_TABLES}
@@ -837,6 +890,14 @@ export function ProgramPanel({
             } else setTab('dbs');
             showNotice(t('library.inserted', { name: e.name, version: e.version }));
           }}
+        />
+      )}
+      {modifyOp && project && (
+        <ModifyDialog
+          operand={modifyOp}
+          project={project}
+          access={online?.access?.(cpuId)}
+          onClose={() => setModifyOp(null)}
         />
       )}
       {confirmDelete && block && (
